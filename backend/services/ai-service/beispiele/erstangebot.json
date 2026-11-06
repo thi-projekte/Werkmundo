@@ -1,0 +1,14 @@
+{
+  "businessKey": "BK-LOKAL-ERST-1",
+  "vorlage": {
+    "leistungen": [
+      { "bezeichnung": "Elektroinstallation", "beschreibung": "Arbeitszeit Elektriker", "menge": 1, "einheit": "h" }
+    ],
+    "material": [
+      { "bezeichnung": "Doppelsteckdose UP", "beschreibung": "Standardprogramm reinweiss", "menge": 1, "einheit": "Stk" },
+      { "bezeichnung": "Installationsleitung NYM-J 3x1,5", "beschreibung": "Mantelleitung", "menge": 1, "einheit": "m" }
+    ],
+    "notizen": ["Leitungen werden unter Putz verlegt."]
+  },
+  "sprachschnipsel": "Also im Wohnzimmer drei neue Doppelsteckdosen setzen, ähm, dafür so zwanzig Meter Leitung, und das dauert ungefähr zwei Stunden."
+}

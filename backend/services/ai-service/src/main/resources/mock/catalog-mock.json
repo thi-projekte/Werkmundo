@@ -1,5 +1,5 @@
 {
-  "_comment": "Interner Mock-Katalog fuer LLM-Call 2, solange der echte catalog-service-Such-Endpoint (#540, Michi) nicht steht. Wird nur bei catalog.mock.enabled=true genutzt. Kompakter, repraesentativer Querschnitt mehrerer Gewerke inkl. Synonym-/Fallen-Faellen (z.B. Fliesenkreuze, PE-Schaum). Bewusst OHNE Preise.",
+  "_comment": "Mock-Katalog fuer LLM-Call 2 im lokalen Betrieb (catalog.mock.enabled=true). Querschnitt mehrerer Gewerke inkl. Fallen-Faellen (z.B. Fliesenkreuze, PE-Schaum). Bewusst OHNE Preise. IDs sind Zahlen - der echte catalog-service vergibt UUIDs.",
   "materials": [
     { "id": 1001, "articleNumber": "FLI-1001", "name": "Feinsteinzeug Eiche-natur 8mm", "description": "Bodenfliese Feinsteinzeug Holzoptik, Eiche natur, 8 mm", "unit": "m2", "categoryName": "Fliesen" },
     { "id": 1002, "articleNumber": "FLI-1002", "name": "Feinsteinzeug Betonoptik grau 60x60", "description": "Bodenfliese Feinsteinzeug Betonoptik grau, 60x60 cm", "unit": "m2", "categoryName": "Fliesen" },

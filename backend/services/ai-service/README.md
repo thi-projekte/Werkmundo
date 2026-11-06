@@ -1,53 +1,132 @@
-# AI Service
+# ai-service (Werkmundo · Squad Handwerker)
 
-Der stateless `ai-service` wird von der CIB-seven-Process-Engine per HTTP-Connector aufgerufen. Er nimmt BPMN-Payloads entgegen, verarbeitet Erstangebots- oder Korrekturtexte mit dem konfigurierten LLM, kann Materialkandidaten aus dem Catalog Service abrufen und sendet `ergebnisKI` als Camunda-Message anhand des `businessKey` zurück. Er besitzt keine eigene Datenbank und soll keine Angebotspreise an das LLM weitergeben.
+Der ai-service wandelt die Spracheingabe eines Handwerkers in strukturierte Angebotspositionen um.
+Er ist der neu strukturierte AI-Service aus dem alten Projekt `CraftVoice/backend/services/ai-service`,
+angepasst an die Systemarchitektur und die Zielstruktur aus Issue #29 (Issue #39 „AI-Service anpassen“).
 
-> Frühere Fassung dieser README beschrieb einen Stub und ausstehende LLM-Tickets. Im aktuellen Quellstand existieren MegaLLM-Clients, Prompt-/Parsing-Logik und Modellkonfiguration. Statusangaben und Evaluationen in Unterdokumenten sind historisch; aktuelle Implementierung und `application.properties` sind maßgeblich.
+- **Zustandslos**, keine eigene Datenbank
+- Aufruf durch die **Process Engine** (HTTP-Connector) → Antwort per Message `ergebnisKI`
+- Läuft **lokal ohne Keys**: ohne `MEGALLM_API_KEY` kommt ein Stub-Ergebnis, statt des catalog-service wird ein Mock-Katalog genutzt
 
-## Lokaler Start
+---
+
+## Schnellstart (lokal)
+
+Voraussetzung: nur **Docker** (Java/Maven werden nicht lokal gebraucht).
 
 ```bash
 cd backend/services/ai-service
-./mvnw quarkus:dev
+docker compose up --build -d
+./beispiele/test-lokal.sh
 ```
 
-Lokaler HTTP-Port: `8081`. Health-Endpoint: `/q/health`. Für reale Modellaufrufe `MEGALLM_API_KEY` setzen. Die konfigurierte URL muss zum API-Provider passen.
+| Was | URL |
+|---|---|
+| Health | http://localhost:8086/q/health |
+| Analyse synchron (zum Testen) | `POST http://localhost:8086/ai/analyze` |
+| Analyse für die Process Engine | `POST http://localhost:8086/ai/process` |
 
-## Endpunkt und Ablauf
+Mit echter KI: `cp .env.example .env`, `MEGALLM_API_KEY=...` eintragen, `docker compose up -d` neu starten.
 
-- `POST /ai/process`: BPMN HTTP-Connector-Eingang.
-- Der Service erkennt Erstangebot bzw. Korrektur anhand der Prozessvariablen, erstellt strukturierte Positionen, verarbeitet – je nach Konfiguration – Katalogkandidaten und korreliert die Message `ergebnisKI` mit demselben `businessKey` an die Process Engine.
-- Die Korrelation erfolgt asynchron, damit die Message-Subscription der Engine nach Abschluss des HTTP-Connectors bereits existiert.
-- Siehe [Datenvertrag `ergebnisKI`](docs/ergebnisKI-datenvertrag.md) für das dokumentierte Nachrichtenformat; vor Änderungen im BPMN und in den DTOs gegen den Quellcode validieren.
+Stoppen: `docker compose down`
+
+### Alternative: mit Java 21 (Hot-Reload)
+
+```bash
+./mvnw quarkus:dev      # startet auf Port 8086
+./mvnw test             # 72 Tests
+```
+
+Ohne lokales Java laufen die Tests auch per Docker:
+
+```bash
+docker run --rm -v "$PWD":/app -v ai-service-m2:/root/.m2 -w /app maven:3.9-eclipse-temurin-21 mvn -B test
+```
+
+---
+
+## Ablauf
+
+```text
+Frontend → offer-service → Process Engine ──POST /ai/process──▶ ai-service
+                                ▲                                   │ 202 sofort
+                                │                                   ▼ (Hintergrund)
+                                │                        LLM-Call 1: Sprachschnipsel → Positionen
+                                │                        LLM-Call 2: je Material → Katalogprodukt
+                                └──── POST /engine-rest/message ────┘
+                                      messageName = ergebnisKI, businessKey
+```
+
+- **LLM-Call 1 (Extraktion):** Sprachschnipsel + Vorlage (bzw. bestehende Positionen + Korrektur) → `leistungen`, `material`, `notizen`, `korrekturvorschlaege`, `geschaetzteArbeitsdauerStunden`
+- **LLM-Call 2 (Produktauswahl):** pro Materialposition Kandidaten aus dem Katalog suchen, das LLM wählt genau einen oder `KEIN_TREFFER` → `katalogProduktId`
+- **Datenschutz:** Preise gehen nie an die KI. Der offer-service ergänzt sie über die `katalogProduktId`.
+- **Fallbacks:** ohne LLM / bei LLM-Fehler → Stub (Call 1) bzw. Top-Suchtreffer (Call 2); Modell-Fallback `gemini-3-flash-preview` → `google-gemma-4-26b`.
+
+Schnittstellen als JSON-Schema: [contracts/ai/AiAnalysisRequest.json](contracts/ai/AiAnalysisRequest.json),
+[contracts/ai/AiAnalysisResult.json](contracts/ai/AiAnalysisResult.json),
+[contracts/workflow/ErgebnisKiMessage.json](contracts/workflow/ErgebnisKiMessage.json).
+
+---
+
+## Struktur
+
+Gleiche Schichten wie bei den anderen Services der neuen Architektur (`api / application / domain / infrastructure`):
+
+```text
+backend/services/ai-service/
+├── pom.xml, mvnw, Dockerfile, docker-compose.yml, .env.example
+├── docker/Dockerfile.jvm   Image-Build der Backend-CI (nach mvn package)
+├── contracts/                 Schnittstellen (JSON-Schema), Kopie in Beispiel/contracts/
+├── beispiele/                 Beispiel-Payloads + test-lokal.sh
+├── docs/                      Umsetzung Issue #29, offene Punkte, Referenzdokumente
+└── src/main/java/de/winfprojekt/werkmundo/aiservice/
+    ├── api/                   REST: AiAnalysisResource, Exception-Mapper
+    │   └── dto/               AiAnalysisRequest, AcceptedResponse, ErrorResponse
+    ├── application/           AnalyzeVoiceInputUseCase (Call 1 → Call 2 → Engine)
+    │   │                      LlmCall1Generator, Call1PromptBuilder, ErgebnisKiParser,
+    │   │                      Call2Selector, Call2PromptBuilder, Call2AnswerParser,
+    │   │                      StubResultGenerator, PromptTemplates, LlmException
+    │   └── port/              LlmPort, CatalogSearchPort, WorkflowNotifier (Interfaces)
+    ├── domain/                AnalyseAuftrag, ProcessType, Vorlage, Angebotspositionen,
+    │                          Position, ErgebnisKi, ProduktKandidat
+    └── infrastructure/
+        ├── llm/               MegaLlmAdapter (Retry, Modell-Fallback), MegaLlmClient
+        ├── catalog/           MockCatalogSearch, RestCatalogSearch, Auswahl per Config
+        ├── processengine/     CamundaWorkflowNotifier, CamundaMessageClient
+        └── auth/              TechnicalTokenFilter (Keycloak client_credentials, optional)
+src/main/resources/
+    ├── application.properties
+    ├── prompts/               System-Prompts als Textdateien (ohne Java änderbar)
+    └── mock/catalog-mock.json
+```
+
+Abhängigkeiten zeigen nur nach innen: `api → application → domain`, `infrastructure → application/domain`.
+Die application-Schicht kennt weder MegaLLM noch Camunda noch REST-Clients – nur die Ports.
+
+---
 
 ## Konfiguration
 
-| Variable | Code-Default | Zweck |
+Alles per Env-Variable (Vorlage: [.env.example](.env.example)). Wichtigste Werte:
+
+| Variable | Default (lokal) | Bedeutung |
 |---|---|---|
-| `HTTP_PORT` | `8081` | HTTP-Port |
-| `CAMUNDA_ENGINE_URL` | `http://localhost:8080/engine-rest` | Engine REST API |
-| `MEGALLM_API_URL` | `https://ai.megallm.io/v1` | LLM API Basis-URL |
-| `MEGALLM_API_KEY` | leer | Secret für LLM-Zugriff; für echte Modellaufrufe erforderlich |
-| `MEGALLM_MODEL` | `gemini-3-flash-preview` | Primärmodell |
-| `MEGALLM_MODEL_FALLBACK` | `google-gemma-4-26b` | Fallbackmodell |
-| `CATALOG_SERVICE_URL` | `http://localhost:8082` | Catalog API Basis-URL |
-| `CATALOG_MOCK_ENABLED` | `true` | Mockkatalog statt echtem Catalog Service |
-| `KEYCLOAK_AUTH_SERVER_URL` | Realm-URL in Anwendungskonfiguration | OIDC Token-Endpunkt im echten Katalogmodus |
-| `AI_SERVICE_OIDC_CLIENT_ID` | `ai-service` | Technischer Keycloak-Client |
-| `AI_SERVICE_OIDC_SECRET` | leer | Secret des technischen Clients; nötig für echten geschützten Katalogzugriff |
+| `HTTP_PORT` | `8086` | Port (8081–8085 und 8090 belegt das lokale Setup) |
+| `MEGALLM_API_KEY` | leer → Stub | API-Key für MegaLLM, **nie committen** |
+| `MEGALLM_MODEL` / `MEGALLM_MODEL_FALLBACK` | `gemini-3-flash-preview` / `google-gemma-4-26b` | Modellwahl |
+| `CATALOG_MOCK_ENABLED` | `true` | `false` = echter catalog-service |
+| `CATALOG_SERVICE_URL` | `http://localhost:8083` | catalog-service |
+| `CAMUNDA_ENGINE_URL` | `http://localhost:8085/engine-rest` | Process Engine |
+| `AI_SECURITY_ENABLED` + `AI_AUTH_POLICY=process-engine` | aus / `permit` | eingehende Aufrufe nur mit Keycloak-Token (Rolle `process-engine`) |
+| `AI_TECHNICAL_TOKEN_ENABLED` + `AI_SERVICE_OIDC_SECRET` | aus | technisches Token für Process Engine / catalog-service |
 
-Defaults unterscheiden sich zwischen lokaler Modulkonfiguration und separater `docker-compose.yml`. Der aktuelle Root-Backend-Compose enthält den AI Service nicht; für Containerbetrieb existiert eine eigene Compose-Datei. Die echten Betriebswerte niemals aus vermeintlich sicheren Defaults ableiten. `CATALOG_MOCK_ENABLED=true` ist für lokale Entwicklung/Demo geeignet; der echte Catalog-Pfad benötigt ein Client-Credentials-Token mit passender Rolle sowie `X-Handwerker-Id`.
+Die Online-Konfiguration (Sicherheit, technisches Token) ist vorbereitet, aber laut Issue #39 erst Ziel eines späteren Sprints.
 
-## Integrationstest
+---
 
-Die Testanleitung im älteren Dokumentationsverlauf enthält den Camunda Roundtrip mit lokaler BPMN-Kopie. Vor Verwendung prüfen, dass die genannten BPMN-Dateien in `src/test/resources/bpmn/` noch vorhanden sind und die Engine-Version/API zum aktuellen CIB-seven-Build passen. Der Process Engine Build selbst benötigt Zugang zum privaten CIB-seven-Enterprise-Maven-Repository.
+## Weitere Dokumente
 
-## Evaluation und fachliche Erläuterungen
-
-- [`eval/README.md`](eval/README.md): reproduzierbarer Node-basierter Evaluations-Harness (kann externe API-Kosten auslösen)
-- [`docs/ki-uebersicht.md`](docs/ki-uebersicht.md): fachliches Zielbild und Grenzen der KI
-- [`docs/ai-service-modellwahl.md`](docs/ai-service-modellwahl.md): historische Modellentscheidung, Stand 2026-06-01
-- [`docs/ergebnisKI-datenvertrag.md`](docs/ergebnisKI-datenvertrag.md): Schnittstellenbeschreibung
-
-Für Gesamtarchitektur, Betriebsgrenzen, Datenschutz und CI siehe [Projekt-Handbuch](../../../docs/PROJECT-HANDBOOK.md).
-
+- [docs/UMSETZUNG-ISSUE-29.md](docs/UMSETZUNG-ISSUE-29.md) – jeder TODO-Kommentar aus der Zielstruktur und wie er erledigt wurde
+- [docs/OFFENE-PUNKTE.md](docs/OFFENE-PUNKTE.md) – Abstimmungen mit den anderen Squads
+- [docs/LOKALES-SETUP.md](docs/LOKALES-SETUP.md) – Einbindung in `local-setup/docker-compose.local.yml` (Issue #40)
+- [docs/referenz/](docs/referenz/) – Modellwahl, Datenvertrag und KI-Übersicht aus dem Vorsemester (Stand alter Code)

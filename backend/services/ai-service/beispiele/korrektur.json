@@ -1,0 +1,14 @@
+{
+  "businessKey": "BK-LOKAL-KORR-1",
+  "strukturierteAngebotspositionen": {
+    "leistungen": [
+      { "bezeichnung": "Elektroinstallation", "beschreibung": "Steckdosen setzen", "menge": 2, "einheit": "h" }
+    ],
+    "material": [
+      { "bezeichnung": "Doppelsteckdose UP", "beschreibung": "reinweiss", "menge": 3, "einheit": "Stk" },
+      { "bezeichnung": "Installationsleitung NYM-J 3x1,5", "beschreibung": "Mantelleitung", "menge": 20, "einheit": "m" }
+    ],
+    "notizen": []
+  },
+  "korrekturschnipsel": "Nicht drei, sondern vier Steckdosen, und noch zwei Gerätedosen dazu."
+}

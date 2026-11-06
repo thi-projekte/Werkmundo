@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contracts/ai/AiAnalysisRequest.json",
+  "title": "AiAnalysisRequest",
+  "description": "Payload der Process Engine an POST /ai/process (und POST /ai/analyze). Header optional: X-Handwerker-Id (Keycloak-ID des Handwerkers, Mandant fuer die Katalogsuche). Erstangebot = vorlage + sprachschnipsel; Korrektur = strukturierteAngebotspositionen + korrekturschnipsel (Korrektur hat Vorrang). Keine Kundendaten, keine Preise. Unbekannte Felder (z.B. prompt) werden ignoriert. Owner: Squad Handwerker (ai-service) + Squad Prozesse (BPMN).",
+  "type": "object",
+  "required": ["businessKey"],
+  "properties": {
+    "businessKey": { "type": "string", "minLength": 1, "description": "Korrelations-ID der Prozessinstanz; kommt in der ergebnisKI-Message zurueck." },
+    "vorlage": { "$ref": "#/$defs/Positionsblock", "description": "Nur Erstangebot: Vorlage des Handwerkers." },
+    "sprachschnipsel": { "type": "string", "description": "Nur Erstangebot: transkribierte Spracheingabe." },
+    "strukturierteAngebotspositionen": { "$ref": "#/$defs/Positionsblock", "description": "Nur Korrektur: aktueller Stand der Positionen." },
+    "korrekturschnipsel": { "type": "string", "description": "Nur Korrektur: transkribierte Korrektur." }
+  },
+  "anyOf": [
+    { "required": ["vorlage", "sprachschnipsel"] },
+    { "required": ["strukturierteAngebotspositionen", "korrekturschnipsel"] }
+  ],
+  "$defs": {
+    "Position": {
+      "type": "object",
+      "properties": {
+        "bezeichnung": { "type": "string" },
+        "beschreibung": { "type": ["string", "null"] },
+        "menge": { "type": ["number", "null"] },
+        "einheit": { "type": ["string", "null"] }
+      },
+      "required": ["bezeichnung"]
+    },
+    "Positionsblock": {
+      "type": "object",
+      "properties": {
+        "leistungen": { "type": "array", "items": { "$ref": "#/$defs/Position" } },
+        "material": { "type": "array", "items": { "$ref": "#/$defs/Position" } },
+        "notizen": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "examples": [
+    {
+      "businessKey": "BK-123",
+      "vorlage": { "leistungen": [], "material": [{ "bezeichnung": "Doppelsteckdose UP", "beschreibung": "reinweiss", "menge": 1, "einheit": "Stk" }], "notizen": [] },
+      "sprachschnipsel": "Im Wohnzimmer drei Doppelsteckdosen setzen."
+    }
+  ]
+}
