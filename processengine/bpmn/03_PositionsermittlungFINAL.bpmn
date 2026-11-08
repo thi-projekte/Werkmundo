@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_positionsermittlung" targetNamespace="http://werkmundo.de/bpmn" exporter="Camunda Modeler" exporterVersion="5.52.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:collaboration id="Collaboration_positionsermittlung">
+    <bpmn:participant id="Pool_positionsermittlung" name="Positionsermittlung" processRef="positionsermittlung" />
+    <bpmn:participant id="Participant_KIService" name="KI-Service" />
+    <bpmn:messageFlow id="MF_AuftragZurPositionsermittlung" name="Auftrag zur Positionsermittlung" sourceRef="Task_AuftragZurPositionsermittlungSenden" targetRef="Participant_KIService" />
+    <bpmn:messageFlow id="MF_Angebotspositionen" name="Angebotspositionen" sourceRef="Participant_KIService" targetRef="Task_AngebotspositionenEmpfangen" />
+    <bpmn:textAnnotation id="Annotation_Produktkatalog">
+      <bpmn:text>KI-Service gleicht die Spracheingabe mit der Produktkatalog-Datenbank ab und liefert passende Positionen</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Assoc_Annotation_Produktkatalog" associationDirection="None" sourceRef="Participant_KIService" targetRef="Annotation_Produktkatalog" />
+  </bpmn:collaboration>
+  <bpmn:process id="positionsermittlung" name="Positionsermittlung" isExecutable="true" camunda:versionTag="4.0" camunda:historyTimeToLive="180">
+    <bpmn:documentation>Teilprozess der Angebotsentwurfserstellung. Der KI-Service gleicht die Spracheingabe mit der Produktkatalog-Datenbank ab und liefert passende Positionen. Eingang: angebotId, handwerkerId, spracheingabeId. Ausgang: angebotspositionen (JSON), ergebnisPositionsermittlung. Endzustände: Positionen ermittelt | Positionsermittlung fehlgeschlagen.</bpmn:documentation>
+    <bpmn:startEvent id="Start_PositionsermittlungBenoetigt" name="Positionsermittlung benötigt">
+      <bpmn:outgoing>Flow_Start_Senden</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sendTask id="Task_AuftragZurPositionsermittlungSenden" name="Auftrag zur Positionsermittlung senden" camunda:asyncBefore="true" camunda:delegateExpression="${auftragZurPositionsermittlungSenden}">
+      <bpmn:documentation>KI-Service (AiServiceAdapter): POST /ai/analysen mit angebotId (Business Key), handwerkerId, spracheingabeId. Antwort 202 Accepted, Ergebnis kommt asynchron. Fachliche Ablehnung (HTTP 4xx) → BPMN-Error POSITIONSERMITTLUNG_ABGELEHNT.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
+          <camunda:inputParameter name="handwerkerId">${handwerkerId}</camunda:inputParameter>
+          <camunda:inputParameter name="spracheingabeId">${spracheingabeId}</camunda:inputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_Senden</bpmn:incoming>
+      <bpmn:outgoing>Flow_Senden_Empfangen</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:boundaryEvent id="Boundary_PositionsermittlungAbgelehnt" name="Positionsermittlung abgelehnt" attachedToRef="Task_AuftragZurPositionsermittlungSenden">
+      <bpmn:outgoing>Flow_Error_Fehlgeschlagen</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="EED_PositionsermittlungAbgelehnt" errorRef="Error_PositionsermittlungAbgelehnt" />
+    </bpmn:boundaryEvent>
+    <bpmn:receiveTask id="Task_AngebotspositionenEmpfangen" name="Angebotspositionen empfangen" messageRef="Message_AngebotspositionenEingegangen">
+      <bpmn:documentation>Nachricht angebotspositionenEingegangen vom KI-Service, Korrelation über Business Key. Variablen: positionsermittlungErfolgreich (Boolean), angebotspositionen (JSON gemäß contracts/ai/AiAnalysisResult.json).</bpmn:documentation>
+      <bpmn:incoming>Flow_Senden_Empfangen</bpmn:incoming>
+      <bpmn:outgoing>Flow_Empfangen_GW</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:boundaryEvent id="Timer_KIAntwortAusgeblieben" name="KI-Antwort ausgeblieben" attachedToRef="Task_AngebotspositionenEmpfangen">
+      <bpmn:outgoing>Flow_Timer_Fehlgeschlagen</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TED_Timer_KIAntwortAusgeblieben">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT5M</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:exclusiveGateway id="Gateway_PositionenErmittelt" name="Positionen ermittelt?">
+      <bpmn:incoming>Flow_Empfangen_GW</bpmn:incoming>
+      <bpmn:outgoing>Flow_GW_Ermittelt</bpmn:outgoing>
+      <bpmn:outgoing>Flow_1xdagcc</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_PositionenErmittelt" name="Positionen ermittelt">
+      <bpmn:extensionElements>
+        <camunda:executionListener expression="${execution.setVariable(&#39;ergebnisPositionsermittlung&#39;, &#39;POSITIONEN_ERMITTELT&#39;)}" event="start" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GW_Ermittelt</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_PositionsermittlungFehlgeschlagen" name="Positionsermittlung fehlgeschlagen">
+      <bpmn:extensionElements>
+        <camunda:executionListener expression="${execution.setVariable(&#39;ergebnisPositionsermittlung&#39;, &#39;POSITIONSERMITTLUNG_FEHLGESCHLAGEN&#39;)}" event="start" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1mgs8dg</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Senden" sourceRef="Start_PositionsermittlungBenoetigt" targetRef="Task_AuftragZurPositionsermittlungSenden" />
+    <bpmn:sequenceFlow id="Flow_Senden_Empfangen" sourceRef="Task_AuftragZurPositionsermittlungSenden" targetRef="Task_AngebotspositionenEmpfangen" />
+    <bpmn:sequenceFlow id="Flow_Empfangen_GW" sourceRef="Task_AngebotspositionenEmpfangen" targetRef="Gateway_PositionenErmittelt" />
+    <bpmn:sequenceFlow id="Flow_GW_Ermittelt" name="ja" sourceRef="Gateway_PositionenErmittelt" targetRef="End_PositionenErmittelt">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${positionsermittlungErfolgreich}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Error_Fehlgeschlagen" sourceRef="Boundary_PositionsermittlungAbgelehnt" targetRef="Gateway_00uolva" />
+    <bpmn:sequenceFlow id="Flow_Timer_Fehlgeschlagen" sourceRef="Timer_KIAntwortAusgeblieben" targetRef="Gateway_00uolva" />
+    <bpmn:exclusiveGateway id="Gateway_00uolva">
+      <bpmn:incoming>Flow_Timer_Fehlgeschlagen</bpmn:incoming>
+      <bpmn:incoming>Flow_1xdagcc</bpmn:incoming>
+      <bpmn:incoming>Flow_Error_Fehlgeschlagen</bpmn:incoming>
+      <bpmn:outgoing>Flow_1mgs8dg</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_1mgs8dg" sourceRef="Gateway_00uolva" targetRef="End_PositionsermittlungFehlgeschlagen" />
+    <bpmn:sequenceFlow id="Flow_1xdagcc" name="nein" sourceRef="Gateway_PositionenErmittelt" targetRef="Gateway_00uolva" />
+  </bpmn:process>
+  <bpmn:message id="Message_AngebotspositionenEingegangen" name="angebotspositionenEingegangen" />
+  <bpmn:error id="Error_PositionsermittlungAbgelehnt" name="Positionsermittlung abgelehnt" errorCode="POSITIONSERMITTLUNG_ABGELEHNT" />
+  <bpmndi:BPMNDiagram id="Diagram_positionsermittlung">
+    <bpmndi:BPMNPlane id="Plane_positionsermittlung" bpmnElement="Collaboration_positionsermittlung">
+      <bpmndi:BPMNShape id="Pool_positionsermittlung_di" bpmnElement="Pool_positionsermittlung" isHorizontal="true">
+        <dc:Bounds x="120" y="60" width="960" height="330" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_PositionsermittlungBenoetigt_di" bpmnElement="Start_PositionsermittlungBenoetigt">
+        <dc:Bounds x="182" y="242" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="160" y="285" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AuftragZurPositionsermittlungSenden_di" bpmnElement="Task_AuftragZurPositionsermittlungSenden">
+        <dc:Bounds x="270" y="220" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AngebotspositionenEmpfangen_di" bpmnElement="Task_AngebotspositionenEmpfangen">
+        <dc:Bounds x="480" y="220" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_PositionenErmittelt_di" bpmnElement="Gateway_PositionenErmittelt" isMarkerVisible="true">
+        <dc:Bounds x="690" y="235" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="675" y="290" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_PositionenErmittelt_di" bpmnElement="End_PositionenErmittelt">
+        <dc:Bounds x="872" y="242" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="850" y="285" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_PositionsermittlungFehlgeschlagen_di" bpmnElement="End_PositionsermittlungFehlgeschlagen">
+        <dc:Bounds x="872" y="112" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="915" y="116" width="120" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_00uolva_di" bpmnElement="Gateway_00uolva" isMarkerVisible="true">
+        <dc:Bounds x="690" y="105" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Timer_KIAntwortAusgeblieben_di" bpmnElement="Timer_KIAntwortAusgeblieben">
+        <dc:Bounds x="562" y="202" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="592" y="160" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Boundary_PositionsermittlungAbgelehnt_di" bpmnElement="Boundary_PositionsermittlungAbgelehnt">
+        <dc:Bounds x="322" y="202" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="240" y="160" width="85" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Senden_di" bpmnElement="Flow_Start_Senden">
+        <di:waypoint x="218" y="260" />
+        <di:waypoint x="270" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Senden_Empfangen_di" bpmnElement="Flow_Senden_Empfangen">
+        <di:waypoint x="420" y="260" />
+        <di:waypoint x="480" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Empfangen_GW_di" bpmnElement="Flow_Empfangen_GW">
+        <di:waypoint x="630" y="260" />
+        <di:waypoint x="690" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_GW_Ermittelt_di" bpmnElement="Flow_GW_Ermittelt">
+        <di:waypoint x="740" y="260" />
+        <di:waypoint x="872" y="260" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="795" y="242" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Error_Fehlgeschlagen_di" bpmnElement="Flow_Error_Fehlgeschlagen">
+        <di:waypoint x="340" y="202" />
+        <di:waypoint x="340" y="80" />
+        <di:waypoint x="715" y="80" />
+        <di:waypoint x="715" y="105" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Timer_Fehlgeschlagen_di" bpmnElement="Flow_Timer_Fehlgeschlagen">
+        <di:waypoint x="580" y="202" />
+        <di:waypoint x="580" y="130" />
+        <di:waypoint x="690" y="130" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1mgs8dg_di" bpmnElement="Flow_1mgs8dg">
+        <di:waypoint x="740" y="130" />
+        <di:waypoint x="872" y="130" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1xdagcc_di" bpmnElement="Flow_1xdagcc">
+        <di:waypoint x="715" y="235" />
+        <di:waypoint x="715" y="155" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="720" y="192" width="21" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Participant_KIService_di" bpmnElement="Participant_KIService" isHorizontal="true">
+        <dc:Bounds x="120" y="490" width="960" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Annotation_Produktkatalog_di" bpmnElement="Annotation_Produktkatalog">
+        <dc:Bounds x="700" y="404" width="300" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="MF_AuftragZurPositionsermittlung_di" bpmnElement="MF_AuftragZurPositionsermittlung">
+        <di:waypoint x="320" y="300" />
+        <di:waypoint x="320" y="490" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="205" y="420" width="108" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Angebotspositionen_di" bpmnElement="MF_Angebotspositionen">
+        <di:waypoint x="540" y="490" />
+        <di:waypoint x="540" y="300" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="548" y="430" width="105" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Assoc_Annotation_Produktkatalog_di" bpmnElement="Assoc_Annotation_Produktkatalog">
+        <di:waypoint x="850" y="490" />
+        <di:waypoint x="850" y="454" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

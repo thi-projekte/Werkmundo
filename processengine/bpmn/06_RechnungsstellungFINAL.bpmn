@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_rechnungsstellung" targetNamespace="http://werkmundo.de/bpmn" exporter="Camunda Modeler" exporterVersion="5.52.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:collaboration id="Collaboration_rechnungsstellung">
+    <bpmn:participant id="Pool_rechnungsstellung" name="Rechnungsstellung" processRef="rechnungsstellung" />
+    <bpmn:participant id="Participant_Frontend" name="Frontend" />
+    <bpmn:participant id="Participant_Kunde" name="Kunde" />
+    <bpmn:messageFlow id="MF_Auftragsabschluss" name="Auftragsabschluss" sourceRef="Participant_Frontend" targetRef="Task_AuftragsabschlussEmpfangen" />
+    <bpmn:messageFlow id="MF_Dokument" name="Dokument" sourceRef="Call_Dokumentenversand" targetRef="Participant_Kunde" />
+    <bpmn:messageFlow id="Flow_1km0o7w" name="Rechnungsentwurf" sourceRef="Task_RechnungsentwurfAnFrontendSenden" targetRef="Participant_Frontend" />
+    <bpmn:messageFlow id="Flow_0v0tp9b" name="Rechnungsprüfergebnis" sourceRef="Participant_Frontend" targetRef="Task_RechnungspruefergebnisEmpfangen" />
+    <bpmn:textAnnotation id="Annotation_Rechnungsentwurf">
+      <bpmn:text>PDF-Vorschau + darunter alle Positionen zur Bearbeitung (Auswahl aus dem Produktkatalog)</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:textAnnotation id="Annotation_Rechnungspruefergebnis">
+      <bpmn:text>Wieder 2 Optionen:
+BESTAETIGT |
+POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:textAnnotation id="TextAnnotation_0bw7dkm">
+      <bpmn:text>Manueller schritt, da Handwerker erstmal erbeitet und Rechnung erst danach erstellt und rausschickt</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Association_18olkik" associationDirection="None" sourceRef="Annotation_Rechnungsentwurf" targetRef="Flow_1km0o7w" />
+    <bpmn:association id="Association_17xy683" associationDirection="None" sourceRef="Annotation_Rechnungspruefergebnis" targetRef="Flow_0v0tp9b" />
+    <bpmn:association id="Association_1qdnkcp" associationDirection="None" sourceRef="Task_AuftragAusfuehren" targetRef="TextAnnotation_0bw7dkm" />
+  </bpmn:collaboration>
+  <bpmn:process id="rechnungsstellung" name="Rechnungsstellung" isExecutable="true" camunda:versionTag="4.0" camunda:historyTimeToLive="180">
+    <bpmn:documentation>Teilprozess der Angebotsabwicklung. Erst wenn der Handwerker den Auftrag ausgeführt und das im Frontend gemeldet hat, entsteht ohne Spracheingabe die Rechnung aus den Positionen des angenommenen Angebots. In der Rechnungsentwurfsprüfung sieht der Handwerker das PDF und darunter die Positionen, die er wie beim Angebot ändern oder aus dem Produktkatalog ergänzen kann – bis er bestätigt. Danach wird die Rechnung versendet. Eingang: angebotId, handwerkerId, kundeId. Ausgang: rechnungId. Endzustand: Rechnung versendet.</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_rechnungsstellung">
+      <bpmn:lane id="Lane_RS_DokumentenService" name="Dokumenten-Service">
+        <bpmn:flowNodeRef>Task_RechnungsentwurfAusAngebotErstellen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Call_Dokumentenversand</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_RechnungVersendet</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RechnungsvorschauErstellen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RechnungsentwurfAnFrontendSenden</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RechnungspruefergebnisEmpfangen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Rechnungspruefergebnis</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RechnungsentwurfUeberarbeiten</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_1pk3h74</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_RS_AngebotsService" name="Angebots-Service">
+        <bpmn:flowNodeRef>Task_AuftragsabschlussEmpfangen</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_RS_Handwerker" name="Handwerker">
+        <bpmn:flowNodeRef>Start_RechnungsstellungBenoetigt</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AuftragAusfuehren</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_RechnungsstellungBenoetigt" name="Rechnungsstellung benötigt">
+      <bpmn:outgoing>Flow_Start_Ausfuehren</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:manualTask id="Task_AuftragAusfuehren" name="Auftrag ausführen">
+      <bpmn:documentation>Der Handwerker führt den angenommenen Auftrag beim Kunden aus. Hinweis: CIB seven wartet an einer Manuellen Aufgabe nicht – gewartet wird an der folgenden Empfangsaufgabe auf die Meldung „Auftragsabschluss“ aus dem Frontend.</bpmn:documentation>
+      <bpmn:incoming>Flow_Start_Ausfuehren</bpmn:incoming>
+      <bpmn:outgoing>Flow_Ausfuehren_Empfangen</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:receiveTask id="Task_AuftragsabschlussEmpfangen" name="Auftragsabschluss empfangen" messageRef="Message_AuftragsabschlussEingegangen">
+      <bpmn:documentation>Nachricht auftragsabschlussEingegangen: Der Handwerker meldet im Frontend „Auftrag ausgeführt“, der Angebots-Service setzt den Auftragsstatus und korreliert über den Business Key. Keine Prozessvariablen.</bpmn:documentation>
+      <bpmn:incoming>Flow_Ausfuehren_Empfangen</bpmn:incoming>
+      <bpmn:outgoing>Flow_Empfangen_Erstellen</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:serviceTask id="Task_RechnungsentwurfAusAngebotErstellen" name="Rechnungsentwurf aus Angebot erstellen" camunda:asyncBefore="true" camunda:delegateExpression="${rechnungsentwurfAusAngebotErstellen}">
+      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter, CreateInvoiceUseCase): POST /rechnungen mit angebotId. Übernimmt Kunde und Positionen des angenommenen Angebots in einen Rechnungsentwurf.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
+          <camunda:inputParameter name="kundeId">${kundeId}</camunda:inputParameter>
+          <camunda:outputParameter name="rechnungId">${rechnungId}</camunda:outputParameter>
+          <camunda:outputParameter name="rechnungsentwurf">${rechnungsentwurf}</camunda:outputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Empfangen_Erstellen</bpmn:incoming>
+      <bpmn:outgoing>Flow_0stdpnw</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:callActivity id="Call_Dokumentenversand" name="Dokumentenversand" calledElement="dokumentenversand">
+      <bpmn:documentation>Versendet die bestätigte Rechnung an den Kunden (dokumentart = RECHNUNG, dokumentId = rechnungId).</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:in businessKey="#{execution.processBusinessKey}" />
+        <camunda:in source="angebotId" target="angebotId" />
+        <camunda:in source="kundeId" target="kundeId" />
+        <camunda:in sourceExpression="${&#39;RECHNUNG&#39;}" target="dokumentart" />
+        <camunda:in sourceExpression="${rechnungId}" target="dokumentId" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1gt4j11</bpmn:incoming>
+      <bpmn:outgoing>Flow_Versand_End</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="End_RechnungVersendet" name="Rechnung versendet">
+      <bpmn:incoming>Flow_Versand_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="Task_RechnungsvorschauErstellen" name="Rechnungsentwurf erstellen" camunda:asyncBefore="true" camunda:delegateExpression="${rechnungsvorschauErstellen}">
+      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): POST /dokumente/RECHNUNG/{rechnungId}/vorschau. Vorschau-PDF mit Wasserzeichen „Entwurf“.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="rechnungId">${rechnungId}</camunda:inputParameter>
+          <camunda:outputParameter name="vorschauUrl">${vorschauUrl}</camunda:outputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0stdpnw</bpmn:incoming>
+      <bpmn:outgoing>Flow_Vorschau_Senden</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sendTask id="Task_RechnungsentwurfAnFrontendSenden" name="Rechnungsentwurf an Frontend senden" camunda:asyncBefore="true" camunda:delegateExpression="${frontendEreignisSenden}">
+      <bpmn:documentation>Liefert dem Frontend (InvoiceView) die PDF-Vorschau und darunter alle Positionen strukturiert – gleiche Bearbeitung wie beim Angebot.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="ereignistyp">rechnungsentwurfZurPruefung</camunda:inputParameter>
+          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
+          <camunda:inputParameter name="rechnungId">${rechnungId}</camunda:inputParameter>
+          <camunda:inputParameter name="handwerkerId">${handwerkerId}</camunda:inputParameter>
+          <camunda:inputParameter name="vorschauUrl">${vorschauUrl}</camunda:inputParameter>
+          <camunda:inputParameter name="rechnungsentwurf">${rechnungsentwurf}</camunda:inputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Vorschau_Senden</bpmn:incoming>
+      <bpmn:outgoing>Flow_Senden_Empfangen</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:receiveTask id="Task_RechnungspruefergebnisEmpfangen" name="Rechnungsprüfergebnis empfangen" messageRef="Message_RechnungspruefergebnisEingegangen">
+      <bpmn:documentation>Nachricht rechnungspruefergebnisEingegangen vom Frontend (über Dokumenten-Service), Korrelation über Business Key. Variablen: rechnungspruefergebnis = BESTAETIGT | POSITIONEN_GEAENDERT; geaenderteRechnungspositionen (JSON, nur bei Änderung).</bpmn:documentation>
+      <bpmn:incoming>Flow_Senden_Empfangen</bpmn:incoming>
+      <bpmn:outgoing>Flow_Empfangen_GW</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:exclusiveGateway id="Gateway_Rechnungspruefergebnis" name="Rechnungsprüfergebnis?">
+      <bpmn:incoming>Flow_Empfangen_GW</bpmn:incoming>
+      <bpmn:outgoing>Flow_GW_Geaendert</bpmn:outgoing>
+      <bpmn:outgoing>Flow_141jc0e</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:dataStoreReference id="DataStore_Produktkatalog" name="Produktkatalog" />
+    <bpmn:serviceTask id="Task_RechnungsentwurfUeberarbeiten" name="Rechnungsentwurf überarbeiten" camunda:asyncBefore="true" camunda:delegateExpression="${rechnungsentwurfUeberarbeiten}">
+      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): PUT /rechnungen/{rechnungId}/entwurf mit den geänderten Positionen. Prüft sie gegen den Produktkatalog, berechnet Preise und Summen neu.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="rechnungId">${rechnungId}</camunda:inputParameter>
+          <camunda:inputParameter name="rechnungspositionen">${geaenderteRechnungspositionen}</camunda:inputParameter>
+          <camunda:outputParameter name="rechnungsentwurf">${rechnungsentwurf}</camunda:outputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GW_Geaendert</bpmn:incoming>
+      <bpmn:outgoing>Flow_0cax87l</bpmn:outgoing>
+      <bpmn:property id="Property_1vz4ll0" name="__targetRef_placeholder" />
+      <bpmn:dataInputAssociation id="DataInputAssociation_Produktkatalog">
+        <bpmn:sourceRef>DataStore_Produktkatalog</bpmn:sourceRef>
+        <bpmn:targetRef>Property_1vz4ll0</bpmn:targetRef>
+      </bpmn:dataInputAssociation>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_1pk3h74">
+      <bpmn:incoming>Flow_141jc0e</bpmn:incoming>
+      <bpmn:incoming>Flow_0cax87l</bpmn:incoming>
+      <bpmn:outgoing>Flow_1gt4j11</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_Start_Ausfuehren" sourceRef="Start_RechnungsstellungBenoetigt" targetRef="Task_AuftragAusfuehren" />
+    <bpmn:sequenceFlow id="Flow_Ausfuehren_Empfangen" sourceRef="Task_AuftragAusfuehren" targetRef="Task_AuftragsabschlussEmpfangen" />
+    <bpmn:sequenceFlow id="Flow_Empfangen_Erstellen" sourceRef="Task_AuftragsabschlussEmpfangen" targetRef="Task_RechnungsentwurfAusAngebotErstellen" />
+    <bpmn:sequenceFlow id="Flow_0stdpnw" sourceRef="Task_RechnungsentwurfAusAngebotErstellen" targetRef="Task_RechnungsvorschauErstellen" />
+    <bpmn:sequenceFlow id="Flow_1gt4j11" sourceRef="Gateway_1pk3h74" targetRef="Call_Dokumentenversand" />
+    <bpmn:sequenceFlow id="Flow_Versand_End" sourceRef="Call_Dokumentenversand" targetRef="End_RechnungVersendet" />
+    <bpmn:sequenceFlow id="Flow_Vorschau_Senden" sourceRef="Task_RechnungsvorschauErstellen" targetRef="Task_RechnungsentwurfAnFrontendSenden" />
+    <bpmn:sequenceFlow id="Flow_Senden_Empfangen" sourceRef="Task_RechnungsentwurfAnFrontendSenden" targetRef="Task_RechnungspruefergebnisEmpfangen" />
+    <bpmn:sequenceFlow id="Flow_Empfangen_GW" sourceRef="Task_RechnungspruefergebnisEmpfangen" targetRef="Gateway_Rechnungspruefergebnis" />
+    <bpmn:sequenceFlow id="Flow_GW_Geaendert" name="Positionen geändert" sourceRef="Gateway_Rechnungspruefergebnis" targetRef="Task_RechnungsentwurfUeberarbeiten">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${rechnungspruefergebnis == 'POSITIONEN_GEAENDERT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_141jc0e" name="bestätigt" sourceRef="Gateway_Rechnungspruefergebnis" targetRef="Gateway_1pk3h74" />
+    <bpmn:sequenceFlow id="Flow_0cax87l" sourceRef="Task_RechnungsentwurfUeberarbeiten" targetRef="Gateway_1pk3h74" />
+  </bpmn:process>
+  <bpmn:message id="Message_AuftragsabschlussEingegangen" name="auftragsabschlussEingegangen" />
+  <bpmn:message id="Message_RechnungspruefergebnisEingegangen" name="rechnungspruefergebnisEingegangen" />
+  <bpmndi:BPMNDiagram id="Diagram_rechnungsstellung">
+    <bpmndi:BPMNPlane id="Plane_rechnungsstellung" bpmnElement="Collaboration_rechnungsstellung">
+      <bpmndi:BPMNShape id="Pool_rechnungsstellung_di" bpmnElement="Pool_rechnungsstellung" isHorizontal="true">
+        <dc:Bounds x="120" y="310" width="2160" height="660" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_RS_DokumentenService_di" bpmnElement="Lane_RS_DokumentenService" isHorizontal="true">
+        <dc:Bounds x="150" y="590" width="2130" height="380" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_RS_AngebotsService_di" bpmnElement="Lane_RS_AngebotsService" isHorizontal="true">
+        <dc:Bounds x="150" y="450" width="2130" height="140" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_RS_Handwerker_di" bpmnElement="Lane_RS_Handwerker" isHorizontal="true">
+        <dc:Bounds x="150" y="310" width="2130" height="140" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_RechnungsstellungBenoetigt_di" bpmnElement="Start_RechnungsstellungBenoetigt">
+        <dc:Bounds x="210" y="362" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="189" y="403" width="82" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AuftragAusfuehren_di" bpmnElement="Task_AuftragAusfuehren">
+        <dc:Bounds x="290" y="340" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AuftragsabschlussEmpfangen_di" bpmnElement="Task_AuftragsabschlussEmpfangen">
+        <dc:Bounds x="480" y="480" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RechnungsentwurfAusAngebotErstellen_di" bpmnElement="Task_RechnungsentwurfAusAngebotErstellen">
+        <dc:Bounds x="680" y="760" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Call_Dokumentenversand_di" bpmnElement="Call_Dokumentenversand">
+        <dc:Bounds x="2010" y="760" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_RechnungVersendet_di" bpmnElement="End_RechnungVersendet">
+        <dc:Bounds x="2212" y="782" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2205" y="823" width="51" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_01r6461" bpmnElement="Task_RechnungsvorschauErstellen">
+        <dc:Bounds x="925" y="760" width="150" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_1irm2ag" bpmnElement="Task_RechnungsentwurfAnFrontendSenden">
+        <dc:Bounds x="1115" y="760" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_12u975n" bpmnElement="Task_RechnungspruefergebnisEmpfangen">
+        <dc:Bounds x="1305" y="760" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_1k2xy1t" bpmnElement="Gateway_Rechnungspruefergebnis" isMarkerVisible="true">
+        <dc:Bounds x="1505" y="775" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1476" y="830" width="109" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_18r42ya" bpmnElement="DataStore_Produktkatalog">
+        <dc:Bounds x="1415" y="632" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1475" y="650" width="74" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_0zvrgk9" bpmnElement="Task_RechnungsentwurfUeberarbeiten">
+        <dc:Bounds x="1590" y="650" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_1pk3h74_di" bpmnElement="Gateway_1pk3h74" isMarkerVisible="true">
+        <dc:Bounds x="1835" y="775" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Ausfuehren_di" bpmnElement="Flow_Start_Ausfuehren">
+        <di:waypoint x="246" y="380" />
+        <di:waypoint x="290" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Ausfuehren_Empfangen_di" bpmnElement="Flow_Ausfuehren_Empfangen">
+        <di:waypoint x="430" y="380" />
+        <di:waypoint x="555" y="380" />
+        <di:waypoint x="555" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Empfangen_Erstellen_di" bpmnElement="Flow_Empfangen_Erstellen">
+        <di:waypoint x="630" y="520" />
+        <di:waypoint x="755" y="520" />
+        <di:waypoint x="755" y="760" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Versand_End_di" bpmnElement="Flow_Versand_End">
+        <di:waypoint x="2160" y="800" />
+        <di:waypoint x="2212" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_0oroevk" bpmnElement="Flow_Vorschau_Senden">
+        <di:waypoint x="1075" y="800" />
+        <di:waypoint x="1115" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_0ttnz0j" bpmnElement="Flow_Senden_Empfangen">
+        <di:waypoint x="1265" y="800" />
+        <di:waypoint x="1305" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_04qay6r" bpmnElement="Flow_Empfangen_GW">
+        <di:waypoint x="1455" y="800" />
+        <di:waypoint x="1505" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="BPMNEdge_0uwbu8a" bpmnElement="Flow_GW_Geaendert">
+        <di:waypoint x="1530" y="775" />
+        <di:waypoint x="1530" y="690" />
+        <di:waypoint x="1590" y="690" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1469" y="715" width="52" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0stdpnw_di" bpmnElement="Flow_0stdpnw">
+        <di:waypoint x="830" y="800" />
+        <di:waypoint x="925" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_141jc0e_di" bpmnElement="Flow_141jc0e">
+        <di:waypoint x="1555" y="800" />
+        <di:waypoint x="1835" y="800" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1674" y="782" width="42" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0cax87l_di" bpmnElement="Flow_0cax87l">
+        <di:waypoint x="1730" y="690" />
+        <di:waypoint x="1860" y="690" />
+        <di:waypoint x="1860" y="775" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1gt4j11_di" bpmnElement="Flow_1gt4j11">
+        <di:waypoint x="1885" y="800" />
+        <di:waypoint x="2010" y="800" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Participant_Kunde_di" bpmnElement="Participant_Kunde" isHorizontal="true">
+        <dc:Bounds x="120" y="1050" width="2160" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_Frontend_di" bpmnElement="Participant_Frontend" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="2160" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Association_1qdnkcp_di" bpmnElement="Association_1qdnkcp">
+        <di:waypoint x="358" y="340" />
+        <di:waypoint x="352" y="257" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_18olkik_di" bpmnElement="Association_18olkik">
+        <di:waypoint x="1130" y="215" />
+        <di:waypoint x="1190" y="208" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_17xy683_di" bpmnElement="Association_17xy683">
+        <di:waypoint x="1590" y="229" />
+        <di:waypoint x="1380" y="233" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Auftragsabschluss_di" bpmnElement="MF_Auftragsabschluss">
+        <di:waypoint x="590" y="140" />
+        <di:waypoint x="590" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603" y="167" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Dokument_di" bpmnElement="MF_Dokument">
+        <di:waypoint x="2085" y="840" />
+        <di:waypoint x="2085" y="1050" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2098" y="990" width="51" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="TextAnnotation_0bw7dkm_di" bpmnElement="TextAnnotation_0bw7dkm">
+        <dc:Bounds x="300" y="200" width="210" height="57" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="BPMNEdge_0fl4qx8" bpmnElement="DataInputAssociation_Produktkatalog">
+        <di:waypoint x="1465" y="670" />
+        <di:waypoint x="1590" y="670" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1km0o7w_di" bpmnElement="Flow_1km0o7w">
+        <di:waypoint x="1190" y="760" />
+        <di:waypoint x="1190" y="140" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1180" y="253" width="139" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Annotation_Rechnungsentwurf_di" bpmnElement="Annotation_Rechnungsentwurf">
+        <dc:Bounds x="900" y="203" width="230" height="52" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0v0tp9b_di" bpmnElement="Flow_0v0tp9b">
+        <di:waypoint x="1380" y="140" />
+        <di:waypoint x="1380" y="760" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1353" y="193" width="217" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Annotation_Rechnungspruefergebnis_di" bpmnElement="Annotation_Rechnungspruefergebnis">
+        <dc:Bounds x="1590" y="203" width="292" height="72" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

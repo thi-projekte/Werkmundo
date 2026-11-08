@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_angebotsabwicklung" targetNamespace="http://werkmundo.de/bpmn" exporter="Camunda Modeler" exporterVersion="5.52.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:collaboration id="Collaboration_angebotsabwicklung">
+    <bpmn:participant id="Pool_angebotsabwicklung" name="Angebotsabwicklung" processRef="angebotsabwicklung" />
+    <bpmn:participant id="Participant_Frontend" name="Frontend" />
+    <bpmn:participant id="Participant_KIService" name="KI-Service" />
+    <bpmn:participant id="Participant_Kunde" name="Kunde" />
+    <bpmn:messageFlow id="MF_Spracheingabe" name="Spracheingabe" sourceRef="Participant_Frontend" targetRef="Start_SpracheingabeEingegangen" />
+    <bpmn:messageFlow id="MF_AuftragZurPositionsermittlung" name="Auftrag zur Positionsermittlung" sourceRef="Call_Angebotsentwurfserstellung" targetRef="Participant_KIService" />
+    <bpmn:messageFlow id="MF_Angebotspositionen" name="Angebotspositionen" sourceRef="Participant_KIService" targetRef="Call_Angebotsentwurfserstellung" />
+    <bpmn:messageFlow id="MF_Angebotsentwurf" name="Angebotsentwurf" sourceRef="Call_Angebotsentwurfserstellung" targetRef="Participant_Frontend" />
+    <bpmn:messageFlow id="MF_Angebotspruefergebnis" name="Angebotsprüfergebnis" sourceRef="Participant_Frontend" targetRef="Call_Angebotsentwurfserstellung" />
+    <bpmn:messageFlow id="MF_A_Dokument" name="Dokument" sourceRef="Call_Dokumentenversand" targetRef="Participant_Kunde" />
+    <bpmn:messageFlow id="MF_Kundenentscheidung" name="Kundenentscheidung" sourceRef="Participant_Kunde" targetRef="Call_Kundenentscheidungseinholung" />
+    <bpmn:messageFlow id="MF_Angebotserinnerung" name="Angebotserinnerung" sourceRef="Call_Kundenentscheidungseinholung" targetRef="Participant_Kunde" />
+    <bpmn:messageFlow id="MF_Auftragsabschluss" name="Auftragsabschluss" sourceRef="Participant_Frontend" targetRef="Call_Rechnungsstellung" />
+    <bpmn:messageFlow id="MF_Rechnungsentwurf" name="Rechnungsentwurf" sourceRef="Call_Rechnungsstellung" targetRef="Participant_Frontend" />
+    <bpmn:messageFlow id="MF_Rechnungspruefergebnis" name="Rechnungsprüfergebnis" sourceRef="Participant_Frontend" targetRef="Call_Rechnungsstellung" />
+    <bpmn:messageFlow id="MF_R_Dokument" name="Dokument" sourceRef="Call_Rechnungsstellung" targetRef="Participant_Kunde" />
+    <bpmn:textAnnotation id="Annotation_Spracheingabe">
+      <bpmn:text>Handwerker schickt in der App eine Sprachnachricht ab → Angebots-Service startet die Instanz (Nachricht spracheingabeEingegangen, Business Key = angebotId)</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Assoc_Annotation_Spracheingabe" associationDirection="None" sourceRef="MF_Spracheingabe" targetRef="Annotation_Spracheingabe" />
+  </bpmn:collaboration>
+  <bpmn:process id="angebotsabwicklung" name="Angebotsabwicklung" isExecutable="true" camunda:versionTag="4.0" camunda:historyTimeToLive="180">
+    <bpmn:documentation>Top-Level-Prozess. Eine Instanz = genau ein Angebot (Business Key = angebotId). Start: Der Handwerker schickt in der App eine Sprachnachricht ab; der Angebots-Service legt das Angebot an und korreliert die Nachricht spracheingabeEingegangen (POST /engine-rest/message, businessKey = angebotId). Startvariablen: angebotId, handwerkerId, kundeId, spracheingabeId. Endzustände: Angebot verworfen | Angebot abgelehnt | Angebot abgelaufen | Rechnung gestellt.</bpmn:documentation>
+    <bpmn:startEvent id="Start_SpracheingabeEingegangen" name="Spracheingabe eingegangen">
+      <bpmn:documentation>Ausgelöst, wenn der Handwerker in der App (VoiceInputView) die Sprachnachricht abschickt.</bpmn:documentation>
+      <bpmn:outgoing>Flow_Start_AES</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MED_Start_SpracheingabeEingegangen" messageRef="Message_SpracheingabeEingegangen" />
+    </bpmn:startEvent>
+    <bpmn:callActivity id="Call_Angebotsentwurfserstellung" name="Angebotsentwurfserstellung" calledElement="angebotsentwurfserstellung">
+      <bpmn:documentation>Endzustände: Angebotsentwurf bestätigt | Angebotsentwurf verworfen.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:in businessKey="#{execution.processBusinessKey}" />
+        <camunda:in source="angebotId" target="angebotId" />
+        <camunda:in source="handwerkerId" target="handwerkerId" />
+        <camunda:in source="kundeId" target="kundeId" />
+        <camunda:in source="spracheingabeId" target="spracheingabeId" />
+        <camunda:out source="ergebnisAngebotsentwurfserstellung" target="ergebnisAngebotsentwurfserstellung" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_AES</bpmn:incoming>
+      <bpmn:outgoing>Flow_AES_GW</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:exclusiveGateway id="Gateway_AngebotsentwurfBestaetigt" name="Angebotsentwurf bestätigt?">
+      <bpmn:incoming>Flow_AES_GW</bpmn:incoming>
+      <bpmn:outgoing>Flow_GW_Dokumentenversand</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GW_AngebotVerworfen</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_AngebotVerworfen" name="Angebot verworfen">
+      <bpmn:incoming>Flow_GW_AngebotVerworfen</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:callActivity id="Call_Dokumentenversand" name="Dokumentenversand" calledElement="dokumentenversand">
+      <bpmn:documentation>Versendet das bestätigte Angebot an den bei der Angebotserstellung angegebenen Kunden (dokumentart = ANGEBOT).</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:in businessKey="#{execution.processBusinessKey}" />
+        <camunda:in source="angebotId" target="angebotId" />
+        <camunda:in source="kundeId" target="kundeId" />
+        <camunda:in sourceExpression="${&#39;ANGEBOT&#39;}" target="dokumentart" />
+        <camunda:in sourceExpression="${angebotId}" target="dokumentId" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GW_Dokumentenversand</bpmn:incoming>
+      <bpmn:outgoing>Flow_DV_KE</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:callActivity id="Call_Kundenentscheidungseinholung" name="Kundenentscheidungseinholung" calledElement="kundenentscheidungseinholung">
+      <bpmn:documentation>Endzustände: Angebot angenommen | Angebot abgelehnt | Angebot abgelaufen.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:in businessKey="#{execution.processBusinessKey}" />
+        <camunda:in source="angebotId" target="angebotId" />
+        <camunda:in source="kundeId" target="kundeId" />
+        <camunda:out source="ergebnisKundenentscheidungseinholung" target="ergebnisKundenentscheidungseinholung" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_DV_KE</bpmn:incoming>
+      <bpmn:outgoing>Flow_KE_GW</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:exclusiveGateway id="Gateway_AngebotAngenommen" name="Angebot angenommen?">
+      <bpmn:incoming>Flow_KE_GW</bpmn:incoming>
+      <bpmn:outgoing>Flow_GW_Rechnungsstellung</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GW_Abgelehnt</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GW_Abgelaufen</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_AngebotAbgelaufen" name="Angebot abgelaufen">
+      <bpmn:incoming>Flow_GW_Abgelaufen</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:callActivity id="Call_Rechnungsstellung" name="Rechnungsstellung" calledElement="rechnungsstellung">
+      <bpmn:documentation>Wartet auf die Auftragsausführung, erzeugt die Rechnung aus dem Angebot, lässt sie vom Handwerker prüfen und versendet sie. Endzustand: Rechnung versendet.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:in businessKey="#{execution.processBusinessKey}" />
+        <camunda:in source="angebotId" target="angebotId" />
+        <camunda:in source="handwerkerId" target="handwerkerId" />
+        <camunda:in source="kundeId" target="kundeId" />
+        <camunda:out source="rechnungId" target="rechnungId" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GW_Rechnungsstellung</bpmn:incoming>
+      <bpmn:outgoing>Flow_RS_End</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="End_RechnungGestellt" name="Rechnung gestellt">
+      <bpmn:incoming>Flow_RS_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_AES" sourceRef="Start_SpracheingabeEingegangen" targetRef="Call_Angebotsentwurfserstellung" />
+    <bpmn:sequenceFlow id="Flow_AES_GW" sourceRef="Call_Angebotsentwurfserstellung" targetRef="Gateway_AngebotsentwurfBestaetigt" />
+    <bpmn:sequenceFlow id="Flow_GW_Dokumentenversand" name="Angebotsentwurf bestätigt" sourceRef="Gateway_AngebotsentwurfBestaetigt" targetRef="Call_Dokumentenversand">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${ergebnisAngebotsentwurfserstellung == 'ANGEBOTSENTWURF_BESTAETIGT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_GW_AngebotVerworfen" name="Angebotsentwurf verworfen" sourceRef="Gateway_AngebotsentwurfBestaetigt" targetRef="End_AngebotVerworfen">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${ergebnisAngebotsentwurfserstellung == 'ANGEBOTSENTWURF_VERWORFEN'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_DV_KE" sourceRef="Call_Dokumentenversand" targetRef="Call_Kundenentscheidungseinholung" />
+    <bpmn:sequenceFlow id="Flow_KE_GW" sourceRef="Call_Kundenentscheidungseinholung" targetRef="Gateway_AngebotAngenommen" />
+    <bpmn:sequenceFlow id="Flow_GW_Rechnungsstellung" name="Angebot angenommen" sourceRef="Gateway_AngebotAngenommen" targetRef="Call_Rechnungsstellung">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${ergebnisKundenentscheidungseinholung == 'ANGEBOT_ANGENOMMEN'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_GW_Abgelehnt" name="Angebot abgelehnt" sourceRef="Gateway_AngebotAngenommen" targetRef="End_AngebotAbgelehnt">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${ergebnisKundenentscheidungseinholung == 'ANGEBOT_ABGELEHNT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_GW_Abgelaufen" name="Angebot abgelaufen" sourceRef="Gateway_AngebotAngenommen" targetRef="End_AngebotAbgelaufen">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${ergebnisKundenentscheidungseinholung == 'ANGEBOT_ABGELAUFEN'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_RS_End" sourceRef="Call_Rechnungsstellung" targetRef="End_RechnungGestellt" />
+    <bpmn:endEvent id="End_AngebotAbgelehnt" name="Angebot abgelehnt">
+      <bpmn:incoming>Flow_GW_Abgelehnt</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmn:message id="Message_SpracheingabeEingegangen" name="spracheingabeEingegangen" />
+  <bpmndi:BPMNDiagram id="Diagram_angebotsabwicklung">
+    <bpmndi:BPMNPlane id="Plane_angebotsabwicklung" bpmnElement="Collaboration_angebotsabwicklung">
+      <bpmndi:BPMNShape id="Pool_angebotsabwicklung_di" bpmnElement="Pool_angebotsabwicklung" isHorizontal="true">
+        <dc:Bounds x="120" y="230" width="1940" height="300" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_SpracheingabeEingegangen_di" bpmnElement="Start_SpracheingabeEingegangen">
+        <dc:Bounds x="182" y="352" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="160" y="393" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Call_Angebotsentwurfserstellung_di" bpmnElement="Call_Angebotsentwurfserstellung">
+        <dc:Bounds x="270" y="330" width="300" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_AngebotsentwurfBestaetigt_di" bpmnElement="Gateway_AngebotsentwurfBestaetigt" isMarkerVisible="true">
+        <dc:Bounds x="620" y="345" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="600" y="298" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AngebotVerworfen_di" bpmnElement="End_AngebotVerworfen">
+        <dc:Bounds x="627" y="442" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="670" y="453" width="100" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Call_Dokumentenversand_di" bpmnElement="Call_Dokumentenversand">
+        <dc:Bounds x="790" y="330" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Call_Kundenentscheidungseinholung_di" bpmnElement="Call_Kundenentscheidungseinholung">
+        <dc:Bounds x="1050" y="330" width="220" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_AngebotAngenommen_di" bpmnElement="Gateway_AngebotAngenommen" isMarkerVisible="true">
+        <dc:Bounds x="1320" y="345" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1269" y="306" width="74" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AngebotAbgelaufen_di" bpmnElement="End_AngebotAbgelaufen">
+        <dc:Bounds x="1407" y="262" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1450" y="273" width="100" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Call_Rechnungsstellung_di" bpmnElement="Call_Rechnungsstellung">
+        <dc:Bounds x="1500" y="330" width="360" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_RechnungGestellt_di" bpmnElement="End_RechnungGestellt">
+        <dc:Bounds x="1922" y="352" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1900" y="393" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AngebotAbgelehnt_di" bpmnElement="End_AngebotAbgelehnt">
+        <dc:Bounds x="1327" y="472" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1374" y="483" width="93" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_AES_di" bpmnElement="Flow_Start_AES">
+        <di:waypoint x="218" y="370" />
+        <di:waypoint x="270" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_AES_GW_di" bpmnElement="Flow_AES_GW">
+        <di:waypoint x="570" y="370" />
+        <di:waypoint x="620" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_GW_Dokumentenversand_di" bpmnElement="Flow_GW_Dokumentenversand">
+        <di:waypoint x="670" y="370" />
+        <di:waypoint x="790" y="370" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="682" y="377" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_GW_AngebotVerworfen_di" bpmnElement="Flow_GW_AngebotVerworfen">
+        <di:waypoint x="645" y="395" />
+        <di:waypoint x="645" y="442" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="558" y="415" width="82" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_DV_KE_di" bpmnElement="Flow_DV_KE">
+        <di:waypoint x="990" y="370" />
+        <di:waypoint x="1050" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_KE_GW_di" bpmnElement="Flow_KE_GW">
+        <di:waypoint x="1270" y="370" />
+        <di:waypoint x="1320" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_GW_Rechnungsstellung_di" bpmnElement="Flow_GW_Rechnungsstellung">
+        <di:waypoint x="1370" y="370" />
+        <di:waypoint x="1500" y="370" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1395" y="377" width="70" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_GW_Abgelehnt_di" bpmnElement="Flow_GW_Abgelehnt">
+        <di:waypoint x="1345" y="395" />
+        <di:waypoint x="1345" y="472" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1355" y="429" width="49" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_GW_Abgelaufen_di" bpmnElement="Flow_GW_Abgelaufen">
+        <di:waypoint x="1345" y="345" />
+        <di:waypoint x="1345" y="280" />
+        <di:waypoint x="1407" y="280" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1352" y="290" width="52" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_RS_End_di" bpmnElement="Flow_RS_End">
+        <di:waypoint x="1860" y="370" />
+        <di:waypoint x="1922" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Participant_Frontend_di" bpmnElement="Participant_Frontend" isHorizontal="true">
+        <dc:Bounds x="120" y="40" width="1940" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_KIService_di" bpmnElement="Participant_KIService" isHorizontal="true">
+        <dc:Bounds x="120" y="630" width="520" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_Kunde_di" bpmnElement="Participant_Kunde" isHorizontal="true">
+        <dc:Bounds x="700" y="630" width="1360" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Annotation_Spracheingabe_di" bpmnElement="Annotation_Spracheingabe">
+        <dc:Bounds x="215" y="108" width="170" height="98" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="MF_Spracheingabe_di" bpmnElement="MF_Spracheingabe">
+        <di:waypoint x="200" y="100" />
+        <di:waypoint x="200" y="352" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="122" y="140" width="75" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_AuftragZurPositionsermittlung_di" bpmnElement="MF_AuftragZurPositionsermittlung">
+        <di:waypoint x="330" y="410" />
+        <di:waypoint x="330" y="630" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="338" y="544" width="108" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Angebotspositionen_di" bpmnElement="MF_Angebotspositionen">
+        <di:waypoint x="450" y="630" />
+        <di:waypoint x="450" y="410" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="458" y="582" width="105" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Angebotsentwurf_di" bpmnElement="MF_Angebotsentwurf">
+        <di:waypoint x="400" y="330" />
+        <di:waypoint x="400" y="100" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="408" y="115" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Angebotspruefergebnis_di" bpmnElement="MF_Angebotspruefergebnis">
+        <di:waypoint x="520" y="100" />
+        <di:waypoint x="520" y="330" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="528" y="160" width="115" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_A_Dokument_di" bpmnElement="MF_A_Dokument">
+        <di:waypoint x="890" y="410" />
+        <di:waypoint x="890" y="630" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="898" y="544" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Kundenentscheidung_di" bpmnElement="MF_Kundenentscheidung">
+        <di:waypoint x="1100" y="630" />
+        <di:waypoint x="1100" y="410" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="988" y="603" width="104" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Angebotserinnerung_di" bpmnElement="MF_Angebotserinnerung">
+        <di:waypoint x="1210" y="410" />
+        <di:waypoint x="1210" y="630" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1218" y="582" width="105" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Auftragsabschluss_di" bpmnElement="MF_Auftragsabschluss">
+        <di:waypoint x="1560" y="100" />
+        <di:waypoint x="1560" y="330" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1568" y="115" width="100" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Rechnungsentwurf_di" bpmnElement="MF_Rechnungsentwurf">
+        <di:waypoint x="1680" y="330" />
+        <di:waypoint x="1680" y="100" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1688" y="160" width="95" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Rechnungspruefergebnis_di" bpmnElement="MF_Rechnungspruefergebnis">
+        <di:waypoint x="1800" y="100" />
+        <di:waypoint x="1800" y="330" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1808" y="115" width="120" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_R_Dokument_di" bpmnElement="MF_R_Dokument">
+        <di:waypoint x="1620" y="410" />
+        <di:waypoint x="1620" y="630" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1628" y="544" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Assoc_Annotation_Spracheingabe_di" bpmnElement="Assoc_Annotation_Spracheingabe">
+        <di:waypoint x="200" y="157" />
+        <di:waypoint x="215" y="157" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
