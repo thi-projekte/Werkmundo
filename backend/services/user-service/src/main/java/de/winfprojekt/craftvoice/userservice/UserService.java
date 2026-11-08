@@ -426,7 +426,7 @@ public class UserService {
                 "Customer deleted/anonymized by craftsman " + owner.id
         );
     }
-
+@Transactional
     public List<UserEntity> listCustomers() {
         UserEntity owner = syncUserWithDatabase();
         if (owner == null) {
