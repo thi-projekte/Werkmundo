@@ -1,23 +1,41 @@
-package de.werkmundo.offer.application;
+package de.werkmundo.offer.application.usecase.customer;
 
+import de.werkmundo.offer.application.security.OfferAccessTokenService;
 import de.werkmundo.offer.domain.Offer;
 import de.werkmundo.offer.domain.OfferRepository;
 import de.werkmundo.offer.domain.OfferStatus;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import java.time.Clock;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
+@ApplicationScoped
 public class RejectOfferUseCase {
     private final OfferRepository offerRepository;
+    private final OfferAccessTokenService accessTokenService;
+    private final Clock clock;
 
+    @Inject
     public RejectOfferUseCase(OfferRepository offerRepository) {
-        this.offerRepository = Objects.requireNonNull(offerRepository, "offerRepository must not be null");
+        this(offerRepository, new OfferAccessTokenService(), Clock.systemUTC());
     }
 
-    public Offer execute(String businessKey) {
+    public RejectOfferUseCase(
+            OfferRepository offerRepository,
+            OfferAccessTokenService accessTokenService,
+            Clock clock) {
+        this.offerRepository = Objects.requireNonNull(offerRepository, "offerRepository must not be null");
+        this.accessTokenService = Objects.requireNonNull(accessTokenService, "accessTokenService must not be null");
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+    }
+
+    public Offer execute(String businessKey, String accessToken) {
         Objects.requireNonNull(businessKey, "businessKey must not be null");
 
         Offer offer = offerRepository.findByBusinessKey(businessKey)
                 .orElseThrow(() -> new NoSuchElementException("Offer not found: " + businessKey));
+        accessTokenService.requireValid(offer, accessToken, clock.instant());
 
         if (offer.getStatus() != OfferStatus.SENT) {
             throw new IllegalStateException("Only sent offers can be rejected by the customer");

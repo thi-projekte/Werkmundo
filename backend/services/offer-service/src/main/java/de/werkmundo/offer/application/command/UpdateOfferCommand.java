@@ -1,4 +1,4 @@
-package de.werkmundo.offer.application;
+package de.werkmundo.offer.application.command;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -8,7 +8,6 @@ public record UpdateOfferCommand(
         String businessKey,
         String customerId,
         String craftsmanId,
-        String acceptanceToken,
         BigDecimal estimatedWorkDurationHours,
         List<String> correctionSuggestions,
         List<CreateOfferPositionCommand> positions) {

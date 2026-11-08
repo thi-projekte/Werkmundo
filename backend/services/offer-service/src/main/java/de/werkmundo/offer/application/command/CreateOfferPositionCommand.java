@@ -1,4 +1,4 @@
-package de.werkmundo.offer.application;
+package de.werkmundo.offer.application.command;
 
 import de.werkmundo.offer.domain.OfferPositionType;
 import java.math.BigDecimal;

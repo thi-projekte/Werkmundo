@@ -1,6 +1,8 @@
 package de.werkmundo.offer.domain;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,7 +13,8 @@ public class Offer {
     private final String businessKey;
     private String customerId;
     private String craftsmanId;
-    private String acceptanceToken;
+    private String customerAccessTokenHash;
+    private Instant customerAccessTokenExpiresAt;
     private BigDecimal estimatedWorkDurationHours;
     private final List<String> correctionSuggestions = new ArrayList<>();
     private final List<String> customerChangeRequests = new ArrayList<>();
@@ -53,20 +56,35 @@ public class Offer {
         updateTimestamp();
     }
 
-    public String getAcceptanceToken() {
-        return acceptanceToken;
+    public String customerAccessTokenHash() {
+        return customerAccessTokenHash;
     }
 
-    public void setAcceptanceToken(String acceptanceToken) {
-        requireEditable();
-        this.acceptanceToken = acceptanceToken;
+    public Instant customerAccessTokenExpiresAt() {
+        return customerAccessTokenExpiresAt;
+    }
+
+    public void setCustomerAccessToken(String tokenHash, Instant expiresAt) {
+        if (status != OfferStatus.READY_TO_SEND) {
+            throw new IllegalStateException("Customer access token can only be issued for approved offers");
+        }
+        customerAccessTokenHash = Objects.requireNonNull(tokenHash, "tokenHash must not be null");
+        customerAccessTokenExpiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
         updateTimestamp();
+    }
+
+    public boolean hasActiveCustomerAccessTokenAt(Instant now) {
+        return customerAccessTokenHash != null
+                && customerAccessTokenExpiresAt != null
+                && customerAccessTokenExpiresAt.isAfter(Objects.requireNonNull(now, "now must not be null"))
+                && (status == OfferStatus.SENT || status == OfferStatus.CHANGE_REQUESTED);
     }
 
     public BigDecimal getTotalPrice() {
         return positions.stream()
                 .map(OfferPosition::getLineTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     public BigDecimal getEstimatedWorkDurationHours() {
@@ -172,7 +190,6 @@ public class Offer {
 
         customerId = updatedOffer.customerId;
         craftsmanId = updatedOffer.craftsmanId;
-        acceptanceToken = updatedOffer.acceptanceToken;
         estimatedWorkDurationHours = updatedOffer.estimatedWorkDurationHours;
         correctionSuggestions.clear();
         correctionSuggestions.addAll(updatedOffer.correctionSuggestions);
@@ -211,8 +228,19 @@ public class Offer {
     private void changeStatusTo(OfferStatus newStatus) {
         requireTransition(newStatus);
         status = newStatus;
+        if (newStatus == OfferStatus.DRAFT
+                || newStatus == OfferStatus.ACCEPTED_BY_CUSTOMER
+                || newStatus == OfferStatus.REJECTED_BY_CUSTOMER
+                || newStatus == OfferStatus.CANCELLED) {
+            revokeCustomerAccessToken();
+        }
         LocalDateTime changedAt = LocalDateTime.now();
         statusHistory.add(new OfferStatusHistory(newStatus, changedAt));
         updatedAt = changedAt;
+    }
+
+    private void revokeCustomerAccessToken() {
+        customerAccessTokenHash = null;
+        customerAccessTokenExpiresAt = null;
     }
 }

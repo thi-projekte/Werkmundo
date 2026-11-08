@@ -1,5 +1,7 @@
 package de.werkmundo.offer.application;
 
+import de.werkmundo.offer.application.security.OfferAccessTokenService;
+import de.werkmundo.offer.application.usecase.customer.RequestOfferChangesUseCase;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -17,12 +19,13 @@ class RequestOfferChangesUseCaseTest {
     @Test
     void recordsCustomerChangeRequestAndSavesOffer() {
         Offer offer = new Offer("offer-123");
-        offer.markReadyToSend();
-        offer.markSent();
+        OfferAccessTokenService tokenService = new OfferAccessTokenService();
+        String accessToken = OfferAccessTokenTestSupport.issueForSentOffer(offer, tokenService);
         OfferRepository repository = repositoryFor(offer);
-        RequestOfferChangesUseCase useCase = new RequestOfferChangesUseCase(repository);
+        RequestOfferChangesUseCase useCase = new RequestOfferChangesUseCase(
+                repository, tokenService, OfferAccessTokenTestSupport.CLOCK);
 
-        Offer result = useCase.execute("offer-123", "Please update the delivery date");
+        Offer result = useCase.execute("offer-123", accessToken, "Please update the delivery date");
 
         assertSame(offer, result);
         assertEquals(OfferStatus.CHANGE_REQUESTED, result.getStatus());
@@ -51,7 +54,7 @@ class RequestOfferChangesUseCaseTest {
         RequestOfferChangesUseCase useCase = new RequestOfferChangesUseCase(repository);
 
         assertThrows(NoSuchElementException.class,
-                () -> useCase.execute("missing-offer", "Please update the delivery date"));
+                () -> useCase.execute("missing-offer", "token", "Please update the delivery date"));
     }
 
     private OfferRepository repositoryFor(Offer offer) {

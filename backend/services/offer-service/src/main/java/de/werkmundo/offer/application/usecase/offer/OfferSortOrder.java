@@ -1,4 +1,4 @@
-package de.werkmundo.offer.application;
+package de.werkmundo.offer.application.usecase.offer;
 
 public enum OfferSortOrder {
     NEWEST_FIRST,

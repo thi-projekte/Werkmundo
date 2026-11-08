@@ -1,9 +1,11 @@
 package de.werkmundo.offer.domain;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 
 public class OfferPosition {
+    private static final int PRICE_SCALE = 2;
     private Long id;
     private Offer offer;
     private OfferPositionType type;
@@ -33,7 +35,7 @@ public class OfferPosition {
         this.quantity = Objects.requireNonNull(quantity, "quantity must not be null");
         this.unit = unit;
         this.catalogProductId = catalogProductId;
-        this.unitPrice = Objects.requireNonNull(unitPrice, "unitPrice must not be null");
+        this.unitPrice = roundPrice(unitPrice);
         this.positionOrder = positionOrder;
     }
 
@@ -122,11 +124,11 @@ public class OfferPosition {
 
     public void setUnitPrice(BigDecimal unitPrice) {
         requireOfferEditable();
-        this.unitPrice = Objects.requireNonNull(unitPrice, "unitPrice must not be null");
+        this.unitPrice = roundPrice(unitPrice);
     }
 
     public BigDecimal getLineTotal() {
-        return quantity.multiply(unitPrice);
+        return quantity.multiply(unitPrice).setScale(PRICE_SCALE, RoundingMode.HALF_UP);
     }
 
     public int getPositionOrder() {
@@ -142,5 +144,10 @@ public class OfferPosition {
         if (offer != null) {
             offer.requireEditable();
         }
+    }
+
+    private BigDecimal roundPrice(BigDecimal price) {
+        return Objects.requireNonNull(price, "unitPrice must not be null")
+                .setScale(PRICE_SCALE, RoundingMode.HALF_UP);
     }
 }

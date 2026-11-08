@@ -121,6 +121,16 @@ class OfferTest {
     }
 
     @Test
+    void totalPriceIsRoundedToTwoDecimals() {
+        Offer offer = new Offer("business-123");
+        offer.addPosition(new OfferPosition(
+                OfferPositionType.MATERIAL, "Wood", null, null, BigDecimal.ONE, "meter", null,
+                new BigDecimal("1.005"), 1));
+
+        assertEquals(new BigDecimal("1.01"), offer.getTotalPrice());
+    }
+
+    @Test
     void returnedListsCannotBeModified() {
         Offer offer = new Offer("business-123");
 

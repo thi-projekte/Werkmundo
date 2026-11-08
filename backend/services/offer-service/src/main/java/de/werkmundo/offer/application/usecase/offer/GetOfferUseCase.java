@@ -1,13 +1,17 @@
-package de.werkmundo.offer.application;
+package de.werkmundo.offer.application.usecase.offer;
 
 import de.werkmundo.offer.domain.Offer;
 import de.werkmundo.offer.domain.OfferRepository;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
+@ApplicationScoped
 public class GetOfferUseCase {
     private final OfferRepository offerRepository;
 
+    @Inject
     public GetOfferUseCase(OfferRepository offerRepository) {
         this.offerRepository = Objects.requireNonNull(offerRepository, "offerRepository must not be null");
     }

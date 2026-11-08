@@ -1,5 +1,8 @@
 package de.werkmundo.offer.application;
 
+import de.werkmundo.offer.application.command.CreateOfferCommand;
+import de.werkmundo.offer.application.command.CreateOfferPositionCommand;
+import de.werkmundo.offer.application.usecase.offer.CreateOfferUseCase;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
@@ -51,7 +54,6 @@ class CreateOfferUseCaseTest {
                 "business-123",
                 "customer-456",
                 "craftsman-789",
-                "accept-token",
                 new BigDecimal("2.5"),
                 List.of("Confirm measurements"),
                 List.of(position));
@@ -62,7 +64,6 @@ class CreateOfferUseCaseTest {
         assertEquals("business-123", result.getBusinessKey());
         assertEquals("customer-456", result.getCustomerId());
         assertEquals("craftsman-789", result.getCraftsmanId());
-        assertEquals("accept-token", result.getAcceptanceToken());
         assertEquals(new BigDecimal("25.00"), result.getTotalPrice());
         assertEquals(new BigDecimal("2.5"), result.getEstimatedWorkDurationHours());
         assertEquals(List.of("Confirm measurements"), result.getCorrectionSuggestions());

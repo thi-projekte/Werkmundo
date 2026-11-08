@@ -1,25 +1,28 @@
-package de.werkmundo.offer.application;
+package de.werkmundo.offer.application.usecase.offer;
 
 import de.werkmundo.offer.domain.Offer;
 import de.werkmundo.offer.domain.OfferRepository;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
-public class RequestOfferChangesUseCase {
+@ApplicationScoped
+public class CancelOfferUseCase {
     private final OfferRepository offerRepository;
 
-    public RequestOfferChangesUseCase(OfferRepository offerRepository) {
+    @Inject
+    public CancelOfferUseCase(OfferRepository offerRepository) {
         this.offerRepository = Objects.requireNonNull(offerRepository, "offerRepository must not be null");
     }
 
-    public Offer execute(String businessKey, String changeRequest) {
+    public Offer execute(String businessKey) {
         Objects.requireNonNull(businessKey, "businessKey must not be null");
-        Objects.requireNonNull(changeRequest, "changeRequest must not be null");
 
         Offer offer = offerRepository.findByBusinessKey(businessKey)
                 .orElseThrow(() -> new NoSuchElementException("Offer not found: " + businessKey));
 
-        offer.requestChanges(changeRequest);
+        offer.cancel();
         return offerRepository.save(offer);
     }
 }

@@ -29,7 +29,7 @@ class OfferPositionTest {
         assertEquals("meter", position.getUnit());
         assertEquals("catalog-123", position.getCatalogProductId());
         assertEquals(new BigDecimal("12.00"), position.getUnitPrice());
-        assertEquals(new BigDecimal("30.000"), position.getLineTotal());
+        assertEquals(new BigDecimal("30.00"), position.getLineTotal());
         assertEquals(2, position.getPositionOrder());
         assertNull(position.getId());
         assertNull(position.getOffer());
@@ -66,5 +66,22 @@ class OfferPositionTest {
         assertEquals(new BigDecimal("10.00"), position.getUnitPrice());
         assertEquals(new BigDecimal("30.00"), position.getLineTotal());
         assertEquals(4, position.getPositionOrder());
+    }
+
+    @Test
+    void roundsUnitPriceAndLineTotalToTwoDecimals() {
+        OfferPosition position = new OfferPosition(
+                OfferPositionType.MATERIAL,
+                "Wood",
+                null,
+                null,
+                new BigDecimal("1.5"),
+                "meter",
+                null,
+                new BigDecimal("1.005"),
+                1);
+
+        assertEquals(new BigDecimal("1.01"), position.getUnitPrice());
+        assertEquals(new BigDecimal("1.52"), position.getLineTotal());
     }
 }

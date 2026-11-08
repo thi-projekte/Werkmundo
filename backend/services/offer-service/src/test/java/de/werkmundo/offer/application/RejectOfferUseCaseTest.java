@@ -1,5 +1,7 @@
 package de.werkmundo.offer.application;
 
+import de.werkmundo.offer.application.security.OfferAccessTokenService;
+import de.werkmundo.offer.application.usecase.customer.RejectOfferUseCase;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -17,11 +19,14 @@ class RejectOfferUseCaseTest {
 
     @Test
     void rejectsSentOfferAndSavesIt() {
-        Offer offer = sentOffer();
+        Offer offer = new Offer("offer-123");
+        OfferAccessTokenService tokenService = new OfferAccessTokenService();
+        String accessToken = OfferAccessTokenTestSupport.issueForSentOffer(offer, tokenService);
         AtomicInteger saveCalls = new AtomicInteger();
-        RejectOfferUseCase useCase = new RejectOfferUseCase(repositoryFor(offer, saveCalls));
+        RejectOfferUseCase useCase = new RejectOfferUseCase(
+                repositoryFor(offer, saveCalls), tokenService, OfferAccessTokenTestSupport.CLOCK);
 
-        Offer result = useCase.execute("offer-123");
+        Offer result = useCase.execute("offer-123", accessToken);
 
         assertSame(offer, result);
         assertEquals(OfferStatus.REJECTED_BY_CUSTOMER, result.getStatus());
@@ -35,7 +40,7 @@ class RejectOfferUseCaseTest {
         AtomicInteger saveCalls = new AtomicInteger();
         RejectOfferUseCase useCase = new RejectOfferUseCase(repositoryFor(offer, saveCalls));
 
-        assertThrows(IllegalStateException.class, () -> useCase.execute("offer-123"));
+        assertThrows(SecurityException.class, () -> useCase.execute("offer-123", "invalid-token"));
 
         assertEquals(OfferStatus.DRAFT, offer.getStatus());
         assertEquals(0, saveCalls.get());
@@ -45,14 +50,7 @@ class RejectOfferUseCaseTest {
     void throwsWhenOfferDoesNotExist() {
         RejectOfferUseCase useCase = new RejectOfferUseCase(repositoryFor(null, new AtomicInteger()));
 
-        assertThrows(NoSuchElementException.class, () -> useCase.execute("missing-offer"));
-    }
-
-    private Offer sentOffer() {
-        Offer offer = new Offer("offer-123");
-        offer.markReadyToSend();
-        offer.markSent();
-        return offer;
+        assertThrows(NoSuchElementException.class, () -> useCase.execute("missing-offer", "token"));
     }
 
     private OfferRepository repositoryFor(Offer offer, AtomicInteger saveCalls) {

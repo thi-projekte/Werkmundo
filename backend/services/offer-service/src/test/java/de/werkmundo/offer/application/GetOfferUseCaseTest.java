@@ -1,5 +1,6 @@
 package de.werkmundo.offer.application;
 
+import de.werkmundo.offer.application.usecase.offer.GetOfferUseCase;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

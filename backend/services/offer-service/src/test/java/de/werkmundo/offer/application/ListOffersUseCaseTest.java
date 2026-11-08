@@ -1,5 +1,7 @@
 package de.werkmundo.offer.application;
 
+import de.werkmundo.offer.application.usecase.offer.ListOffersUseCase;
+import de.werkmundo.offer.application.usecase.offer.OfferSortOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import de.werkmundo.offer.domain.Offer;

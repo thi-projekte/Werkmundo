@@ -1,5 +1,8 @@
 package de.werkmundo.offer.application;
 
+import de.werkmundo.offer.application.command.CreateOfferPositionCommand;
+import de.werkmundo.offer.application.command.UpdateOfferCommand;
+import de.werkmundo.offer.application.usecase.offer.UpdateOfferUseCase;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -90,7 +93,6 @@ class UpdateOfferUseCaseTest {
                 businessKey,
                 "customer-456",
                 "craftsman-789",
-                "accept-token",
                 new BigDecimal("2.5"),
                 List.of("Confirm measurements"),
                 List.of(position));
