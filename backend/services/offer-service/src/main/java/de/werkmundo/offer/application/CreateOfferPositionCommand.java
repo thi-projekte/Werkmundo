@@ -12,6 +12,5 @@ public record CreateOfferPositionCommand(
         String unit,
         String catalogProductId,
         BigDecimal unitPrice,
-        BigDecimal lineTotal,
         int positionOrder) {
 }

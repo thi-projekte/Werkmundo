@@ -19,7 +19,6 @@ class OfferPositionTest {
                 "meter",
                 "catalog-123",
                 new BigDecimal("12.00"),
-                new BigDecimal("30.00"),
                 2);
 
         assertEquals(OfferPositionType.MATERIAL, position.getType());
@@ -30,7 +29,7 @@ class OfferPositionTest {
         assertEquals("meter", position.getUnit());
         assertEquals("catalog-123", position.getCatalogProductId());
         assertEquals(new BigDecimal("12.00"), position.getUnitPrice());
-        assertEquals(new BigDecimal("30.00"), position.getLineTotal());
+        assertEquals(new BigDecimal("30.000"), position.getLineTotal());
         assertEquals(2, position.getPositionOrder());
         assertNull(position.getId());
         assertNull(position.getOffer());
@@ -40,7 +39,7 @@ class OfferPositionTest {
     void settersUpdatePositionFields() {
         OfferPosition position = new OfferPosition(
                 OfferPositionType.OTHER, "Initial", null, null, BigDecimal.ONE, "item", null,
-                BigDecimal.ZERO, BigDecimal.ZERO, 1);
+                BigDecimal.ZERO, 1);
         Offer offer = new Offer("business-123");
 
         position.setId(7L);
@@ -53,7 +52,6 @@ class OfferPositionTest {
         position.setUnit("hour");
         position.setCatalogProductId("catalog-456");
         position.setUnitPrice(new BigDecimal("10.00"));
-        position.setLineTotal(new BigDecimal("30.00"));
         position.setPositionOrder(4);
 
         assertEquals(7L, position.getId());

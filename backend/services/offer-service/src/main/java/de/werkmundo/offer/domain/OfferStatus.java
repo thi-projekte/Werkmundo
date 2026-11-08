@@ -2,7 +2,10 @@ package de.werkmundo.offer.domain;
 
 public enum OfferStatus {
     DRAFT,
-    PENDING_APPROVAL,
-    APPROVED,
-    REJECTED
+    READY_TO_SEND,
+    SENT,
+    ACCEPTED_BY_CUSTOMER,
+    REJECTED_BY_CUSTOMER,
+    CHANGE_REQUESTED,
+    CANCELLED
 }

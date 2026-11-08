@@ -1,6 +1,7 @@
 package de.werkmundo.offer.domain;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 public class OfferPosition {
     private Long id;
@@ -13,7 +14,6 @@ public class OfferPosition {
     private String unit;
     private String catalogProductId;
     private BigDecimal unitPrice;
-    private BigDecimal lineTotal;
     private int positionOrder;
 
     public OfferPosition(
@@ -25,17 +25,15 @@ public class OfferPosition {
             String unit,
             String catalogProductId,
             BigDecimal unitPrice,
-            BigDecimal lineTotal,
             int positionOrder) {
         this.type = type;
         this.name = name;
         this.description = description;
         this.manufacturer = manufacturer;
-        this.quantity = quantity;
+        this.quantity = Objects.requireNonNull(quantity, "quantity must not be null");
         this.unit = unit;
         this.catalogProductId = catalogProductId;
-        this.unitPrice = unitPrice;
-        this.lineTotal = lineTotal;
+        this.unitPrice = Objects.requireNonNull(unitPrice, "unitPrice must not be null");
         this.positionOrder = positionOrder;
     }
 
@@ -60,6 +58,7 @@ public class OfferPosition {
     }
 
     public void setType(OfferPositionType type) {
+        requireOfferEditable();
         this.type = type;
     }
 
@@ -68,6 +67,7 @@ public class OfferPosition {
     }
 
     public void setName(String name) {
+        requireOfferEditable();
         this.name = name;
     }
 
@@ -76,6 +76,7 @@ public class OfferPosition {
     }
 
     public void setDescription(String description) {
+        requireOfferEditable();
         this.description = description;
     }
 
@@ -84,6 +85,7 @@ public class OfferPosition {
     }
 
     public void setManufacturer(String manufacturer) {
+        requireOfferEditable();
         this.manufacturer = manufacturer;
     }
 
@@ -92,7 +94,8 @@ public class OfferPosition {
     }
 
     public void setQuantity(BigDecimal quantity) {
-        this.quantity = quantity;
+        requireOfferEditable();
+        this.quantity = Objects.requireNonNull(quantity, "quantity must not be null");
     }
 
     public String getUnit() {
@@ -100,6 +103,7 @@ public class OfferPosition {
     }
 
     public void setUnit(String unit) {
+        requireOfferEditable();
         this.unit = unit;
     }
 
@@ -108,6 +112,7 @@ public class OfferPosition {
     }
 
     public void setCatalogProductId(String catalogProductId) {
+        requireOfferEditable();
         this.catalogProductId = catalogProductId;
     }
 
@@ -116,15 +121,12 @@ public class OfferPosition {
     }
 
     public void setUnitPrice(BigDecimal unitPrice) {
-        this.unitPrice = unitPrice;
+        requireOfferEditable();
+        this.unitPrice = Objects.requireNonNull(unitPrice, "unitPrice must not be null");
     }
 
     public BigDecimal getLineTotal() {
-        return lineTotal;
-    }
-
-    public void setLineTotal(BigDecimal lineTotal) {
-        this.lineTotal = lineTotal;
+        return quantity.multiply(unitPrice);
     }
 
     public int getPositionOrder() {
@@ -132,6 +134,13 @@ public class OfferPosition {
     }
 
     public void setPositionOrder(int positionOrder) {
+        requireOfferEditable();
         this.positionOrder = positionOrder;
+    }
+
+    private void requireOfferEditable() {
+        if (offer != null) {
+            offer.requireEditable();
+        }
     }
 }

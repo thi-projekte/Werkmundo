@@ -29,6 +29,11 @@ class CreateOfferUseCaseTest {
             public Optional<Offer> findByBusinessKey(String businessKey) {
                 return Optional.empty();
             }
+
+            @Override
+            public List<Offer> findAllByCraftsmanId(String craftsmanId) {
+                return List.of();
+            }
         };
 
         CreateOfferUseCase useCase = new CreateOfferUseCase(repository);
@@ -41,14 +46,12 @@ class CreateOfferUseCaseTest {
                 "meter",
                 "catalog-123",
                 new BigDecimal("12.50"),
-                new BigDecimal("25.00"),
                 1);
         CreateOfferCommand command = new CreateOfferCommand(
                 "business-123",
                 "customer-456",
                 "craftsman-789",
                 "accept-token",
-                new BigDecimal("25.00"),
                 new BigDecimal("2.5"),
                 List.of("Confirm measurements"),
                 List.of(position));

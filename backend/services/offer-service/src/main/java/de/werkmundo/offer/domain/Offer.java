@@ -12,9 +12,9 @@ public class Offer {
     private String customerId;
     private String craftsmanId;
     private String acceptanceToken;
-    private BigDecimal totalPrice;
     private BigDecimal estimatedWorkDurationHours;
     private final List<String> correctionSuggestions = new ArrayList<>();
+    private final List<String> customerChangeRequests = new ArrayList<>();
     private OfferStatus status;
     private final List<OfferPosition> positions = new ArrayList<>();
     private final List<OfferStatusHistory> statusHistory = new ArrayList<>();
@@ -38,6 +38,7 @@ public class Offer {
     }
 
     public void setCustomerId(String customerId) {
+        requireEditable();
         this.customerId = customerId;
         updateTimestamp();
     }
@@ -47,6 +48,7 @@ public class Offer {
     }
 
     public void setCraftsmanId(String craftsmanId) {
+        requireEditable();
         this.craftsmanId = craftsmanId;
         updateTimestamp();
     }
@@ -56,17 +58,15 @@ public class Offer {
     }
 
     public void setAcceptanceToken(String acceptanceToken) {
+        requireEditable();
         this.acceptanceToken = acceptanceToken;
         updateTimestamp();
     }
 
     public BigDecimal getTotalPrice() {
-        return totalPrice;
-    }
-
-    public void setTotalPrice(BigDecimal totalPrice) {
-        this.totalPrice = totalPrice;
-        updateTimestamp();
+        return positions.stream()
+                .map(OfferPosition::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public BigDecimal getEstimatedWorkDurationHours() {
@@ -74,6 +74,7 @@ public class Offer {
     }
 
     public void setEstimatedWorkDurationHours(BigDecimal estimatedWorkDurationHours) {
+        requireEditable();
         this.estimatedWorkDurationHours = estimatedWorkDurationHours;
         updateTimestamp();
     }
@@ -83,22 +84,44 @@ public class Offer {
     }
 
     public void addCorrectionSuggestion(String correctionSuggestion) {
+        requireEditable();
         correctionSuggestions.add(Objects.requireNonNull(correctionSuggestion, "correctionSuggestion must not be null"));
         updateTimestamp();
     }
 
-    public OfferStatus getStatus() {
-        return status;
+    public List<String> getCustomerChangeRequests() {
+        return Collections.unmodifiableList(customerChangeRequests);
     }
 
-    public void setStatus(OfferStatus status) {
-        OfferStatus newStatus = Objects.requireNonNull(status, "status must not be null");
-        if (this.status != newStatus) {
-            this.status = newStatus;
-            LocalDateTime changedAt = LocalDateTime.now();
-            this.statusHistory.add(new OfferStatusHistory(newStatus, changedAt));
-            this.updatedAt = changedAt;
-        }
+    public void markReadyToSend() {
+        changeStatusTo(OfferStatus.READY_TO_SEND);
+    }
+
+    public void markSent() {
+        changeStatusTo(OfferStatus.SENT);
+    }
+
+    public void acceptByCustomer() {
+        changeStatusTo(OfferStatus.ACCEPTED_BY_CUSTOMER);
+    }
+
+    public void rejectByCustomer() {
+        changeStatusTo(OfferStatus.REJECTED_BY_CUSTOMER);
+    }
+
+    public void requestChanges(String changeRequest) {
+        Objects.requireNonNull(changeRequest, "changeRequest must not be null");
+        requireTransition(OfferStatus.CHANGE_REQUESTED);
+        customerChangeRequests.add(changeRequest);
+        changeStatusTo(OfferStatus.CHANGE_REQUESTED);
+    }
+
+    public void cancel() {
+        changeStatusTo(OfferStatus.CANCELLED);
+    }
+
+    public OfferStatus getStatus() {
+        return status;
     }
 
     public List<OfferPosition> getPositions() {
@@ -106,6 +129,7 @@ public class Offer {
     }
 
     public void addPosition(OfferPosition position) {
+        requireEditable();
         OfferPosition newPosition = Objects.requireNonNull(position, "position must not be null");
         newPosition.setOffer(this);
         positions.add(newPosition);
@@ -113,6 +137,7 @@ public class Offer {
     }
 
     public void replacePositions(List<OfferPosition> newPositions) {
+        requireEditable();
         List<OfferPosition> positionsToSet = List.copyOf(
                 Objects.requireNonNull(newPositions, "positions must not be null"));
         positions.forEach(position -> position.setOffer(null));
@@ -122,6 +147,7 @@ public class Offer {
     }
 
     public void replaceCorrectionSuggestions(List<String> newCorrectionSuggestions) {
+        requireEditable();
         List<String> suggestionsToSet = List.copyOf(
                 Objects.requireNonNull(newCorrectionSuggestions, "correctionSuggestions must not be null"));
         correctionSuggestions.clear();
@@ -137,11 +163,16 @@ public class Offer {
         if (updatedOffer == this) {
             return;
         }
+        if (!OfferPolicy.canEdit(status) && status != OfferStatus.READY_TO_SEND) {
+            throw new IllegalStateException("Offer cannot be changed in its current status: " + status);
+        }
+        if (status != OfferStatus.DRAFT) {
+            changeStatusTo(OfferStatus.DRAFT);
+        }
 
         customerId = updatedOffer.customerId;
         craftsmanId = updatedOffer.craftsmanId;
         acceptanceToken = updatedOffer.acceptanceToken;
-        totalPrice = updatedOffer.totalPrice;
         estimatedWorkDurationHours = updatedOffer.estimatedWorkDurationHours;
         correctionSuggestions.clear();
         correctionSuggestions.addAll(updatedOffer.correctionSuggestions);
@@ -163,5 +194,25 @@ public class Offer {
 
     private void updateTimestamp() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    void requireEditable() {
+        if (!OfferPolicy.canEdit(status)) {
+            throw new IllegalStateException("Offer cannot be changed in its current status: " + status);
+        }
+    }
+
+    private void requireTransition(OfferStatus newStatus) {
+        if (!OfferPolicy.canTransition(status, newStatus)) {
+            throw new IllegalStateException("Offer cannot transition from " + status + " to " + newStatus);
+        }
+    }
+
+    private void changeStatusTo(OfferStatus newStatus) {
+        requireTransition(newStatus);
+        status = newStatus;
+        LocalDateTime changedAt = LocalDateTime.now();
+        statusHistory.add(new OfferStatusHistory(newStatus, changedAt));
+        updatedAt = changedAt;
     }
 }

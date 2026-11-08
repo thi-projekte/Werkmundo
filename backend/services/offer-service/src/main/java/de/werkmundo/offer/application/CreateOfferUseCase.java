@@ -19,7 +19,6 @@ public class CreateOfferUseCase {
         offer.setCustomerId(command.customerId());
         offer.setCraftsmanId(command.craftsmanId());
         offer.setAcceptanceToken(command.acceptanceToken());
-        offer.setTotalPrice(command.totalPrice());
         offer.setEstimatedWorkDurationHours(command.estimatedWorkDurationHours());
 
         command.correctionSuggestions().forEach(offer::addCorrectionSuggestion);
@@ -33,7 +32,6 @@ public class CreateOfferUseCase {
                     positionCommand.unit(),
                     positionCommand.catalogProductId(),
                     positionCommand.unitPrice(),
-                    positionCommand.lineTotal(),
                     positionCommand.positionOrder());
             position.setOffer(offer);
             offer.addPosition(position);

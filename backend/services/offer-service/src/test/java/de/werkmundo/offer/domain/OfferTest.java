@@ -26,21 +26,64 @@ class OfferTest {
     void changingStatusAddsStatusHistoryEntry() {
         Offer offer = new Offer("business-123");
 
-        offer.setStatus(OfferStatus.APPROVED);
+        offer.markReadyToSend();
 
-        assertEquals(OfferStatus.APPROVED, offer.getStatus());
+        assertEquals(OfferStatus.READY_TO_SEND, offer.getStatus());
         assertEquals(2, offer.getStatusHistory().size());
-        assertEquals(OfferStatus.APPROVED, offer.getStatusHistory().get(1).getStatus());
+        assertEquals(OfferStatus.READY_TO_SEND, offer.getStatusHistory().get(1).getStatus());
         assertNotNull(offer.getStatusHistory().get(1).getChangedAt());
     }
 
     @Test
-    void settingSameStatusDoesNotAddDuplicateHistoryEntry() {
+    void customerCanRequestChangesAfterOfferWasSent() {
+        Offer offer = new Offer("business-123");
+        offer.markReadyToSend();
+        offer.markSent();
+
+        offer.requestChanges("Please update the delivery date");
+
+        assertEquals(OfferStatus.CHANGE_REQUESTED, offer.getStatus());
+        assertEquals(List.of("Please update the delivery date"), offer.getCustomerChangeRequests());
+        assertEquals(4, offer.getStatusHistory().size());
+    }
+
+    @Test
+    void offerCannotBeAcceptedBeforeItIsSent() {
         Offer offer = new Offer("business-123");
 
-        offer.setStatus(OfferStatus.DRAFT);
+        assertThrows(IllegalStateException.class, offer::acceptByCustomer);
+        assertEquals(OfferStatus.DRAFT, offer.getStatus());
+    }
 
-        assertEquals(1, offer.getStatusHistory().size());
+    @Test
+    void customerCanRejectSentOffer() {
+        Offer offer = new Offer("business-123");
+        offer.markReadyToSend();
+        offer.markSent();
+
+        offer.rejectByCustomer();
+
+        assertEquals(OfferStatus.REJECTED_BY_CUSTOMER, offer.getStatus());
+    }
+
+    @Test
+    void offerCanBeCancelledBeforeCustomerDecision() {
+        Offer offer = new Offer("business-123");
+
+        offer.cancel();
+
+        assertEquals(OfferStatus.CANCELLED, offer.getStatus());
+        assertThrows(IllegalStateException.class, offer::cancel);
+    }
+
+    @Test
+    void offerDetailsCanOnlyBeChangedBeforeSendingOrAfterChangeRequest() {
+        Offer offer = new Offer("business-123");
+        offer.markReadyToSend();
+
+        assertThrows(IllegalStateException.class, () -> offer.setEstimatedWorkDurationHours(BigDecimal.TEN));
+        offer.markSent();
+        assertThrows(IllegalStateException.class, () -> offer.setEstimatedWorkDurationHours(BigDecimal.ONE));
     }
 
     @Test
@@ -55,7 +98,6 @@ class OfferTest {
                 "hour",
                 null,
                 new BigDecimal("75.00"),
-                new BigDecimal("75.00"),
                 1);
 
         offer.addPosition(position);
@@ -66,13 +108,26 @@ class OfferTest {
     }
 
     @Test
+    void totalPriceIsCalculatedFromAllPositions() {
+        Offer offer = new Offer("business-123");
+        offer.addPosition(new OfferPosition(
+                OfferPositionType.MATERIAL, "Wood", null, null, new BigDecimal("2"), "meter", null,
+                new BigDecimal("12.50"), 1));
+        offer.addPosition(new OfferPosition(
+                OfferPositionType.LABOR, "Installation", null, null, BigDecimal.ONE, "hour", null,
+                new BigDecimal("30.00"), 2));
+
+        assertEquals(new BigDecimal("55.00"), offer.getTotalPrice());
+    }
+
+    @Test
     void returnedListsCannotBeModified() {
         Offer offer = new Offer("business-123");
 
         assertThrows(UnsupportedOperationException.class,
                 () -> offer.getPositions().add(new OfferPosition(
                         OfferPositionType.OTHER, "Item", null, null, BigDecimal.ONE, "item", null,
-                        BigDecimal.ZERO, BigDecimal.ZERO, 1)));
+                        BigDecimal.ZERO, 1)));
         assertThrows(UnsupportedOperationException.class,
                 () -> offer.getCorrectionSuggestions().add("Suggestion"));
         assertThrows(UnsupportedOperationException.class,

@@ -9,7 +9,6 @@ public record CreateOfferCommand(
         String customerId,
         String craftsmanId,
         String acceptanceToken,
-        BigDecimal totalPrice,
         BigDecimal estimatedWorkDurationHours,
         List<String> correctionSuggestions,
         List<CreateOfferPositionCommand> positions) {
