@@ -40,3 +40,41 @@ Der Testkontext verwendet H2 und deaktiviert OIDC, um externe Keycloak-Verfügba
 
 Der Service synchronisiert den angemeldeten Benutzer, verwaltet Kunden-/Unternehmensfelder und stellt Profilwerte bereit, die der Offer Service zur Berechnung nutzen kann. Angebots- und Prozesszustände gehören nicht in diese Datenbank. Weitere Gesamtarchitektur: [Backend-Service-Index](../README.md) und [Übergabehandbuch](../../../docs/PROJECT-HANDBOOK.md).
 
+
+## Abhängigkeiten zu anderen Komponenten
+
+Der User-Service stellt Benutzer-, Profil-, Unternehmens- und Kundendaten über REST-Endpunkte bereit.
+
+### Frontend
+
+Das Frontend verwendet `GET /api/users/customers/{id}` über `frontend/src/data/api/customerApi.ts`.
+
+Die Kundenantwort enthält unter anderem `id`, `firstName`, `lastName`, `email`, `street`, `houseNumber`, `zipCode` und `city`.
+
+Die Kunden-Endpunkte verwenden `CustomerResponse`, um die ausgegebenen Datenfelder gezielt zu begrenzen. Interne Felder wie `keycloakId`, `ownerId` und `roles` werden nicht ausgegeben.
+
+### Offer-Service
+
+Der Offer-Service verwendet `UserServiceClient.java` für folgende REST-Schnittstellen:
+
+| Endpunkt | Zweck |
+|---|---|
+| `GET /api/users/profile/hourly-rate` | Stundensatz für die Angebotsberechnung |
+| `GET /api/users/profile/travel-config` | Anfahrtskostenkonfiguration |
+| `GET /api/users/customers/{id}` | Kundenprofildaten |
+
+Die Anfragen sind für die Weitergabe eines Access-Tokens über `@AccessToken` konfiguriert.
+
+Die verwendeten DTOs (`StundensatzResponse`, `AnfahrtskostenKonfiguration`, `CustomerDTO`) wurden mit den Feldnamen der User-Service-Antworten verglichen. Die erwarteten Felder sind vorhanden.
+
+### Lokales Setup
+
+Der User-Service läuft in der lokalen Entwicklungsumgebung auf Port `8091`, PostgreSQL auf `5433` und Keycloak auf `8181`.
+
+Der Offer-Service verwendet die konfigurierbare Umgebungsvariable `USER_SERVICE_URL`. Bei lokalen Integrationstests muss diese auf die tatsächlich erreichbare User-Service-Adresse zeigen.
+
+### Abstimmungsbedarf
+
+Änderungen an den genannten REST-Endpunkten oder ihren Antwortfeldern müssen mit den Verantwortlichen des Frontends und des Offer-Service abgestimmt werden.
+
+Der Feldvergleich wurde durchgeführt. Ein vollständiger Integrationstest zwischen allen Komponenten steht noch aus.
