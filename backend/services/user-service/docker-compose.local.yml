@@ -1,0 +1,24 @@
+
+services:
+  user-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: local-dev-password
+      POSTGRES_DB: user-db
+    ports:
+     - "127.0.0.1:5433:5432"
+    volumes:
+      - user_local_data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: local-admin-password
+    ports:
+      - "127.0.0.1:8181:8080"
+
+volumes:
+  user_local_data:
