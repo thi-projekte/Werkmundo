@@ -82,58 +82,109 @@ public class UserService {
         return fileName.substring(fileName.lastIndexOf("."));
     }
 
-    @Transactional
-    public void register(UserEntity userData, String password) {
-        if (UserEntity.findByEmail(userData.email) != null) {
-            throw new BadRequestException("Email already registered");
-        }
+    
+@Transactional
+public void register(UserEntity userData, String password) {
 
-        UserRepresentation user = new UserRepresentation();
-        user.setUsername(userData.email);
-        user.setEmail(userData.email);
-        user.setFirstName(userData.firstName);
-        user.setLastName(userData.lastName);
-        user.setEnabled(true);
-        user.setEmailVerified(false);
+    if (userData == null || userData.email == null
+            || userData.email.isBlank()
+            || password == null || password.isBlank()) {
+        throw new BadRequestException(
+                "Email and password are required"
+        );
+    }
 
-        CredentialRepresentation cred = new CredentialRepresentation();
-        cred.setType(CredentialRepresentation.PASSWORD);
-        cred.setValue(password);
-        cred.setTemporary(false);
-        user.setCredentials(Collections.singletonList(cred));
+    if (UserEntity.findByEmail(userData.email) != null) {
+        throw new BadRequestException("Email already registered");
+    }
 
-        Response response = keycloak.realm(REALM).users().create(user);
+    UserRepresentation user = new UserRepresentation();
+    user.setUsername(userData.email);
+    user.setEmail(userData.email);
+    user.setFirstName(userData.firstName);
+    user.setLastName(userData.lastName);
+    user.setEnabled(true);
+    user.setEmailVerified(false);
+
+    CredentialRepresentation cred = new CredentialRepresentation();
+    cred.setType(CredentialRepresentation.PASSWORD);
+    cred.setValue(password);
+    cred.setTemporary(false);
+    user.setCredentials(Collections.singletonList(cred));
+
+    String keycloakId;
+
+    try (Response response =
+            keycloak.realm(REALM).users().create(user)) {
 
         if (response.getStatus() != 201) {
             throw new BadRequestException(
-                    "Could not create user in Keycloak: " + response.readEntity(String.class)
+                    "Could not create user in Keycloak: "
+                    + response.getStatus()
             );
         }
 
-        String keycloakId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
+        keycloakId = response.getLocation()
+                .getPath()
+                .replaceAll(".*/([^/]+)$", "$1");
+    }
 
+    try {
+        // OWNER-Rolle muss in Keycloak vorhanden sein
+        org.keycloak.representations.idm.RoleRepresentation ownerRole =
+                keycloak.realm(REALM)
+                        .roles()
+                        .get("OWNER")
+                        .toRepresentation();
+
+        if (ownerRole == null) {
+            throw new IllegalStateException(
+                    "OWNER role not found in Keycloak"
+            );
+        }
+
+        // OWNER-Rolle zuerst in Keycloak zuweisen
+        keycloak.realm(REALM)
+                .users()
+                .get(keycloakId)
+                .roles()
+                .realmLevel()
+                .add(Collections.singletonList(ownerRole));
+
+        // Danach lokalen Benutzer speichern
         userData.keycloakId = keycloakId;
         userData.status = UserStatus.PENDING;
         userData.roles.add(UserRole.OWNER);
-        userData.persist();
+        userData.persistAndFlush();
 
-        keycloak.realm(REALM).users().get(keycloakId).sendVerifyEmail();
+        // Verifizierungs-E-Mail anfordern
+        keycloak.realm(REALM)
+                .users()
+                .get(keycloakId)
+                .sendVerifyEmail();
 
-        // Assign default realm role in Keycloak (ensure role exists in the realm)
+        AuditLogEntity.log(
+                userData.id,
+                "REGISTRATION",
+                "OWNER registered via Keycloak"
+        );
+
+    } catch (RuntimeException e) {
+
+        // Bei Fehler angelegten Keycloak-Benutzer bereinigen
         try {
-            org.keycloak.representations.idm.RoleRepresentation ownerRole = keycloak.realm(REALM).roles().get("OWNER").toRepresentation();
-            if (ownerRole != null) {
-                keycloak.realm(REALM).users().get(keycloakId).roles().realmLevel().add(java.util.Collections.singletonList(ownerRole));
-            }
-        } catch (Exception e) {
-            // Log but don't fail registration if role assignment fails
-            AuditLogEntity.log(userData.id, "ROLE_ASSIGNMENT_FAILED", "Assigning OWNER role in Keycloak failed: " + e.getMessage());
+            keycloak.realm(REALM)
+                    .users()
+                    .get(keycloakId)
+                    .remove();
+        } catch (Exception cleanupError) {
+            e.addSuppressed(cleanupError);
         }
-        
-        AuditLogEntity.log(userData.id, "REGISTRATION", "User registered via Keycloak");
-    }
 
-    
+        throw e;
+    }
+}
+
 @Transactional
 public UserEntity syncUserWithDatabase() {
 
