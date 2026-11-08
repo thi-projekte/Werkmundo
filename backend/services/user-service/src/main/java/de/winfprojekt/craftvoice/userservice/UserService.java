@@ -22,6 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.math.BigDecimal;
 
+import io.quarkus.security.identity.SecurityIdentity;
+import jakarta.ws.rs.ForbiddenException;
+import java.util.EnumSet;
+import java.util.Set;
+
 @ApplicationScoped
 public class UserService {
 
@@ -30,6 +35,9 @@ public class UserService {
 
     @Inject
     JsonWebToken jwt;
+
+    @Inject
+    SecurityIdentity securityIdentity;
 
     @ConfigProperty(name = "DOCUMENT_STORAGE_PATH", defaultValue = "/tmp")
     String storagePath;
@@ -125,40 +133,87 @@ public class UserService {
         AuditLogEntity.log(userData.id, "REGISTRATION", "User registered via Keycloak");
     }
 
-    @Transactional
-    public UserEntity syncUserWithDatabase() {
-        String keycloakId = jwt.getSubject();
-        String email = jwt.getClaim("email");
+    
+@Transactional
+public UserEntity syncUserWithDatabase() {
 
-        if (email == null || email.isBlank()) {
-            throw new BadRequestException("User hat kein email-Claim im JWT-Token (Keycloak-Konfiguration überprüfen)");
-        }
+    String keycloakId = jwt.getSubject();
+    String email = jwt.getClaim("email");
 
-        UserEntity user = UserEntity.findByKeycloakId(keycloakId);
-
-        if (user == null) {
-            user = new UserEntity();
-            user.keycloakId = keycloakId;
-            user.email = email;
-            user.firstName = jwt.getClaim("given_name");
-            user.lastName = jwt.getClaim("family_name");
-            user.status = UserStatus.ACTIVE;
-            user.roles.add(UserRole.OWNER);
-            user.persist();
-        } else {
-            user.email = email;
-
-            if (user.firstName == null || user.firstName.isBlank()) {
-                user.firstName = jwt.getClaim("given_name");
-            }
-
-            if (user.lastName == null || user.lastName.isBlank()) {
-                user.lastName = jwt.getClaim("family_name");
-            }
-        }
-
-        return user;
+    if (keycloakId == null || keycloakId.isBlank()) {
+        throw new ForbiddenException(
+            "Invalid authenticated user"
+        );
     }
+
+    if (email == null || email.isBlank()) {
+        throw new BadRequestException(
+            "User has no email claim in JWT"
+        );
+    }
+
+    // Rollen aus der authentifizierten Identität übernehmen
+    Set<UserRole> assignedRoles =
+        EnumSet.noneOf(UserRole.class);
+
+    for (UserRole role : UserRole.values()) {
+        if (securityIdentity.hasRole(role.name())) {
+            assignedRoles.add(role);
+        }
+    }
+
+    // Benutzer ohne gültige Anwendungsrolle ablehnen
+    if (assignedRoles.isEmpty()) {
+        throw new ForbiddenException(
+            "User has no valid application role"
+        );
+    }
+
+    UserEntity user =
+        UserEntity.findByKeycloakId(keycloakId);
+
+    if (user == null) {
+        user = new UserEntity();
+
+        user.keycloakId = keycloakId;
+        user.email = email;
+        user.firstName = jwt.getClaim("given_name");
+        user.lastName = jwt.getClaim("family_name");
+        user.status = UserStatus.ACTIVE;
+
+        user.roles.addAll(assignedRoles);
+
+        user.persist();
+    } else {
+        // Gelöschte Benutzer nicht reaktivieren
+        if (user.status == UserStatus.DELETED) {
+            throw new ForbiddenException(
+                "User account is deleted"
+            );
+        }
+
+        user.email = email;
+
+        if (user.firstName == null ||
+            user.firstName.isBlank()) {
+
+            user.firstName = jwt.getClaim("given_name");
+        }
+
+        if (user.lastName == null ||
+            user.lastName.isBlank()) {
+
+            user.lastName = jwt.getClaim("family_name");
+        }
+
+        // Datenbankrollen mit Keycloak synchronisieren
+        user.roles.clear();
+        user.roles.addAll(assignedRoles);
+    }
+
+    return user;
+}
+
 
     @Transactional
     public UserEntity updateProfile(Long userId, UserEntity data) {
@@ -357,9 +412,13 @@ public class UserService {
     public UserEntity updateCustomer(Long id, UserEntity data) {
         UserEntity customer = UserEntity.findById(id);
 
-        if (customer == null || !customer.roles.contains(UserRole.CUSTOMER)) {
+        
+        if (customer == null
+            || !customer.roles.contains(UserRole.CUSTOMER)
+            || customer.status == UserStatus.DELETED) {
             throw new NotFoundException("Customer not found");
         }
+
 
         // Verify ownership - only the craftsman who created the customer can update it
         UserEntity owner = syncUserWithDatabase();
@@ -397,21 +456,23 @@ public class UserService {
         return customer;
     }
 
+    
     @Transactional
     public void deleteCustomer(Long id) {
         UserEntity customer = UserEntity.findById(id);
 
-        if (customer == null || !customer.roles.contains(UserRole.CUSTOMER)) {
+        if (customer == null
+                || !customer.roles.contains(UserRole.CUSTOMER)
+                || customer.status == UserStatus.DELETED) {
             throw new NotFoundException("Customer not found");
         }
 
-        // Verify ownership - only the craftsman who created the customer can delete it
         UserEntity owner = syncUserWithDatabase();
+
         if (owner == null || !owner.id.equals(customer.ownerId)) {
             throw new NotFoundException("Customer not found");
         }
 
-        // Anonymize customer data similarly to deleting accounts
         customer.status = UserStatus.DELETED;
         customer.email = "deleted_customer_" + customer.id + "@handwerker.de";
         customer.keycloakId = null;
@@ -421,34 +482,46 @@ public class UserService {
         customer.profilePictureUrl = null;
 
         AuditLogEntity.log(
-                customer.id,
-                "CUSTOMER_DELETED",
-                "Customer deleted/anonymized by craftsman " + owner.id
+            customer.id,
+            "CUSTOMER_DELETED",
+            "Customer deleted/anonymized by craftsman " + owner.id
         );
     }
-@Transactional
+
+    @Transactional
     public List<UserEntity> listCustomers() {
         UserEntity owner = syncUserWithDatabase();
+
         if (owner == null) {
-            throw new BadRequestException("Could not determine current user");
+            throw new BadRequestException(
+                "Could not determine current user"
+            );
         }
 
         return UserEntity.list(
-                "from UserEntity u join u.roles r where r = ?1 and u.ownerId = ?2",
-                UserRole.CUSTOMER,
-                owner.id
+            "select distinct u from UserEntity u " +
+            "join u.roles r " +
+            "where r = ?1 " +
+            "and u.ownerId = ?2 " +
+            "and u.status = ?3",
+            UserRole.CUSTOMER,
+            owner.id,
+            UserStatus.ACTIVE
         );
     }
 
+    @Transactional
     public UserEntity getCustomerById(Long id) {
         UserEntity customer = UserEntity.findById(id);
 
-        if (customer == null || !customer.roles.contains(UserRole.CUSTOMER)) {
+        if (customer == null
+                || !customer.roles.contains(UserRole.CUSTOMER)
+                || customer.status == UserStatus.DELETED) {
             throw new NotFoundException("Customer not found");
         }
 
-        // Verify ownership - only the craftsman who created the customer can view it
         UserEntity owner = syncUserWithDatabase();
+
         if (owner == null || !owner.id.equals(customer.ownerId)) {
             throw new NotFoundException("Customer not found");
         }
@@ -456,60 +529,102 @@ public class UserService {
         return customer;
     }
 
-    @Transactional
-    public void updateTravelConfig(Long userId, Map<String, Object> data) {
-        UserEntity user = UserEntity.findById(userId);
 
-        if (user == null) {
-            throw new NotFoundException("User not found");
-        }
 
-        if (data.containsKey("modell")) {
-            user.travelModel = (String) data.get("modell");
-        }
+    
+@Transactional
+public void updateTravelConfig(Long userId, Map<String, Object> data) {
+    UserEntity user = UserEntity.findById(userId);
 
-        if (data.containsKey("pauschale")) {
-            Object pauschale = data.get("pauschale");
-            if (pauschale != null) {
-                user.travelFlatRate = new BigDecimal(pauschale.toString());
+    if (user == null) {
+        throw new NotFoundException("User not found");
+    }
+
+    if (data == null) {
+        throw new BadRequestException("Request data must not be null");
+    }
+
+    if (data.containsKey("modell")) {
+        user.travelModel = optionalString(data.get("modell"), "modell");
+    }
+
+    if (data.containsKey("pauschale")) {
+        user.travelFlatRate = optionalDecimal(data.get("pauschale"), "pauschale");
+    }
+
+    if (data.containsKey("kmSatz")) {
+        user.travelKmRate = optionalDecimal(data.get("kmSatz"), "kmSatz");
+    }
+
+    if (data.containsKey("adresse")) {
+        Object rawAddress = data.get("adresse");
+
+        if (rawAddress != null) {
+            if (!(rawAddress instanceof Map<?, ?> address)) {
+                throw new BadRequestException(
+                    "adresse must be an object"
+                );
+            }
+
+            if (address.containsKey("strasse")) {
+                user.street = optionalString(address.get("strasse"), "strasse");
+            }
+            if (address.containsKey("hausnummer")) {
+                user.houseNumber = optionalString(address.get("hausnummer"), "hausnummer");
+            }
+            if (address.containsKey("plz")) {
+                user.zipCode = optionalString(address.get("plz"), "plz");
+            }
+            if (address.containsKey("ort")) {
+                user.city = optionalString(address.get("ort"), "ort");
+            }
+            if (address.containsKey("bundesland")) {
+                user.state = optionalString(address.get("bundesland"), "bundesland");
+            }
+            if (address.containsKey("land")) {
+                user.country = optionalString(address.get("land"), "land");
             }
         }
+    }
 
-        if (data.containsKey("kmSatz")) {
-            Object kmSatz = data.get("kmSatz");
-            if (kmSatz != null) {
-                user.travelKmRate = new BigDecimal(kmSatz.toString());
-            }
+    AuditLogEntity.log(
+        user.id,
+        "TRAVEL_CONFIG_UPDATE",
+        "User updated travel configuration and address details"
+    );
+}
+
+private String optionalString(Object value, String field) {
+    if (value == null) {
+        return null;
+    }
+
+    if (!(value instanceof String text)) {
+        throw new BadRequestException(field + " must be a string");
+    }
+
+    return text;
+}
+
+private BigDecimal optionalDecimal(Object value, String field) {
+    if (value == null) {
+        return null;
+    }
+
+    try {
+        BigDecimal result = new BigDecimal(value.toString());
+
+        if (result.signum() < 0) {
+            throw new BadRequestException(
+                field + " must not be negative"
+            );
         }
 
-        if (data.containsKey("adresse")) {
-            Map<String, Object> address = (Map<String, Object>) data.get("adresse");
-            if (address != null) {
-                if (address.containsKey("strasse")) {
-                    user.street = (String) address.get("strasse");
-                }
-                if (address.containsKey("hausnummer")) {
-                    user.houseNumber = (String) address.get("hausnummer");
-                }
-                if (address.containsKey("plz")) {
-                    user.zipCode = (String) address.get("plz");
-                }
-                if (address.containsKey("ort")) {
-                    user.city = (String) address.get("ort");
-                }
-                if (address.containsKey("bundesland")) {
-                    user.state = (String) address.get("bundesland");
-                }
-                if (address.containsKey("land")) {
-                    user.country = (String) address.get("land");
-                }
-            }
-        }
-
-        AuditLogEntity.log(
-                user.id,
-                "TRAVEL_CONFIG_UPDATE",
-                "User updated travel configuration and address details"
+        return result;
+    } catch (NumberFormatException e) {
+        throw new BadRequestException(
+            field + " must be a valid decimal number"
         );
     }
+}
 }

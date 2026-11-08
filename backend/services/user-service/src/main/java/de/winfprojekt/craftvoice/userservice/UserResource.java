@@ -162,34 +162,47 @@ public class UserResource {
         return Response.ok("Account deleted in Keycloak and anonymized locally").build();
     }
 
+    
     @POST
     @Path("/customers")
     @RolesAllowed({"OWNER", "EMPLOYEE"})
     public Response createCustomer(UserEntity customer) {
-        UserEntity created = userService.createCustomer(customer);
+    UserEntity created = userService.createCustomer(customer);
 
-        return Response.status(Response.Status.CREATED).entity(created).build();
+    return Response.status(Response.Status.CREATED)
+            .entity(CustomerResponse.fromEntity(created))
+            .build();
     }
+
 
     @GET
     @Path("/customers")
     @RolesAllowed({"OWNER", "EMPLOYEE"})
-    public List<UserEntity> listCustomers() {
-        return userService.listCustomers();
+    public List<CustomerResponse> listCustomers() {
+        return userService.listCustomers()
+                .stream()
+                .map(CustomerResponse::fromEntity)
+                .toList();
     }
 
     @GET
     @Path("/customers/{id}")
     @RolesAllowed({"OWNER", "EMPLOYEE"})
-    public UserEntity getCustomer(@PathParam("id") Long id) {
-        return userService.getCustomerById(id);
+    public CustomerResponse getCustomer(@PathParam("id") Long id) {
+        UserEntity customer = userService.getCustomerById(id);
+
+        return CustomerResponse.fromEntity(customer);
     }
 
     @PUT
     @Path("/customers/{id}")
     @RolesAllowed({"OWNER", "EMPLOYEE"})
-    public UserEntity updateCustomer(@PathParam("id") Long id, UserEntity data) {
-        return userService.updateCustomer(id, data);
+    public CustomerResponse updateCustomer(
+            @PathParam("id") Long id,
+            UserEntity data) {
+        UserEntity updated = userService.updateCustomer(id, data);
+
+        return CustomerResponse.fromEntity(updated);
     }
 
     @DELETE
