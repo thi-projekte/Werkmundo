@@ -25,11 +25,52 @@ public class Offer {
     private LocalDateTime updatedAt;
 
     public Offer(String businessKey) {
+        this(businessKey, LocalDateTime.now());
+    }
+
+    private Offer(String businessKey, LocalDateTime createdAt) {
         this.businessKey = Objects.requireNonNull(businessKey, "businessKey must not be null");
         this.status = OfferStatus.DRAFT;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.updatedAt = createdAt;
         this.statusHistory.add(new OfferStatusHistory(status, createdAt));
+    }
+
+    /** Rebuilds an existing offer from persistence without causing status transitions. */
+    public static Offer restore(
+            String businessKey,
+            String customerId,
+            String craftsmanId,
+            String customerAccessTokenHash,
+            Instant customerAccessTokenExpiresAt,
+            BigDecimal estimatedWorkDurationHours,
+            List<String> correctionSuggestions,
+            List<String> customerChangeRequests,
+            OfferStatus status,
+            List<OfferPosition> positions,
+            List<OfferStatusHistory> statusHistory,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
+        Offer result = new Offer(businessKey, createdAt);
+        result.customerId = customerId;
+        result.craftsmanId = craftsmanId;
+        result.customerAccessTokenHash = customerAccessTokenHash;
+        result.customerAccessTokenExpiresAt = customerAccessTokenExpiresAt;
+        result.estimatedWorkDurationHours = estimatedWorkDurationHours;
+        result.status = Objects.requireNonNull(status, "status must not be null");
+        result.correctionSuggestions.addAll(List.copyOf(
+                Objects.requireNonNull(correctionSuggestions, "correctionSuggestions must not be null")));
+        result.customerChangeRequests.addAll(List.copyOf(
+                Objects.requireNonNull(customerChangeRequests, "customerChangeRequests must not be null")));
+        for (OfferPosition position : Objects.requireNonNull(positions, "positions must not be null")) {
+            position.setOffer(result);
+            result.positions.add(position);
+        }
+        result.statusHistory.clear();
+        result.statusHistory.addAll(List.copyOf(
+                Objects.requireNonNull(statusHistory, "statusHistory must not be null")));
+        result.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
+        return result;
     }
 
     public String getBusinessKey() {

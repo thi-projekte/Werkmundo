@@ -2,7 +2,7 @@ package de.werkmundo.offer.infrastructure;
 
 import de.werkmundo.offer.domain.Offer;
 import de.werkmundo.offer.domain.OfferRepository;
-import io.quarkus.arc.profile.UnlessBuildProfile;
+import io.quarkus.arc.properties.UnlessBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Objects;
@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 @ApplicationScoped
-@UnlessBuildProfile("prod")
+@UnlessBuildProperty(name = "offer.persistence", stringValue = "postgres")
 public class DevelopmentInMemoryOfferRepository implements OfferRepository {
     private final ConcurrentMap<String, Offer> offers = new ConcurrentHashMap<>();
 
