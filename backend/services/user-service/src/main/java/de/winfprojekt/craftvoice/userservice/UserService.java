@@ -42,6 +42,12 @@ public class UserService {
     @ConfigProperty(name = "DOCUMENT_STORAGE_PATH", defaultValue = "/tmp")
     String storagePath;
 
+    @ConfigProperty(
+    name = "app.registration.send-verification-email",
+    defaultValue = "true"
+    )
+    boolean sendVerificationEmail;
+
     private static final String REALM = "handwerker-realm";
 
     @Transactional
@@ -157,11 +163,14 @@ public void register(UserEntity userData, String password) {
         userData.roles.add(UserRole.OWNER);
         userData.persistAndFlush();
 
-        // Verifizierungs-E-Mail anfordern
-        keycloak.realm(REALM)
+       
+        // E-Mail-Verifizierung außerhalb der lokalen Entwicklung anfordern
+        if (sendVerificationEmail) {
+            keycloak.realm(REALM)
                 .users()
                 .get(keycloakId)
                 .sendVerifyEmail();
+}
 
         AuditLogEntity.log(
                 userData.id,
