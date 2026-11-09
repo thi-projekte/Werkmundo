@@ -96,6 +96,19 @@ public class OfferJpaRepository implements OfferRepository {
         return entities.findByCraftsmanId(craftsmanId).stream().map(this::toDomain).toList();
     }
 
+    @Override
+    @Transactional
+    public boolean deleteByBusinessKey(String businessKey) {
+        Objects.requireNonNull(businessKey, "businessKey must not be null");
+        return entities.findByBusinessKey(businessKey)
+                .map(entity -> {
+                    entities.delete(entity);
+                    entities.flush();
+                    return true;
+                })
+                .orElse(false);
+    }
+
     private Offer toDomain(OfferEntity row) {
         List<OfferPosition> positions = row.positions.stream().map(position -> {
             OfferPosition restored = new OfferPosition(

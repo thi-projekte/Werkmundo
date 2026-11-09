@@ -34,4 +34,14 @@ class DevelopmentInMemoryOfferRepositoryTest {
         assertSame(firstOffer, result.get(0));
         assertTrue(repository.findByBusinessKey("missing").isEmpty());
     }
+
+    @Test
+    void deletesOfferByBusinessKey() {
+        DevelopmentInMemoryOfferRepository repository = new DevelopmentInMemoryOfferRepository();
+        repository.save(new Offer("offer-1"));
+
+        assertTrue(repository.deleteByBusinessKey("offer-1"));
+        assertTrue(repository.findByBusinessKey("offer-1").isEmpty());
+        assertTrue(!repository.deleteByBusinessKey("offer-1"));
+    }
 }

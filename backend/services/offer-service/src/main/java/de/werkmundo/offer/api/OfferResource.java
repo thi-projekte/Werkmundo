@@ -8,6 +8,7 @@ import de.werkmundo.offer.application.usecase.offer.ApproveOfferResult;
 import de.werkmundo.offer.application.usecase.offer.ApproveOfferUseCase;
 import de.werkmundo.offer.application.usecase.offer.CancelOfferUseCase;
 import de.werkmundo.offer.application.usecase.offer.CreateOfferUseCase;
+import de.werkmundo.offer.application.usecase.offer.DeleteOfferUseCase;
 import de.werkmundo.offer.application.usecase.offer.GetOfferUseCase;
 import de.werkmundo.offer.application.usecase.offer.ListOffersUseCase;
 import de.werkmundo.offer.application.usecase.offer.MarkOfferSentUseCase;
@@ -17,6 +18,7 @@ import de.werkmundo.offer.domain.Offer;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.POST;
@@ -38,6 +40,7 @@ import java.util.List;
 @Produces(MediaType.APPLICATION_JSON)
 public class OfferResource {
     private final CreateOfferUseCase createOfferUseCase;
+    private final DeleteOfferUseCase deleteOfferUseCase;
     private final GetOfferUseCase getOfferUseCase;
     private final ListOffersUseCase listOffersUseCase;
     private final UpdateOfferUseCase updateOfferUseCase;
@@ -48,6 +51,7 @@ public class OfferResource {
     @Inject
     public OfferResource(
             CreateOfferUseCase createOfferUseCase,
+            DeleteOfferUseCase deleteOfferUseCase,
             GetOfferUseCase getOfferUseCase,
             ListOffersUseCase listOffersUseCase,
             UpdateOfferUseCase updateOfferUseCase,
@@ -55,6 +59,7 @@ public class OfferResource {
             MarkOfferSentUseCase markOfferSentUseCase,
             CancelOfferUseCase cancelOfferUseCase) {
         this.createOfferUseCase = createOfferUseCase;
+        this.deleteOfferUseCase = deleteOfferUseCase;
         this.getOfferUseCase = getOfferUseCase;
         this.listOffersUseCase = listOffersUseCase;
         this.updateOfferUseCase = updateOfferUseCase;
@@ -92,6 +97,16 @@ public class OfferResource {
             @PathParam("businessKey") String businessKey,
             @Context SecurityContext securityContext) {
         return OfferResponse.from(getOfferUseCase.execute(businessKey, requireCraftsmanId(securityContext)));
+    }
+
+    @DELETE
+    @Path("/{businessKey}")
+    public Response delete(
+            @PathParam("businessKey") String businessKey,
+            @Context SecurityContext securityContext) {
+        getOfferUseCase.execute(businessKey, requireCraftsmanId(securityContext));
+        deleteOfferUseCase.execute(businessKey);
+        return Response.noContent().build();
     }
 
     @PUT

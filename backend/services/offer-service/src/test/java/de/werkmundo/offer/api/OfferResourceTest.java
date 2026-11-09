@@ -3,6 +3,7 @@ package de.werkmundo.offer.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.werkmundo.offer.api.dto.CreateOfferRequest;
 import de.werkmundo.offer.api.dto.OfferResponse;
@@ -10,6 +11,7 @@ import de.werkmundo.offer.api.dto.UpdateOfferRequest;
 import de.werkmundo.offer.application.usecase.offer.ApproveOfferUseCase;
 import de.werkmundo.offer.application.usecase.offer.CancelOfferUseCase;
 import de.werkmundo.offer.application.usecase.offer.CreateOfferUseCase;
+import de.werkmundo.offer.application.usecase.offer.DeleteOfferUseCase;
 import de.werkmundo.offer.application.usecase.offer.GetOfferUseCase;
 import de.werkmundo.offer.application.usecase.offer.ListOffersUseCase;
 import de.werkmundo.offer.application.usecase.offer.MarkOfferSentUseCase;
@@ -35,6 +37,7 @@ class OfferResourceTest {
         repository = new InMemoryOfferRepository();
         resource = new OfferResource(
                 new CreateOfferUseCase(repository),
+                new DeleteOfferUseCase(repository),
                 new GetOfferUseCase(repository),
                 new ListOffersUseCase(repository),
                 new UpdateOfferUseCase(repository),
@@ -76,6 +79,30 @@ class OfferResourceTest {
                 java.util.NoSuchElementException.class,
                 () -> resource.update("offer-1", request, securityContext("craftsman-2")));
         assertEquals("craftsman-1", repository.findByBusinessKey("offer-1").orElseThrow().getCraftsmanId());
+    }
+
+    @Test
+    void deletesOfferForOwner() {
+        resource.create(
+                new CreateOfferRequest("offer-1", "customer-1", null, List.of(), List.of()),
+                securityContext("craftsman-1"));
+
+        try (Response response = resource.delete("offer-1", securityContext("craftsman-1"))) {
+            assertEquals(Response.Status.NO_CONTENT.getStatusCode(), response.getStatus());
+        }
+        assertTrue(repository.findByBusinessKey("offer-1").isEmpty());
+    }
+
+    @Test
+    void cannotDeleteAnotherCraftsmansOffer() {
+        resource.create(
+                new CreateOfferRequest("offer-1", "customer-1", null, List.of(), List.of()),
+                securityContext("craftsman-1"));
+
+        assertThrows(
+                java.util.NoSuchElementException.class,
+                () -> resource.delete("offer-1", securityContext("craftsman-2")));
+        assertTrue(repository.findByBusinessKey("offer-1").isPresent());
     }
 
     private SecurityContext securityContext(String principalName) {
@@ -124,6 +151,11 @@ class OfferResourceTest {
             return offers.stream()
                     .filter(offer -> craftsmanId.equals(offer.getCraftsmanId()))
                     .toList();
+        }
+
+        @Override
+        public boolean deleteByBusinessKey(String businessKey) {
+            return offers.removeIf(offer -> offer.getBusinessKey().equals(businessKey));
         }
     }
 }

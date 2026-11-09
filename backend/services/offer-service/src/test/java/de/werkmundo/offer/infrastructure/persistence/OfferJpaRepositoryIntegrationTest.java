@@ -52,4 +52,20 @@ class OfferJpaRepositoryIntegrationTest {
         assertEquals(createdAt, reloaded.getCreatedAt());
         assertEquals(2, reloaded.getStatusHistory().size());
     }
+
+    @Test
+    @TestTransaction
+    void deletesOfferAndItsRelatedData() {
+        String key = "issue32-delete-" + UUID.randomUUID();
+        Offer offer = new Offer(key);
+        offer.addCorrectionSuggestion("Remove with offer");
+        offer.addPosition(new OfferPosition(
+                OfferPositionType.MATERIAL, "Cable", "2m cable", "Test", BigDecimal.ONE,
+                "m", "cat-1", new BigDecimal("8.50"), 0));
+        repository.save(offer);
+
+        assertTrue(repository.deleteByBusinessKey(key));
+        assertTrue(repository.findByBusinessKey(key).isEmpty());
+        assertFalse(repository.deleteByBusinessKey(key));
+    }
 }

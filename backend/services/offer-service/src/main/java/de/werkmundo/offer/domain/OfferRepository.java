@@ -9,4 +9,8 @@ public interface OfferRepository {
     Optional<Offer> findByBusinessKey(String businessKey);
 
     List<Offer> findAllByCraftsmanId(String craftsmanId);
+
+    default boolean deleteByBusinessKey(String businessKey) {
+        throw new UnsupportedOperationException("Deleting offers is not supported");
+    }
 }

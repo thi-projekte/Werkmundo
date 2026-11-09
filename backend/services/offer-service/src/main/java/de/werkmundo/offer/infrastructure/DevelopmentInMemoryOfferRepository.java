@@ -34,4 +34,9 @@ public class DevelopmentInMemoryOfferRepository implements OfferRepository {
                 .filter(offer -> ownerId.equals(offer.getCraftsmanId()))
                 .toList();
     }
+
+    @Override
+    public boolean deleteByBusinessKey(String businessKey) {
+        return offers.remove(Objects.requireNonNull(businessKey, "businessKey must not be null")) != null;
+    }
 }
