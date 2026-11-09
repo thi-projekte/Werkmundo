@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contracts/workflow/ErgebnisKiMessage.json",
+  "title": "ergebnisKI-Message (ai-service -> Process Engine)",
+  "description": "Body von POST {CAMUNDA_ENGINE_URL}/message. Die Engine korreliert per businessKey auf den Receive Task 'ergebnisKI'. Bei HTTP 400 (Subscription noch nicht angelegt) wiederholt der ai-service bis zu 5x im Sekundenabstand. Owner: Squad Prozesse (BPMN) + Squad Handwerker (ai-service).",
+  "type": "object",
+  "required": ["messageName", "businessKey", "processVariables"],
+  "properties": {
+    "messageName": { "const": "ergebnisKI" },
+    "businessKey": { "type": "string" },
+    "processVariables": {
+      "type": "object",
+      "required": ["ergebnisKI"],
+      "properties": {
+        "ergebnisKI": {
+          "type": "object",
+          "required": ["value", "type"],
+          "properties": {
+            "value": { "type": "string", "description": "AiAnalysisResult (contracts/ai/AiAnalysisResult.json) als JSON-String; die Engine parst ihn per S()." },
+            "type": { "const": "String" }
+          }
+        }
+      }
+    }
+  }
+}
