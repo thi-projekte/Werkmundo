@@ -83,6 +83,7 @@
     <bpmndi:BPMNPlane id="Plane_positionsermittlung" bpmnElement="Collaboration_positionsermittlung">
       <bpmndi:BPMNShape id="Pool_positionsermittlung_di" bpmnElement="Pool_positionsermittlung" isHorizontal="true">
         <dc:Bounds x="120" y="60" width="960" height="330" />
+        <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Start_PositionsermittlungBenoetigt_di" bpmnElement="Start_PositionsermittlungBenoetigt">
         <dc:Bounds x="182" y="242" width="36" height="36" />

@@ -2,7 +2,7 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_angebotsabwicklung" targetNamespace="http://werkmundo.de/bpmn" exporter="Camunda Modeler" exporterVersion="5.52.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
   <bpmn:collaboration id="Collaboration_angebotsabwicklung">
     <bpmn:participant id="Pool_angebotsabwicklung" name="Angebotsabwicklung" processRef="angebotsabwicklung" />
-    <bpmn:participant id="Participant_Frontend" name="Frontend" />
+    <bpmn:participant id="Participant_Frontend" name="Handwerker" />
     <bpmn:participant id="Participant_KIService" name="KI-Service" />
     <bpmn:participant id="Participant_Kunde" name="Kunde" />
     <bpmn:messageFlow id="MF_Spracheingabe" name="Spracheingabe" sourceRef="Participant_Frontend" targetRef="Start_SpracheingabeEingegangen" />
@@ -239,6 +239,7 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="Participant_Frontend_di" bpmnElement="Participant_Frontend" isHorizontal="true">
         <dc:Bounds x="120" y="40" width="1940" height="60" />
+        <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Participant_KIService_di" bpmnElement="Participant_KIService" isHorizontal="true">
         <dc:Bounds x="120" y="630" width="520" height="60" />
