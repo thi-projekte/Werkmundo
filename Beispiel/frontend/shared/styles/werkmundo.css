@@ -1,0 +1,921 @@
+:root {
+  --wm-purple: #291741;
+  --wm-green: #8bd344;
+  --wm-canvas: #f0f0f0;
+  --wm-ink: #291741;
+  --wm-muted: #77777a;
+  --wm-border: #b7b7c2;
+}
+
+html:has(.werkmundo),
+body:has(.werkmundo) {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  background: var(--wm-canvas);
+}
+
+body:has(.werkmundo) {
+  color: var(--wm-ink);
+}
+
+#root:has(.werkmundo) {
+  width: 100%;
+  max-width: none;
+  min-height: 100svh;
+  margin: 0;
+  border: 0;
+  text-align: left;
+  color: var(--wm-ink);
+  background: var(--wm-canvas);
+}
+
+.werkmundo,
+.werkmundo * {
+  box-sizing: border-box;
+}
+
+.werkmundo {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  color: var(--wm-ink);
+  background: var(--wm-canvas);
+  font: 14px/1.35 Inter, Arial, sans-serif;
+  letter-spacing: 0;
+  color-scheme: light;
+}
+
+.wm-brand-bar {
+  height: 28px;
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--wm-purple);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .15px;
+}
+
+.wm-page-heading {
+  height: 46px;
+  flex: 0 0 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid #bcbcbc;
+}
+
+.wm-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  color: var(--wm-purple);
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wm-back-button:hover,
+.wm-footer a:hover,
+.wm-legal-section a:hover {
+  color: #649c2f;
+}
+
+.wm-auth-layout {
+  width: min(1190px, calc(100% - 88px));
+  flex: 1;
+  min-height: 500px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 282px;
+  gap: 48px;
+  align-items: center;
+  padding: 28px 0 32px;
+}
+
+.wm-auth-copy {
+  height: 100%;
+  min-height: 440px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.werkmundo h1,
+.werkmundo h2,
+.werkmundo p {
+  margin-top: 0;
+}
+
+.werkmundo .wm-auth-title {
+  margin: 17px 0 0;
+  color: var(--wm-purple);
+  font-size: clamp(40px, 4.7vw, 50px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -.8px;
+}
+
+.wm-auth-title span {
+  display: block;
+  color: var(--wm-green);
+}
+
+.wm-auth-description {
+  align-self: flex-end;
+  margin: auto 8px 84px 0;
+  color: #888;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.wm-auth-actions {
+  width: min(390px, 100%);
+  margin: 0 0 58px 8px;
+}
+
+.wm-auth-actions > p:first-child {
+  margin-bottom: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.wm-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+}
+
+.wm-button {
+  min-width: 128px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.wm-button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.wm-button-primary {
+  color: #fff;
+  background: var(--wm-purple);
+}
+
+.wm-button-primary:hover:not(:disabled) {
+  background: #422862;
+}
+
+.wm-button-secondary {
+  border-color: #c7c7c7;
+  color: var(--wm-purple);
+  background: transparent;
+}
+
+.wm-button-secondary:hover {
+  border-color: var(--wm-purple);
+  background: rgba(41, 23, 65, .04);
+}
+
+.wm-brand-card {
+  height: min(484px, 70vh);
+  min-height: 400px;
+  position: relative;
+  align-self: center;
+  border-radius: 8px;
+  background: var(--wm-purple);
+}
+
+.wm-vertical-wordmark {
+  position: absolute;
+  top: 86px;
+  right: -44px;
+  display: flex;
+  transform: rotate(-90deg);
+  color: #f0f0f0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: .9;
+  white-space: nowrap;
+}
+
+.wm-vertical-wordmark span:last-child {
+  color: var(--wm-green);
+}
+
+.wm-card-illustration {
+  position: absolute;
+  bottom: 28px;
+  left: 25px;
+  width: 112px;
+  height: 76px;
+}
+
+.wm-ribbon {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 92px;
+  height: auto;
+}
+
+.wm-microphone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: auto;
+}
+
+.wm-register-actions {
+  margin-bottom: 0;
+}
+
+.wm-consent {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 25px;
+  font-size: 11px;
+}
+
+.wm-consent input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--wm-green);
+}
+
+.wm-consent a {
+  color: var(--wm-purple);
+  text-decoration: underline;
+}
+
+.wm-error {
+  margin: 0 0 14px !important;
+  color: #a12e38;
+  font-size: 12px;
+}
+
+.wm-footer {
+  width: min(1190px, calc(100% - 88px));
+  min-height: 42px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid #969696;
+  color: var(--wm-purple);
+  font-size: 9px;
+}
+
+.wm-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.wm-footer a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.wm-copyright {
+  margin: 0;
+  text-align: center;
+}
+
+.wm-socials {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.wm-socials img {
+  display: block;
+}
+
+.wm-legal-content {
+  width: min(1190px, calc(100% - 88px));
+  flex: 1;
+  margin: 0 auto;
+  padding: clamp(64px, 8vw, 82px) 0 36px;
+}
+
+.wm-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--wm-green);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1px;
+}
+
+.wm-eyebrow > span {
+  width: 25px;
+  height: 1px;
+  background: var(--wm-green);
+}
+
+.werkmundo .wm-legal-title {
+  margin: 20px 0 0;
+  color: var(--wm-purple);
+  font-size: clamp(38px, 5vw, 50px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -.8px;
+}
+
+.wm-subtitle {
+  margin: 5px 0 52px;
+  color: #888;
+  font-size: 9px;
+}
+
+.wm-legal-sections {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.wm-legal-section {
+  max-width: 980px;
+}
+
+.werkmundo .wm-legal-section h2 {
+  margin: 0 0 8px;
+  color: var(--wm-purple);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.wm-legal-section p {
+  margin: 0;
+  color: #777;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre-line;
+}
+
+.wm-legal-section a {
+  color: inherit;
+}
+
+.wm-privacy-sections {
+  margin-top: 38px;
+  gap: 20px;
+}
+
+.wm-setup-layout {
+  flex: 1;
+  min-height: calc(100svh - 74px);
+  display: grid;
+  grid-template-columns: 228px minmax(0, 1fr);
+  gap: 18px;
+  padding-right: max(24px, calc((100vw - 1200px) / 2));
+}
+
+.wm-setup-sidebar {
+  min-height: calc(100svh - 74px);
+  padding: 42px 24px 24px;
+  border-radius: 0 25px 0 0;
+  color: #fff;
+  background: var(--wm-purple);
+}
+
+.wm-sidebar-kicker {
+  margin: 0 0 32px;
+  font-size: 8px;
+}
+
+.werkmundo .wm-setup-sidebar h2 {
+  margin: 0 0 14px;
+  color: #f5f2f7;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.wm-setup-sidebar h2 span {
+  display: block;
+  color: var(--wm-green);
+}
+
+.wm-sidebar-description {
+  max-width: 180px;
+  margin: 0;
+  color: #d3cadc;
+  font-size: 10px;
+}
+
+.wm-step-list {
+  margin: 54px 0 0;
+  padding: 26px 0 0;
+  border-top: 1px solid #665a75;
+  list-style: none;
+}
+
+.wm-step-list li {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #e4dfea;
+}
+
+.wm-step-list li.is-active {
+  border-color: #64536f;
+  background: #3b2b4d;
+}
+
+.wm-step-list li.is-complete .wm-step-number,
+.wm-step-list li.is-active .wm-step-number {
+  border-color: var(--wm-green);
+  color: #fff;
+  background: var(--wm-green);
+}
+
+.wm-step-number {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #998ca5;
+  border-radius: 50%;
+  font-size: 8px;
+}
+
+.wm-step-list strong,
+.wm-step-list small {
+  display: block;
+}
+
+.wm-step-list strong {
+  font-size: 9px;
+}
+
+.wm-step-list small {
+  margin-top: 2px;
+  font-size: 7px;
+}
+
+.wm-setup-content {
+  min-width: 0;
+  padding: 15px 0 18px;
+}
+
+.wm-setup-card {
+  min-height: calc(100svh - 105px);
+  padding: 26px 28px 18px;
+  border: 1px solid var(--wm-border);
+  border-radius: 10px;
+  background: #f8f8f8;
+}
+
+.wm-setup-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.wm-setup-intro .wm-eyebrow {
+  margin-bottom: 14px;
+}
+
+.werkmundo .wm-setup-title {
+  margin: 0;
+  color: var(--wm-purple);
+  font-size: clamp(28px, 3vw, 34px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.wm-setup-title em {
+  color: var(--wm-green);
+  font-style: normal;
+}
+
+.wm-setup-intro > p {
+  margin: 20px 0 0;
+  color: #888;
+  font-size: 9px;
+  text-align: right;
+}
+
+.wm-form-section {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--wm-border);
+  border-radius: 9px;
+}
+
+.werkmundo .wm-form-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  color: var(--wm-purple);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.wm-form-section h2 svg {
+  width: 17px;
+  height: 17px;
+  color: var(--wm-green);
+  stroke-width: 1.7;
+}
+
+.wm-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+
+.wm-form-grid-three {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.wm-form-grid-three > label {
+  grid-column: span 2;
+}
+
+.wm-form-grid label,
+.wm-employee-row label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--wm-purple);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.wm-form-grid input,
+.wm-form-grid select,
+.wm-employee-row input,
+.wm-employee-row select {
+  width: 100%;
+  height: 29px;
+  min-width: 0;
+  padding: 0 9px;
+  border: 1px solid var(--wm-border);
+  border-radius: 6px;
+  outline: none;
+  color: #4a4650;
+  background: #f8f8f8;
+  font: inherit;
+  font-size: 8px;
+}
+
+.wm-form-grid input:focus,
+.wm-form-grid select:focus,
+.wm-employee-row input:focus,
+.wm-employee-row select:focus {
+  border-color: var(--wm-green);
+  box-shadow: 0 0 0 2px rgba(139, 211, 68, .15);
+}
+
+.wm-field-half {
+  grid-column: span 3;
+}
+
+.wm-employees-section {
+  padding-bottom: 16px;
+}
+
+.wm-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.wm-section-heading h2 {
+  margin-bottom: 0 !important;
+}
+
+.wm-add-button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: #65a333;
+  background: #e1efcf;
+  cursor: pointer;
+}
+
+.wm-employee-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wm-employee-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.wm-rate-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--wm-border);
+  border-radius: 6px;
+}
+
+.wm-rate-input input {
+  border: 0;
+}
+
+.wm-rate-input > span {
+  padding-right: 9px;
+  color: #777;
+  font-size: 8px;
+}
+
+.wm-setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.wm-setup-actions .wm-button {
+  min-width: 128px;
+  min-height: 32px;
+}
+
+.wm-invoice-actions {
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 46px;
+}
+
+.wm-invoice-actions .wm-button-row {
+  gap: 12px;
+}
+
+.wm-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+  border: 0;
+  color: #5e5e5e;
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wm-recommendation {
+  padding: 4px 7px;
+  border-radius: 4px;
+  color: #587d37;
+  background: #e5efd9;
+  font-size: 7px;
+}
+
+.wm-form-note {
+  margin: 12px 0 0;
+  color: #858585;
+  font-size: 8px;
+}
+
+.wm-form-tip {
+  margin: 7px 0 0;
+  color: var(--wm-green);
+  font-size: 8px;
+}
+
+@media (max-width: 800px) {
+  .wm-auth-layout,
+  .wm-footer,
+  .wm-legal-content {
+    width: calc(100% - 40px);
+  }
+
+  .wm-auth-layout {
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 24px;
+  }
+
+  .wm-brand-card {
+    height: 420px;
+    min-height: 0;
+  }
+
+  .wm-setup-layout {
+    grid-template-columns: 185px minmax(0, 1fr);
+    gap: 12px;
+    padding-right: 16px;
+  }
+
+  .wm-setup-sidebar {
+    padding-inline: 16px;
+  }
+
+  .wm-setup-card {
+    padding: 20px 18px;
+  }
+
+  .wm-form-grid-three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wm-form-grid-three > label {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .wm-page-heading {
+    padding-inline: 16px;
+  }
+
+  .wm-auth-layout {
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 24px;
+    padding-top: 26px;
+  }
+
+  .wm-auth-copy {
+    min-height: 405px;
+  }
+
+  .werkmundo .wm-auth-title {
+    font-size: clamp(36px, 10vw, 48px);
+  }
+
+  .wm-auth-description {
+    margin: 32px 0;
+  }
+
+  .wm-auth-actions {
+    margin: auto 0 0;
+  }
+
+  .wm-brand-card {
+    width: 100%;
+    height: 150px;
+    min-height: 150px;
+  }
+
+  .wm-vertical-wordmark {
+    top: 63px;
+    right: -26px;
+    font-size: 23px;
+  }
+
+  .wm-card-illustration {
+    bottom: 18px;
+    left: 20px;
+  }
+
+  .wm-footer {
+    min-height: 76px;
+    grid-template-columns: 1fr auto;
+    padding: 10px 0;
+  }
+
+  .wm-copyright {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: left;
+  }
+
+  .wm-socials {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .wm-legal-content {
+    padding-top: 50px;
+  }
+
+  .wm-legal-sections {
+    gap: 24px;
+  }
+
+  .wm-setup-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 12px 14px;
+  }
+
+  .wm-setup-sidebar {
+    min-height: auto;
+    padding: 18px;
+    border-radius: 0 0 12px 12px;
+  }
+
+  .wm-sidebar-kicker {
+    margin-bottom: 10px;
+  }
+
+  .werkmundo .wm-setup-sidebar h2 {
+    margin-bottom: 7px;
+    font-size: 21px;
+  }
+
+  .wm-sidebar-description {
+    max-width: none;
+  }
+
+  .wm-step-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+
+  .wm-step-list li {
+    margin: 0;
+    padding: 5px;
+  }
+
+  .wm-setup-content {
+    padding: 12px 0 0;
+  }
+
+  .wm-setup-card {
+    min-height: 0;
+    padding: 18px 14px;
+  }
+
+  .wm-setup-intro {
+    display: block;
+  }
+
+  .wm-setup-intro > p {
+    margin-top: 9px;
+    text-align: left;
+  }
+
+  .wm-form-grid,
+  .wm-form-grid-three {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .wm-field-wide {
+    grid-column: auto;
+  }
+
+  .wm-employee-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .wm-invoice-actions {
+    align-items: stretch;
+    flex-direction: column;
+    margin-top: 24px;
+  }
+
+  .wm-invoice-actions .wm-button-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .wm-invoice-actions .wm-button {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+}
