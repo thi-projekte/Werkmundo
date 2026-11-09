@@ -1,4 +1,4 @@
-HCREATE TABLE documents (
+CREATE TABLE documents (
     id text PRIMARY KEY,
     owner_id text NOT NULL,
     document_type text NOT NULL CHECK (document_type IN ('OFFER', 'INVOICE')),
