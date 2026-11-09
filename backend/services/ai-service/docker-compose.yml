@@ -1,0 +1,30 @@
+# =============================================================================
+# ai-service - lokaler Start
+#
+#   cp .env.example .env        (optional: MEGALLM_API_KEY eintragen)
+#   docker compose up --build
+#
+# Danach:  http://localhost:8086/q/health   und   POST http://localhost:8086/ai/analyze
+#
+# Ohne .env laeuft alles mit lokalen Defaults: Stub-Ergebnis statt LLM, Mock-Katalog,
+# keine Authentifizierung. Process Engine / catalog-service aus ../CraftVoice/local-setup
+# werden ueber host.docker.internal erreicht, falls sie laufen.
+# =============================================================================
+services:
+  ai-service:
+    build: .
+    image: werkmundo/ai-service:local
+    container_name: cv-ai-service
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HTTP_PORT: "8086"
+      CAMUNDA_ENGINE_URL: ${CAMUNDA_ENGINE_URL:-http://host.docker.internal:8085/engine-rest}
+      CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://host.docker.internal:8083}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://host.docker.internal:8090}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

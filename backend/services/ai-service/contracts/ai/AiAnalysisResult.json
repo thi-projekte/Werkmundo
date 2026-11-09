@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contracts/ai/AiAnalysisResult.json",
+  "title": "AiAnalysisResult (ergebnisKI)",
+  "description": "Ergebnis der KI. Geht als Prozessvariable ergebnisKI (JSON als String) an die Process Engine (siehe contracts/workflow/ErgebnisKiMessage.json) bzw. direkt als Antwort von POST /ai/analyze. Die Process Engine reicht strukturierteAngebotspositionen an den offer-service weiter. Positionen haben KEIN Preisfeld.",
+  "type": "object",
+  "required": ["strukturierteAngebotspositionen", "korrekturvorschlaege"],
+  "properties": {
+    "strukturierteAngebotspositionen": {
+      "type": "object",
+      "required": ["leistungen", "material", "notizen"],
+      "properties": {
+        "leistungen": { "type": "array", "items": { "$ref": "#/$defs/Position" } },
+        "material": { "type": "array", "items": { "$ref": "#/$defs/Position" } },
+        "notizen": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "korrekturvorschlaege": { "type": "array", "items": { "type": "string" }, "description": "Hinweise/Rueckfragen an den Handwerker." },
+    "geschaetzteArbeitsdauerStunden": { "type": ["number", "null"], "description": "Nur gesetzt, wenn der Handwerker eine Dauer ausgesprochen hat; die KI schaetzt nicht selbst." }
+  },
+  "$defs": {
+    "Position": {
+      "type": "object",
+      "required": ["bezeichnung", "beschreibung", "menge", "einheit", "katalogProduktId"],
+      "properties": {
+        "bezeichnung": { "type": ["string", "null"] },
+        "beschreibung": { "type": ["string", "null"] },
+        "menge": { "type": ["number", "null"] },
+        "einheit": { "type": ["string", "null"] },
+        "katalogProduktId": { "type": ["string", "null"], "description": "Nur bei Material: ID des in LLM-Call 2 gewaehlten Katalogprodukts (UUID im catalog-service, Zahl als String im Mock). Fuer den Preis-Lookup im offer-service." }
+      }
+    }
+  },
+  "examples": [
+    {
+      "strukturierteAngebotspositionen": {
+        "leistungen": [{ "bezeichnung": "Steckdosen setzen", "beschreibung": "Arbeitszeit", "menge": 2, "einheit": "h", "katalogProduktId": null }],
+        "material": [{ "bezeichnung": "Doppelsteckdose UP", "beschreibung": "reinweiss", "menge": 3, "einheit": "Stk", "katalogProduktId": "3001" }],
+        "notizen": []
+      },
+      "korrekturvorschlaege": [],
+      "geschaetzteArbeitsdauerStunden": 2
+    }
+  ]
+}
