@@ -16,6 +16,7 @@ public class OfferResponse {
     public String businessKey;
     public String status;
     public String customerId;
+    public String title;
     public String handwerkerId;
     public String speechSnippet;
     public List<OfferPosition> positions;
@@ -37,6 +38,7 @@ public class OfferResponse {
         response.businessKey = offer.businessKey;
         response.status = offer.status;
         response.customerId = offer.customerId;
+        response.title = offer.title;
         response.handwerkerId = offer.handwerkerId;
         response.annahmeToken = offer.annahmeToken;
         response.speechSnippet = offer.speechSnippet;

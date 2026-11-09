@@ -23,8 +23,12 @@ public class Offer extends BaseEntity {
     @Column(unique = true, nullable = false)
     public String businessKey;
 
+    @Column(name = "offer_title")
+    public String title;
+
     // Status Konstanten
     public static final String STATUS_ERFASST = "ERFASST";
+    public static final String STATUS_ENTWURF = "ENTWURF";
     public static final String STATUS_IN_BEARBEITUNG = "IN_BEARBEITUNG";
     public static final String STATUS_KI_BEARBEITUNG_ABGESCHLOSSEN = "KI_BEARBEITUNG_ABGESCHLOSSEN";
     public static final String STATUS_KI_FERTIG = "KI_FERTIG";
@@ -38,7 +42,7 @@ public class Offer extends BaseEntity {
     @Column(nullable = false)
     public String status = STATUS_ERFASST;           // Enum-Werte als String: ERFASST, IN_BEARBEITUNG, KI_BEARBEITUNG_ABGESCHLOSSEN, VERSANDBEREIT, VERSENDET, ANGENOMMEN, ABGELEHNT, ABGEBROCHEN, STORNIERT
 
-    @Column(name = "customer_id", nullable = false)
+    @Column(name = "customer_id", nullable = true)
     public String customerId;
 
     @Column(name = "handwerker_id", nullable = false)

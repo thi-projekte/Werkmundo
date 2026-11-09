@@ -72,6 +72,19 @@ public class OfferResource {
     }
 
     /**
+     * Speichert einen Angebotsentwurf ohne Kunden und ohne Start des PE-Flows.
+     */
+    @POST
+    @Path("/offers/drafts")
+    @RolesAllowed({"OWNER"})
+    public Response saveDraft(@Valid SaveOfferDraftRequest request) {
+        OfferResponse response = offerService.saveDraft(request, jwt.getSubject());
+        return Response.status(201)
+                .entity(response)
+                .build();
+    }
+
+    /**
      * Verarbeitet das KI-Ergebnis für ein bestimmtes Angebot, adressiert über den
      * businessKey.
      *

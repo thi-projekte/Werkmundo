@@ -7,6 +7,7 @@
  *
  * Bekannte Endpunkte:
  *   POST /offers                              → Angebot erstellen (startet PE-Flow)
+ *   POST /offers/drafts                       → Entwurf ohne Kunden speichern
  *   GET  /offers/{businessKey}               → Angebot + Positionen abrufen
  *   POST /offers/{businessKey}/review/approve → Fall 1: Genehmigung
  *   POST /angebote/{businessKey}/positionen   → Fall 2: Positionen-Update (Reihenfolge/Alternative)
@@ -103,7 +104,8 @@ export interface OfferResponse {
   businessKey: string;
   // String, passend zum Backend-DTO (OfferResponse.customerId/handwerkerId).
   // handwerkerId ist die Keycloak-UUID (sub), keine Zahl.
-  customerId: string;
+  customerId: string | null;
+  title: string | null;
   handwerkerId: string;
   status: string;
   gesamtPreis: number | null;
@@ -122,7 +124,13 @@ export interface OfferResponse {
 export interface CreateOfferRequest {
   // String, passend zum Backend-DTO (CreateOfferRequest.customerId).
   customerId: string;
+  title?: string;
   // handwerkerId wird backendseitig aus dem JWT abgeleitet, nicht mitgesendet.
+  speechSnippet: string;
+}
+
+export interface SaveOfferDraftRequest {
+  title: string;
   speechSnippet: string;
 }
 
@@ -171,6 +179,25 @@ export async function createOffer(
 
   if (!res.ok) {
     throw new Error(`Angebot erstellen fehlgeschlagen: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Speichert einen nicht zugeordneten Entwurf, ohne den PE-/KI-Flow zu starten.
+ */
+export async function saveOfferDraft(
+  request: SaveOfferDraftRequest,
+): Promise<OfferResponse> {
+  const res = await fetch(`${API_CONFIG.OFFER_SERVICE_URL}/offers/drafts`, {
+    method: "POST",
+    headers: await getAuthHeaders(),
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Entwurf speichern fehlgeschlagen: ${res.status}`);
   }
 
   return res.json();

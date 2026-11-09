@@ -1,111 +1,194 @@
 import "./dashboard.css";
 
-import { DashboardStats } from "@/features/dashboard/components/DashboardStats";
-import { DashboardFilters } from "@/features/dashboard/components/DashboardFilters";
-import { DashboardChart } from "@/features/dashboard/components/DashboardChart";
-import { DashboardAttention } from "@/features/dashboard/components/DashboardAttention";
-import { DashboardActivity } from "@/features/dashboard/components/DashboardActivity";
+import { DashboardOverview } from "@/features/dashboard/components/DashboardOverview";
 import { useDashboard } from "@/features/dashboard/hooks/useDashboard";
-import { useState } from "react";
+import {
+  Mic,
+  Plus,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { getCustomers, type CustomerProfile } from "@/services/userService";
 
 export const DashboardView = () => {
-  const [search, setSearch] = useState("");
-  const [timeRange, setTimeRange] = useState("today");
+  const [offerMode, setOfferMode] = useState<"voice" | "text">("voice");
+  const [offerText, setOfferText] = useState("");
+  const [customers, setCustomers] = useState<CustomerProfile[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(true);
+  const [customersError, setCustomersError] = useState<string | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const { data, loading, error } = useDashboard();
-  const isInTimeRange = (dateString: string, range: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const notice =
+    location.state &&
+    typeof location.state === "object" &&
+    "notice" in location.state &&
+    typeof location.state.notice === "string"
+      ? location.state.notice
+      : null;
 
-    switch (range) {
-      case "today":
-        return date.toDateString() === now.toDateString();
+  useEffect(() => {
+    let cancelled = false;
+    void getCustomers()
+      .then((result) => {
+        if (!cancelled) setCustomers(result);
+      })
+      .catch((customerError: unknown) => {
+        if (!cancelled) {
+          const message =
+            customerError instanceof Error
+              ? customerError.message
+              : "Unbekannter Fehler";
+          setCustomersError(`Kunden konnten nicht geladen werden: ${message}`);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCustomersLoading(false);
+      });
 
-      case "week": {
-        const weekAgo = new Date();
-        weekAgo.setDate(now.getDate() - 7);
-        return date >= weekAgo;
-      }
-
-      case "month": {
-        const monthAgo = new Date();
-        monthAgo.setMonth(now.getMonth() - 1);
-        return date >= monthAgo;
-      }
-
-      case "year": {
-        const yearAgo = new Date();
-        yearAgo.setFullYear(now.getFullYear() - 1);
-        return date >= yearAgo;
-      }
-
-      default:
-        return true;
-    }
-  };
-  const filteredData = data && {
-    ...data,
-
-    letzteAktivitaeten: data.letzteAktivitaeten.filter((a) => {
-      const matchesSearch = a.businessKey
-        .toLowerCase()
-        .includes(search.toLowerCase());
-
-      const matchesTime = isInTimeRange(a.zeitpunkt, timeRange);
-
-      return matchesSearch && matchesTime;
-    }),
-  };
-
-  if (loading) {
-    return (
-      <div className="dashboard-page">
-        <header className="card">
-          <h1>Dashboard</h1>
-          <p className="text-secondary">Laden...</p>
-        </header>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="dashboard-page">
-        <header className="card">
-          <h1>Dashboard</h1>
-          <p className="text-secondary" style={{ color: "red" }}>
-            Fehler beim Laden: {error.message}
-          </p>
-        </header>
-      </div>
-    );
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <div className="dashboard-page">
-      <header className="card">
-        <h1>Dashboard</h1>
-        <p className="text-secondary">
-          Hier ist die Übersicht deiner Angebote und Aktivitäten
+    <div className="dashboard-page wm-dashboard">
+      {notice && (
+        <p className="wm-dashboard-feedback wm-dashboard-success" role="status">
+          {notice}
         </p>
-      </header>
-      <div className="dashboard-content">
-        <DashboardFilters
-          search={search}
-          onSearchChange={setSearch}
-          timeRange={timeRange}
-          onTimeRangeChange={setTimeRange}
-        />
-
-        {filteredData && <DashboardStats data={filteredData} />}
-
-        {filteredData && <DashboardChart data={filteredData} />}
-
-        <div className="dashboard-grid">
-          {filteredData && <DashboardAttention data={filteredData} />}
-
-          {filteredData && <DashboardActivity data={filteredData} />}
+      )}
+      <header className="wm-dashboard-heading">
+        <div>
+          <h1>Willkommen <span>zurück!</span></h1>
         </div>
-      </div>
+      </header>
+
+      <section className="wm-offer-composer" aria-labelledby="wm-offer-title">
+        <div className="wm-offer-intro">
+          <div className="wm-offer-icon" aria-hidden="true">
+            <Mic size={22} />
+          </div>
+          <div>
+            <h2 id="wm-offer-title">Neues Angebot erstellen</h2>
+            <p>Beschreibe deinen Auftrag. Wir erstellen dir daraus einen Angebotsentwurf.</p>
+          </div>
+        </div>
+
+        <div className="wm-customer-select-row">
+          <label htmlFor="wm-customer-select">Wähle einen Kunden aus</label>
+          <div className="wm-customer-select-controls">
+            <select
+              id="wm-customer-select"
+              value={selectedCustomerId}
+              onChange={(event) => setSelectedCustomerId(event.target.value)}
+            >
+              <option value="">
+                {customersLoading ? "Kunden werden geladen …" : "Kunde auswählen"}
+              </option>
+              <option value="draft">Ohne Kunde als Entwurf speichern</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {[customer.firstName, customer.lastName]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim() || customer.email}
+                  {customer.companyName ? ` · ${customer.companyName}` : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              className="wm-add-customer"
+              type="button"
+              onClick={() => navigate("/unternehmen?tab=kunde")}
+            >
+              <Plus size={16} aria-hidden="true" />
+              Kunde anlegen
+            </button>
+          </div>
+        </div>
+        {customersError && (
+          <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">
+            {customersError}
+          </p>
+        )}
+
+        <div className="wm-offer-mode" role="group" aria-label="Eingabemethode">
+          <button
+            type="button"
+            className={offerMode === "voice" ? "is-active" : ""}
+            aria-pressed={offerMode === "voice"}
+            onClick={() => setOfferMode("voice")}
+          >
+            Sprache
+          </button>
+          <button
+            type="button"
+            className={offerMode === "text" ? "is-active" : ""}
+            aria-pressed={offerMode === "text"}
+            onClick={() => setOfferMode("text")}
+          >
+            Text
+          </button>
+        </div>
+
+        {offerMode === "voice" ? (
+          <button
+            className="wm-record-cta"
+            type="button"
+            onClick={() =>
+              navigate("/home", {
+                state: {
+                  mode: "voice",
+                  customerId: selectedCustomerId
+                    && selectedCustomerId !== "draft"
+                    ? Number(selectedCustomerId)
+                    : null,
+                  saveAsDraft: selectedCustomerId === "draft",
+                },
+              })
+            }
+          >
+            <Mic size={17} aria-hidden="true" />
+            Aufnahme starten
+          </button>
+        ) : (
+          <div className="wm-dashboard-text">
+            <textarea
+              aria-label="Auftrag beschreiben"
+              placeholder="Gib hier deinen Text ein und die KI wird dir ein passendes Angebot erstellen."
+              value={offerText}
+              onChange={(event) => setOfferText(event.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/home", {
+                  state: {
+                    mode: "text",
+                    transcript: offerText,
+                    customerId: selectedCustomerId
+                      && selectedCustomerId !== "draft"
+                      ? Number(selectedCustomerId)
+                      : null,
+                    saveAsDraft: selectedCustomerId === "draft",
+                  },
+                })
+              }
+            >
+              Angebot erstellen
+            </button>
+          </div>
+        )}
+      </section>
+
+      <DashboardOverview
+        data={data}
+        loading={loading}
+        error={error}
+        onShowAll={() => navigate("/dokumente")}
+      />
     </div>
   );
 };

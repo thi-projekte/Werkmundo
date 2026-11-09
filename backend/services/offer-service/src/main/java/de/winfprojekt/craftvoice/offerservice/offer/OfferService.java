@@ -6,6 +6,7 @@ import io.quarkus.security.ForbiddenException;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import de.winfprojekt.craftvoice.offerservice.offer.dto.CreateOfferRequest;
+import de.winfprojekt.craftvoice.offerservice.offer.dto.SaveOfferDraftRequest;
 import de.winfprojekt.craftvoice.offerservice.offer.dto.OfferChangesRequest;
 import de.winfprojekt.craftvoice.offerservice.offer.dto.StructuredOfferPositionDTO;
 import de.winfprojekt.craftvoice.offerservice.offer.dto.OfferAcceptanceRequest;
@@ -89,6 +90,7 @@ public class OfferService {
         offer.annahmeToken = UUID.randomUUID().toString();
         offer.businessKey = "angebot-" + UUID.randomUUID();
         offer.speechSnippet = request.speechSnippet;
+        offer.title = request.title;
         offer.status = Offer.STATUS_IN_BEARBEITUNG;
 
         OfferStatusHistory history = new OfferStatusHistory();
@@ -108,6 +110,28 @@ public class OfferService {
                     offer.businessKey);
         }
 
+        return OfferResponse.fromEntity(offer);
+    }
+
+    /**
+     * Speichert einen nicht zugeordneten Angebotsentwurf, ohne den PE-/KI-Flow
+     * zu starten.
+     */
+    @Transactional
+    public OfferResponse saveDraft(SaveOfferDraftRequest request, String handwerkerId) {
+        Offer offer = new Offer();
+        offer.handwerkerId = handwerkerId;
+        offer.businessKey = "angebot-" + UUID.randomUUID();
+        offer.title = request.title.trim();
+        offer.speechSnippet = request.speechSnippet.trim();
+        offer.status = Offer.STATUS_ENTWURF;
+
+        OfferStatusHistory history = new OfferStatusHistory();
+        history.status = Offer.STATUS_ENTWURF;
+        history.offer = offer;
+        offer.statusHistory.add(history);
+
+        offer.persist();
         return OfferResponse.fromEntity(offer);
     }
 

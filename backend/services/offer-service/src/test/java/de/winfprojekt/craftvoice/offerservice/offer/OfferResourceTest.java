@@ -180,6 +180,60 @@ class OfferResourceTest {
         );
     }
 
+    @Test
+    @TestSecurity(user = "test-user", roles = {"OWNER"})
+    @OidcSecurity(claims = {
+            @Claim(key = "sub", value = "99")
+    })
+    void shouldSaveDraftWithoutCustomerOrProcessEngineCall() {
+        Number offerId = given()
+                .contentType(ContentType.JSON)
+                .body("""
+                {
+                  "title": "Badrenovierung",
+                  "speechSnippet": "Badewanne austauschen und Fliesen erneuern"
+                }
+                """)
+                .when()
+                .post("/offers/drafts")
+                .then()
+                .statusCode(201)
+                .body("status", equalTo(Offer.STATUS_ENTWURF))
+                .body("customerId", nullValue())
+                .body("title", equalTo("Badrenovierung"))
+                .extract()
+                .path("id");
+
+        Offer offer = Offer.findById(offerId.longValue());
+        assertNotNull(offer);
+        assertNull(offer.customerId);
+        assertEquals("99", offer.handwerkerId);
+        assertEquals("Badrenovierung", offer.title);
+        assertEquals("Badewanne austauschen und Fliesen erneuern", offer.speechSnippet);
+        assertEquals(Offer.STATUS_ENTWURF, offer.status);
+        verify(processEngineClient, never())
+                .sendAngebotPayload(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @TestSecurity(user = "test-user", roles = {"OWNER"})
+    @OidcSecurity(claims = {
+            @Claim(key = "sub", value = "99")
+    })
+    void shouldRejectDraftWithoutTitle() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("""
+                {
+                  "speechSnippet": "Badewanne austauschen"
+                }
+                """)
+                .when()
+                .post("/offers/drafts")
+                .then()
+                .statusCode(400);
+    }
+
     /**
      * Prüft, dass bei fehlendem speechSnippet ein HTTP-Statuscode 400 zurückgegeben wird.
      */
