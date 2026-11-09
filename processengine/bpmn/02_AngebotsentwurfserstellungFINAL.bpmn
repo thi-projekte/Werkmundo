@@ -2,7 +2,7 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_angebotsentwurfserstellung" targetNamespace="http://werkmundo.de/bpmn" exporter="Camunda Modeler" exporterVersion="5.52.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
   <bpmn:collaboration id="Collaboration_angebotsentwurfserstellung">
     <bpmn:participant id="Pool_angebotsentwurfserstellung" name="Angebotsentwurfserstellung" processRef="angebotsentwurfserstellung" />
-    <bpmn:participant id="Participant_Frontend" name="Frontend" />
+    <bpmn:participant id="Participant_Frontend" name="Handwerker" />
     <bpmn:participant id="Participant_KIService" name="KI-Service" />
     <bpmn:messageFlow id="MF_AuftragZurPositionsermittlung" name="Auftrag zur Positionsermittlung" sourceRef="Call_Positionsermittlung" targetRef="Participant_KIService" />
     <bpmn:messageFlow id="MF_Angebotspositionen" name="Angebotspositionen" sourceRef="Participant_KIService" targetRef="Call_Positionsermittlung" />
@@ -23,7 +23,9 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
   <bpmn:process id="angebotsentwurfserstellung" name="Angebotsentwurfserstellung" isExecutable="true" camunda:versionTag="4.0" camunda:historyTimeToLive="180">
     <bpmn:documentation>Teilprozess der Angebotsabwicklung. Die KI ermittelt einmalig aus der Spracheingabe die Positionen. Daraus entsteht der Angebotsentwurf – bei fehlgeschlagener Ermittlung ein Entwurf ohne Positionen. In der Angebotsentwurfsprüfung sieht der Handwerker das PDF und darunter alle Positionen, die er ändern, löschen oder aus dem Produktkatalog ergänzen kann. Geänderte Positionen gehen an die Engine zurück, der Entwurf wird überarbeitet und erneut vorgelegt – bis der Handwerker bestätigt oder verwirft. Eingang: angebotId, handwerkerId, kundeId, spracheingabeId. Endzustände: Angebotsentwurf bestätigt | Angebotsentwurf verworfen (Variable ergebnisAngebotsentwurfserstellung).</bpmn:documentation>
     <bpmn:laneSet id="LaneSet_angebotsentwurfserstellung">
-      <bpmn:lane id="Lane_AES_DokumentenService" name="Dokumenten-Service" />
+      <bpmn:lane id="Lane_AES_DokumentenService" name="Dokumenten-Service">
+        <bpmn:flowNodeRef>Task_AngebotsentwurfAnFrontendSenden</bpmn:flowNodeRef>
+      </bpmn:lane>
       <bpmn:lane id="Lane_AES_AngebotsService" name="Angebots-Service">
         <bpmn:flowNodeRef>Start_AngebotsentwurfBenoetigt</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Call_Positionsermittlung</bpmn:flowNodeRef>
@@ -31,8 +33,6 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
         <bpmn:flowNodeRef>Task_LeerenAngebotsentwurfErstellen</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Task_AngebotsentwurfErstellen</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Gateway_116kgeu</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>Task_AngebotsvorschauErstellen</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>Task_AngebotsentwurfAnFrontendSenden</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Task_AngebotspruefergebnisEmpfangen</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Gateway_Angebotspruefergebnis</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Task_AngebotsentwurfUeberarbeiten</bpmn:flowNodeRef>
@@ -40,6 +40,7 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
         <bpmn:flowNodeRef>End_InnerAngebotsentwurfBestaetigt</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>End_InnerAngebotsentwurfVerworfen</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Gateway_0785wuy</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AngebotsvorschauErstellen</bpmn:flowNodeRef>
       </bpmn:lane>
     </bpmn:laneSet>
     <bpmn:startEvent id="Start_AngebotsentwurfBenoetigt" name="Angebotsentwurf benötigt">
@@ -93,34 +94,6 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       <bpmn:incoming>Flow_094fb3y</bpmn:incoming>
       <bpmn:outgoing>Flow_0n1x0xz</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:serviceTask id="Task_AngebotsvorschauErstellen" name="Angebotsentwurf erstellen" camunda:asyncBefore="true" camunda:delegateExpression="${angebotsvorschauErstellen}">
-      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): POST /dokumente/ANGEBOT/{angebotId}/vorschau. Erzeugt aus dem aktuellen Entwurf ein Vorschau-PDF (Wasserzeichen „Entwurf“).</bpmn:documentation>
-      <bpmn:extensionElements>
-        <camunda:inputOutput>
-          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
-          <camunda:outputParameter name="vorschauUrl">${vorschauUrl}</camunda:outputParameter>
-        </camunda:inputOutput>
-        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_0n1x0xz</bpmn:incoming>
-      <bpmn:outgoing>Flow_Vorschau_Senden</bpmn:outgoing>
-    </bpmn:serviceTask>
-    <bpmn:sendTask id="Task_AngebotsentwurfAnFrontendSenden" name="Angebotsentwurf an Frontend senden" camunda:asyncBefore="true" camunda:delegateExpression="${frontendEreignisSenden}">
-      <bpmn:documentation>Liefert dem Frontend (OfferReviewView) die PDF-Vorschau und darunter alle Positionen strukturiert. Die Auswahlliste für neue oder korrigierte Positionen lädt das Frontend direkt aus dem Katalog-Service.</bpmn:documentation>
-      <bpmn:extensionElements>
-        <camunda:inputOutput>
-          <camunda:inputParameter name="ereignistyp">angebotsentwurfZurPruefung</camunda:inputParameter>
-          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
-          <camunda:inputParameter name="handwerkerId">${handwerkerId}</camunda:inputParameter>
-          <camunda:inputParameter name="vorschauUrl">${vorschauUrl}</camunda:inputParameter>
-          <camunda:inputParameter name="angebotsentwurf">${angebotsentwurf}</camunda:inputParameter>
-          <camunda:inputParameter name="ergebnisPositionsermittlung">${ergebnisPositionsermittlung}</camunda:inputParameter>
-        </camunda:inputOutput>
-        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_Vorschau_Senden</bpmn:incoming>
-      <bpmn:outgoing>Flow_Senden_Empfangen</bpmn:outgoing>
-    </bpmn:sendTask>
     <bpmn:receiveTask id="Task_AngebotspruefergebnisEmpfangen" name="Angebotsprüfergebnis empfangen" messageRef="Message_AngebotspruefergebnisEingegangen">
       <bpmn:documentation>Nachricht angebotspruefergebnisEingegangen vom Frontend (über Angebots-Service), Korrelation über Business Key. Variablen: angebotspruefergebnis = BESTAETIGT | VERWORFEN | POSITIONEN_GEAENDERT; geaenderteAngebotspositionen (JSON, vollständige Positionsliste, nur bei POSITIONEN_GEAENDERT).</bpmn:documentation>
       <bpmn:incoming>Flow_Senden_Empfangen</bpmn:incoming>
@@ -205,6 +178,34 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
     </bpmn:exclusiveGateway>
     <bpmn:sequenceFlow id="Flow_1jtqaea" sourceRef="Gateway_0785wuy" targetRef="End_InnerAngebotsentwurfBestaetigt" />
     <bpmn:sequenceFlow id="Flow_121787f" sourceRef="Task_AngebotsentwurfUeberarbeiten" targetRef="Gateway_0785wuy" />
+    <bpmn:sendTask id="Task_AngebotsentwurfAnFrontendSenden" name="Angebotsentwurf an Frontend senden" camunda:asyncBefore="true" camunda:delegateExpression="${frontendEreignisSenden}">
+      <bpmn:documentation>Liefert dem Frontend (OfferReviewView) die PDF-Vorschau und darunter alle Positionen strukturiert. Die Auswahlliste für neue oder korrigierte Positionen lädt das Frontend direkt aus dem Katalog-Service.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="ereignistyp">angebotsentwurfZurPruefung</camunda:inputParameter>
+          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
+          <camunda:inputParameter name="handwerkerId">${handwerkerId}</camunda:inputParameter>
+          <camunda:inputParameter name="vorschauUrl">${vorschauUrl}</camunda:inputParameter>
+          <camunda:inputParameter name="angebotsentwurf">${angebotsentwurf}</camunda:inputParameter>
+          <camunda:inputParameter name="ergebnisPositionsermittlung">${ergebnisPositionsermittlung}</camunda:inputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Vorschau_Senden</bpmn:incoming>
+      <bpmn:outgoing>Flow_Senden_Empfangen</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:serviceTask id="Task_AngebotsvorschauErstellen" name="Angebotsentwurf erstellen" camunda:asyncBefore="true" camunda:delegateExpression="${angebotsvorschauErstellen}">
+      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): POST /dokumente/ANGEBOT/{angebotId}/vorschau. Erzeugt aus dem aktuellen Entwurf ein Vorschau-PDF (Wasserzeichen „Entwurf“).</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
+          <camunda:outputParameter name="vorschauUrl">${vorschauUrl}</camunda:outputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0n1x0xz</bpmn:incoming>
+      <bpmn:outgoing>Flow_Vorschau_Senden</bpmn:outgoing>
+    </bpmn:serviceTask>
   </bpmn:process>
   <bpmn:message id="Message_AngebotspruefergebnisEingegangen" name="angebotspruefergebnisEingegangen" />
   <bpmndi:BPMNDiagram id="Diagram_angebotsentwurfserstellung">
@@ -212,11 +213,11 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       <bpmndi:BPMNShape id="Pool_angebotsentwurfserstellung_di" bpmnElement="Pool_angebotsentwurfserstellung" isHorizontal="true">
         <dc:Bounds x="160" y="290" width="2710" height="560" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_AES_DokumentenService_di" bpmnElement="Lane_AES_DokumentenService" isHorizontal="true">
-        <dc:Bounds x="190" y="650" width="2680" height="200" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Lane_AES_AngebotsService_di" bpmnElement="Lane_AES_AngebotsService" isHorizontal="true">
         <dc:Bounds x="190" y="290" width="2680" height="360" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_AES_DokumentenService_di" bpmnElement="Lane_AES_DokumentenService" isHorizontal="true">
+        <dc:Bounds x="190" y="650" width="2680" height="200" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Start_AngebotsentwurfBenoetigt_di" bpmnElement="Start_AngebotsentwurfBenoetigt">
         <dc:Bounds x="255" y="512" width="36" height="36" />
@@ -241,13 +242,6 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_116kgeu_di" bpmnElement="Gateway_116kgeu" isMarkerVisible="true">
         <dc:Bounds x="895" y="505" width="50" height="50" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BPMNShape_0fqf4gh" bpmnElement="Task_AngebotsvorschauErstellen">
-        <dc:Bounds x="1015" y="490" width="150" height="80" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BPMNShape_06wul5c" bpmnElement="Task_AngebotsentwurfAnFrontendSenden">
-        <dc:Bounds x="1215" y="490" width="150" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BPMNShape_1gazl7h" bpmnElement="Task_AngebotspruefergebnisEmpfangen">
         <dc:Bounds x="1420" y="490" width="150" height="80" />
@@ -284,6 +278,13 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_0785wuy_di" bpmnElement="Gateway_0785wuy" isMarkerVisible="true">
         <dc:Bounds x="2085" y="505" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_06wul5c" bpmnElement="Task_AngebotsentwurfAnFrontendSenden">
+        <dc:Bounds x="1215" y="700" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BPMNShape_0fqf4gh" bpmnElement="Task_AngebotsvorschauErstellen">
+        <dc:Bounds x="1015" y="490" width="150" height="80" />
+        <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_Start_Call_di" bpmnElement="Flow_Start_Call">
         <di:waypoint x="291" y="530" />
@@ -323,10 +324,14 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="BPMNEdge_1obg6go" bpmnElement="Flow_Vorschau_Senden">
         <di:waypoint x="1165" y="530" />
-        <di:waypoint x="1215" y="530" />
+        <di:waypoint x="1190" y="530" />
+        <di:waypoint x="1190" y="740" />
+        <di:waypoint x="1215" y="740" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="BPMNEdge_1cs53zm" bpmnElement="Flow_Senden_Empfangen">
-        <di:waypoint x="1365" y="530" />
+        <di:waypoint x="1365" y="740" />
+        <di:waypoint x="1393" y="740" />
+        <di:waypoint x="1393" y="530" />
         <di:waypoint x="1420" y="530" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="BPMNEdge_1m9jriu" bpmnElement="Flow_Empfangen_GW">
@@ -369,20 +374,13 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
         <di:waypoint x="2110" y="430" />
         <di:waypoint x="2110" y="505" />
       </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Participant_Frontend_di" bpmnElement="Participant_Frontend" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="2710" height="60" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Participant_KIService_di" bpmnElement="Participant_KIService" isHorizontal="true">
         <dc:Bounds x="160" y="940" width="2520" height="60" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Participant_Frontend_di" bpmnElement="Participant_Frontend" isHorizontal="true">
-        <dc:Bounds x="160" y="80" width="2710" height="60" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Association_0059i8s_di" bpmnElement="Association_0059i8s">
-        <di:waypoint x="1250" y="189" />
-        <di:waypoint x="1290" y="183" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Association_0cr7xeh_di" bpmnElement="Association_0cr7xeh">
-        <di:waypoint x="1680" y="218" />
-        <di:waypoint x="1470" y="212" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="Annotation_Angebotsentwurf_di" bpmnElement="Annotation_Angebotsentwurf">
         <dc:Bounds x="1020" y="180" width="230" height="52" />
       </bpmndi:BPMNShape>
@@ -390,12 +388,9 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
         <dc:Bounds x="1680" y="180" width="352" height="86" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="MF_Angebotspositionen_di" bpmnElement="MF_Angebotspositionen">
-        <di:waypoint x="435" y="940" />
-        <di:waypoint x="435" y="570" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="447" y="882" width="97" height="14" />
-        </bpmndi:BPMNLabel>
+      <bpmndi:BPMNEdge id="BPMNEdge_0rz5kav" bpmnElement="DataInputAssociation_Produktkatalog">
+        <di:waypoint x="1795" y="335" />
+        <di:waypoint x="1892" y="410" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="MF_AuftragZurPositionsermittlung_di" bpmnElement="MF_AuftragZurPositionsermittlung">
         <di:waypoint x="375" y="570" />
@@ -404,11 +399,18 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
           <dc:Bounds x="269" y="870" width="93" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Angebotspositionen_di" bpmnElement="MF_Angebotspositionen">
+        <di:waypoint x="435" y="940" />
+        <di:waypoint x="435" y="570" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="447" y="882" width="97" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_160fvfv_di" bpmnElement="Flow_160fvfv">
-        <di:waypoint x="1290" y="490" />
+        <di:waypoint x="1290" y="700" />
         <di:waypoint x="1290" y="140" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1298" y="233" width="83" height="14" />
+          <dc:Bounds x="1298" y="293" width="83" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_069l8pk_di" bpmnElement="Flow_069l8pk">
@@ -418,9 +420,13 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
           <dc:Bounds x="1471" y="236" width="139" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="BPMNEdge_0rz5kav" bpmnElement="DataInputAssociation_Produktkatalog">
-        <di:waypoint x="1795" y="335" />
-        <di:waypoint x="1892" y="410" />
+      <bpmndi:BPMNEdge id="Association_0cr7xeh_di" bpmnElement="Association_0cr7xeh">
+        <di:waypoint x="1680" y="218" />
+        <di:waypoint x="1470" y="212" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_0059i8s_di" bpmnElement="Association_0059i8s">
+        <di:waypoint x="1250" y="189" />
+        <di:waypoint x="1290" y="209" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
