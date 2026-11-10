@@ -1,0 +1,76 @@
+name: Auftraggeber service tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - SquadAuftraggeber
+      - 'Jan/squad-integration-pruefung'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  service-tests:
+    name: '${{ matrix.service }} / PostgreSQL'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [offer-service, document-service]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: service_test
+          POSTGRES_USER: service_test
+          POSTGRES_PASSWORD: ci-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U service_test -d service_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: 'backend/services/${{ matrix.service }}'
+    env:
+      OFFER_PERSISTENCE: postgres
+      OFFER_DB_ENABLED: 'true'
+      OFFER_DB_JDBC_URL: jdbc:postgresql://127.0.0.1:5432/service_test
+      OFFER_DB_USER: service_test
+      OFFER_DB_PASSWORD: ci-test-only
+      DOCUMENT_DB_TESTS: 'true'
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://127.0.0.1:5432/service_test
+      QUARKUS_DATASOURCE_USERNAME: service_test
+      QUARKUS_DATASOURCE_PASSWORD: ci-test-only
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Build and test against PostgreSQL
+        run: sh ./mvnw -B '-Dquarkus.http.test-port=18082' clean verify
+      - name: Reject silently skipped database tests
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+          reports = glob.glob('target/surefire-reports/TEST-*.xml')
+          assert reports, 'No test reports found'
+          suites = [ET.parse(path).getroot() for path in reports]
+          assert all(int(s.get('skipped', '0')) == 0 for s in suites), 'Tests were skipped'
+          required = ('OfferJpaRepositoryIntegrationTest' if '${{ matrix.service }}' == 'offer-service'
+                      else 'PostgresDocumentRepositoryTest')
+          assert any(s.get('name', '').endswith(required) and int(s.get('tests', '0')) > 0
+                     for s in suites), f'Missing database test suite: {required}'
+          PY

@@ -1,0 +1,9 @@
+# Development-only container for testing Gateway routing before persistence is available.
+FROM maven:3.9.16-eclipse-temurin-25
+
+WORKDIR /workspace
+COPY . .
+
+EXPOSE 8080
+
+CMD ["mvn", "quarkus:dev", "-Dquarkus.http.host=0.0.0.0"]
