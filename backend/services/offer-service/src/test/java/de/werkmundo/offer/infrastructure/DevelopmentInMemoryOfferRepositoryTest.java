@@ -3,12 +3,27 @@ package de.werkmundo.offer.infrastructure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.werkmundo.offer.domain.Offer;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class DevelopmentInMemoryOfferRepositoryTest {
+    @Test
+    void createNeverReplacesAnExistingOffer() {
+        DevelopmentInMemoryOfferRepository repository = new DevelopmentInMemoryOfferRepository();
+        Offer original = new Offer("offer-1");
+        original.setCraftsmanId("owner");
+        repository.create(original);
+        Offer duplicate = new Offer("offer-1");
+        duplicate.setCraftsmanId("other-owner");
+
+        assertThrows(de.werkmundo.offer.domain.OfferAlreadyExistsException.class,
+                () -> repository.create(duplicate));
+        assertSame(original, repository.findByBusinessKey("offer-1").orElseThrow());
+    }
+
     @Test
     void savesAndFindsOffersByBusinessKey() {
         DevelopmentInMemoryOfferRepository repository = new DevelopmentInMemoryOfferRepository();

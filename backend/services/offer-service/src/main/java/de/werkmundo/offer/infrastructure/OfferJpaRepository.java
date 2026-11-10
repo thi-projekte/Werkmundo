@@ -1,6 +1,7 @@
 package de.werkmundo.offer.infrastructure;
 
 import de.werkmundo.offer.domain.Offer;
+import de.werkmundo.offer.domain.OfferAlreadyExistsException;
 import de.werkmundo.offer.domain.OfferPosition;
 import de.werkmundo.offer.domain.OfferPositionType;
 import de.werkmundo.offer.domain.OfferRepository;
@@ -29,10 +30,25 @@ public class OfferJpaRepository implements OfferRepository {
 
     @Override
     @Transactional
+    public Offer create(Offer offer) {
+        Objects.requireNonNull(offer, "offer must not be null");
+        if (entities.findByBusinessKey(offer.getBusinessKey()).isPresent()) {
+            throw new OfferAlreadyExistsException();
+        }
+        // Always insert here: the UNIQUE constraint also protects concurrent creates.
+        return write(new OfferEntity(), offer);
+    }
+
+    @Override
+    @Transactional
     public Offer save(Offer offer) {
         Objects.requireNonNull(offer, "offer must not be null");
         OfferEntity entity = entities.findByBusinessKey(offer.getBusinessKey())
                 .orElseGet(OfferEntity::new);
+        return write(entity, offer);
+    }
+
+    private Offer write(OfferEntity entity, Offer offer) {
         entity.businessKey = offer.getBusinessKey();
         entity.customerId = offer.getCustomerId();
         entity.craftsmanId = offer.getCraftsmanId();

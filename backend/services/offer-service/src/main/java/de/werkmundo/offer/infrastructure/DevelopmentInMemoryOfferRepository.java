@@ -1,6 +1,7 @@
 package de.werkmundo.offer.infrastructure;
 
 import de.werkmundo.offer.domain.Offer;
+import de.werkmundo.offer.domain.OfferAlreadyExistsException;
 import de.werkmundo.offer.domain.OfferRepository;
 import io.quarkus.arc.properties.UnlessBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -14,6 +15,15 @@ import java.util.concurrent.ConcurrentMap;
 @UnlessBuildProperty(name = "offer.persistence", stringValue = "postgres")
 public class DevelopmentInMemoryOfferRepository implements OfferRepository {
     private final ConcurrentMap<String, Offer> offers = new ConcurrentHashMap<>();
+
+    @Override
+    public Offer create(Offer offer) {
+        Objects.requireNonNull(offer, "offer must not be null");
+        if (offers.putIfAbsent(offer.getBusinessKey(), offer) != null) {
+            throw new OfferAlreadyExistsException();
+        }
+        return offer;
+    }
 
     @Override
     public Offer save(Offer offer) {

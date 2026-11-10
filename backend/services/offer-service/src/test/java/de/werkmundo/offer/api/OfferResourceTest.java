@@ -60,6 +60,36 @@ class OfferResourceTest {
     }
 
     @Test
+    void cannotReplaceAnotherCraftsmansOfferByCreatingWithTheSameKey() {
+        resource.create(
+                new CreateOfferRequest("offer-1", "original-customer", null, List.of(), List.of()),
+                securityContext("craftsman-1"));
+
+        assertThrows(IllegalStateException.class, () -> resource.create(
+                new CreateOfferRequest("offer-1", "other-customer", null, List.of(), List.of()),
+                securityContext("craftsman-2")));
+
+        Offer original = repository.findByBusinessKey("offer-1").orElseThrow();
+        assertEquals("craftsman-1", original.getCraftsmanId());
+        assertEquals("original-customer", original.getCustomerId());
+    }
+
+    @Test
+    void cannotResetAnExistingOfferByCreatingWithTheSameKey() {
+        resource.create(
+                new CreateOfferRequest("offer-1", "original-customer", null, List.of(), List.of()),
+                securityContext("craftsman-1"));
+        repository.findByBusinessKey("offer-1").orElseThrow().markReadyToSend();
+
+        assertThrows(IllegalStateException.class, () -> resource.create(
+                new CreateOfferRequest("offer-1", "other-customer", null, List.of(), List.of()),
+                securityContext("craftsman-1")));
+
+        assertEquals(de.werkmundo.offer.domain.OfferStatus.READY_TO_SEND,
+                repository.findByBusinessKey("offer-1").orElseThrow().getStatus());
+    }
+
+    @Test
     void rejectsOwnerActionsWithoutAuthenticatedPrincipal() {
         assertThrows(
                 NotAuthorizedException.class,

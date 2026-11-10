@@ -1,6 +1,7 @@
 package de.werkmundo.offer.api;
 
 import de.werkmundo.offer.api.dto.ErrorResponse;
+import de.werkmundo.offer.domain.OfferAlreadyExistsException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
@@ -19,6 +20,9 @@ public class OfferExceptionMapper implements ExceptionMapper<RuntimeException> {
         }
         if (exception instanceof SecurityException) {
             return error(Response.Status.UNAUTHORIZED, "Invalid or expired access token");
+        }
+        if (exception instanceof OfferAlreadyExistsException) {
+            return error(Response.Status.CONFLICT, "An offer with this business key already exists");
         }
         if (exception instanceof IllegalStateException) {
             return error(Response.Status.CONFLICT, "The offer cannot be changed in its current state");

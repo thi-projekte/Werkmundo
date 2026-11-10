@@ -22,6 +22,21 @@ class OfferJpaRepositoryIntegrationTest {
 
     @Test
     @TestTransaction
+    void createDoesNotOverwriteAnotherOwnersOffer() {
+        String key = "duplicate-" + UUID.randomUUID();
+        Offer original = new Offer(key);
+        original.setCraftsmanId("original-owner");
+        repository.create(original);
+        Offer duplicate = new Offer(key);
+        duplicate.setCraftsmanId("other-owner");
+
+        assertThrows(de.werkmundo.offer.domain.OfferAlreadyExistsException.class,
+                () -> repository.create(duplicate));
+        assertEquals("original-owner", repository.findByBusinessKey(key).orElseThrow().getCraftsmanId());
+    }
+
+    @Test
+    @TestTransaction
     void persistsAndRehydratesDomainOffer() {
         String key = "issue32-" + UUID.randomUUID();
         Offer offer = new Offer(key);

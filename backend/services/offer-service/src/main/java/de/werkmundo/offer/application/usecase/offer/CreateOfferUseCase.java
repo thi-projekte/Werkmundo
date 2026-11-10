@@ -42,6 +42,6 @@ public class CreateOfferUseCase {
             offer.addPosition(position);
         });
 
-        return offerRepository.save(offer);
+        return offerRepository.create(offer);
     }
 }
