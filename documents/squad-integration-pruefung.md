@@ -4,6 +4,14 @@ Stand: 10.11.2026. Grundlage sind lokal gespeicherte Remote-Referenzen;
 ein aktueller Abruf von GitHub war in der Prüfumgebung nicht möglich.
 Pull-Request-Zustand, Reviews und aktuelle CI-Ergebnisse sind damit nicht bestätigt.
 
+Nachtrag: Die aktuellen Referenzen und PR #48 konnten anschließend unter dem
+neuen Repositorynamen `thi-projekte/Werkmundo` abgeglichen werden. Es gab keine
+Änderungen an den genannten Quellständen. Der Benutzer hat 65 Offer-Tests
+einschließlich PostgreSQL und 7 Document-API-Tests erfolgreich ausgeführt.
+Weitere Änderungen und noch offene Main-Verträge stehen in
+[main-integrationsvertrag.md](main-integrationsvertrag.md). Die folgenden
+Prüfgrenzen dokumentieren den ursprünglichen Untersuchungszeitpunkt.
+
 | Referenz | Geprüfter Commit |
 |---|---|
 | `origin/SquadAuftraggeber` | `2a5fa73` |

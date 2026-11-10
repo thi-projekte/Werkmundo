@@ -65,7 +65,10 @@ unter `de.winfprojekt.craftvoice.offerservice` auf `main`. Beide dürfen nicht
 unverändert in dieselbe Anwendung übernommen werden: REST-Routen und
 Datenbanktabellen überschneiden sich, Konfiguration und Datenverträge weichen ab.
 
-- Keycloak/OIDC ist in diesem Service-Branch noch nicht eingerichtet.
+- Keycloak/OIDC ist für Produktion vorbereitet (`KEYCLOAK_AUTH_SERVER_URL`,
+  optional `KEYCLOAK_CLIENT_ID`). Der Besitzer stammt aus dem JWT-Claim `sub`.
+  In Entwicklung bleibt die beschriebene lokale Basic Auth erhalten. Die
+  gemeinsame Prüfung mit echten Keycloak-Tokens steht noch aus.
 - KI-, Katalog-, User-Service- und Workflow-Adapter enthalten noch Platzhalter.
 - Die UI erwartet teilweise andere Endpunkte, Feldnamen und Statuswerte.
 - Patricks Docker-Build aus `main` verwendet Java 21 und muss für diese

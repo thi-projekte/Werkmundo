@@ -12,9 +12,12 @@ legt die Tabelle `documents` an. Sie enthält Besitzer, Dokumenttyp,
 Referenz, Empfänger, Dateiname, PDF-Bytes (`bytea`) und Erstellungszeitpunkt.
 Abfragen sind nach Besitzer getrennt. SQL-Parameter werden gebunden.
 
-Damit sind Schema und Speicherimplementierung vorhanden. Eine eigene
-laufende PostgreSQL-Datenbank und deren Bereitstellung sind in diesem Branch
-noch nicht enthalten. Die Datenbank des Offer-Service ist dafür nicht vorgesehen.
+`docker-compose.db.yml` stellt eine eigene PostgreSQL-17-Datenbank auf
+`127.0.0.1:55433` bereit: Datenbank `document_db`, Benutzer `document_user`.
+Vor dem Start `DOCUMENT_DB_PASSWORD` als Umgebungsvariable setzen, dann
+`docker compose -f docker-compose.db.yml up -d --wait` ausführen.
+Die Datenbank des Offer-Service wird nicht mitverwendet. Das benannte Volume
+bleibt bei `docker compose -f docker-compose.db.yml down` erhalten.
 
 Für eine separat bereitgestellte PostgreSQL-Datenbank konfigurieren:
 
@@ -54,20 +57,42 @@ die unten genannten konkreten Adapter.
 - `DocumentSender`: Es existiert nur das Interface, keine produktive
   Versandimplementierung. Versand liefert ohne Implementierung `503`.
 - Erzeugung von Angebots-PDFs und deren Download sind noch nicht umgesetzt.
-- Keycloak/OIDC-Abhängigkeit und Konfiguration fehlen; `@Authenticated`
-  allein richtet noch keine Bearer-Token-Prüfung ein.
-- Maven Wrapper, Docker-Build und gemeinsamer Startstack fehlen.
-- Ein Integrationstest gegen echtes PostgreSQL fehlt.
+- Die produktive OIDC-Konfiguration ist vorbereitet: `KEYCLOAK_AUTH_SERVER_URL`
+  und bei Bedarf `KEYCLOAK_CLIENT_ID` setzen. Der Besitzer wird aus dem JWT-Claim
+  `sub` abgeleitet. Der gemeinsame Test mit echten Keycloak-Tokens steht aus.
+- Maven Wrapper und ein Java-25-Runtime-Dockerfile unter `src/main/docker/`
+  sind vorhanden. Das Runtime-Image wird nach `./mvnw package` gebaut:
+  `docker build -f src/main/docker/Dockerfile.jvm -t werkmundo/document-service:local .`.
+  Die Integration in den gemeinsamen Startstack steht noch aus.
 
 ## Tests
 
-Mit installiertem Maven und Java 25 im Serviceverzeichnis:
+Mit Java 25 im Serviceverzeichnis:
 
 ```powershell
-mvn -B '-Dquarkus.http.test-port=18082' test
+.\mvnw.cmd -B '-Dquarkus.http.test-port=18082' test
 ```
 
 Die vorhandenen sieben API-Tests verwenden Testidentitäten, ein
 In-Memory-Repository, drei feste Bytes als PDF und einen simulierten Sender.
 Sie prüfen API-Verhalten und Besitzertrennung. Sie bestätigen weder echte
 PDF-Erzeugung oder E-Mail-Zustellung noch das PostgreSQL-Repository.
+
+Vier zusätzliche PostgreSQL-Tests prüfen binäre Inhalte, Besitzertrennung,
+Dokumentversionen und die Flyway-Migration. Ohne `DOCUMENT_DB_TESTS=true`
+werden ausschließlich diese vier Tests übersprungen. Für den vollständigen
+Lauf mit laufender Dokumentdatenbank:
+
+```powershell
+$env:DOCUMENT_DB_TESTS = 'true'
+$env:QUARKUS_DATASOURCE_JDBC_URL = 'jdbc:postgresql://127.0.0.1:55433/document_db'
+$env:QUARKUS_DATASOURCE_USERNAME = 'document_user'
+$env:QUARKUS_DATASOURCE_PASSWORD = $env:DOCUMENT_DB_PASSWORD
+.\mvnw.cmd -B '-Dquarkus.http.test-port=18082' clean verify
+```
+
+Die Tests verwenden eindeutig erzeugte Testbesitzer und entfernen nur ihre
+eigenen Testdokumente. Ein automatischer Gesamtlauf beider Services steht im
+Repository-Root unter `scripts/Test-Auftraggeber.ps1`. Die GitHub Action
+`auftraggeber-tests.yml` führt beide Services gegen PostgreSQL aus und weist
+übersprungene Datenbanktests zurück.
