@@ -15,8 +15,16 @@ foreach ($variable in $variables) {
 
 function Invoke-Checked {
     param([string]$Executable, [string[]]$Arguments)
-    & $Executable @Arguments
-    if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): $Executable" }
+    $previousErrorPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell 5.1 can turn native progress on stderr into errors.
+        $ErrorActionPreference = 'Continue'
+        & $Executable @Arguments
+        $commandExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
+    if ($commandExitCode -ne 0) { throw "Command failed (exit $commandExitCode): $Executable" }
 }
 
 function Read-DatabasePassword {
@@ -33,8 +41,14 @@ function Test-Service {
     Set-Location (Join-Path $repositoryRoot "backend/services/$Service")
     $logPath = Join-Path (Get-Location) 'auftraggeber-verification.log'
     Write-Host "Building and testing $Service. Log: $logPath"
-    & .\mvnw.cmd -B '-Dquarkus.http.test-port=18082' clean verify *> $logPath
-    $buildExitCode = $LASTEXITCODE
+    $previousErrorPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & .\mvnw.cmd -B '-Dquarkus.http.test-port=18082' clean verify *> $logPath
+        $buildExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorPreference
+    }
     Get-Content -LiteralPath $logPath -Tail 35
     if ($buildExitCode -ne 0) { throw "$Service build failed. See $logPath" }
     $reports = @(Get-ChildItem -LiteralPath 'target/surefire-reports' -Filter 'TEST-*.xml')
@@ -63,8 +77,11 @@ try {
         $env:JAVA_HOME = $jdk.FullName
         $env:Path = "$env:JAVA_HOME/bin;$env:Path"
     }
-    $javaVersion = (& java -version 2>&1 | Out-String)
-    if ($javaVersion -notmatch 'version "25[.\"]') { throw 'Java 25 is required.' }
+    # --version writes to stdout, unlike -version, including on Windows PowerShell 5.1.
+    $javaVersion = (& java --version | Out-String)
+    if ($LASTEXITCODE -ne 0 -or $javaVersion -notmatch '(?m)^(?:openjdk|java)\s+25(?:[.\s]|$)') {
+        throw 'Java 25 is required.'
+    }
     Invoke-Checked -Executable 'docker' -Arguments @('info', '--format', '{{.ServerVersion}}')
 
     $env:OFFER_DB_PASSWORD = Read-DatabasePassword -Existing $env:OFFER_DB_PASSWORD `
