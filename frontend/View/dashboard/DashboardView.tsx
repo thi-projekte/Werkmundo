@@ -85,13 +85,13 @@ export function DashboardView() {
           <button type="button" className={offerMode === "text" ? "is-active" : ""} aria-pressed={offerMode === "text"} onClick={() => setOfferMode("text")}>Text</button>
         </div>
         {offerMode === "voice" ? (
-          <button className="wm-record-cta" type="button" onClick={() => navigate("/home")}>
+          <button className="wm-record-cta" type="button" onClick={() => navigate("/aufnahme", { state: { mode: "voice", customerId: selectedCustomerId } })}>
             <Mic size={17} aria-hidden="true" /> Aufnahme starten
           </button>
         ) : (
           <div className="wm-dashboard-text">
             <textarea aria-label="Auftrag beschreiben" value={offerText} onChange={(event) => setOfferText(event.target.value)} placeholder="Gib hier deinen Text ein und die KI wird dir ein passendes Angebot erstellen." />
-            <button type="button" onClick={() => navigate("/home", { state: { mode: "text", transcript: offerText } })}>Angebot erstellen</button>
+            <button type="button" onClick={() => navigate("/aufnahme", { state: { mode: "text", transcript: offerText, customerId: selectedCustomerId } })}>Angebot erstellen</button>
           </div>
         )}
       </section>

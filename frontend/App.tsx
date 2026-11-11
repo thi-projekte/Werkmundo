@@ -1,4 +1,4 @@
-import { Link, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { AuthLayout } from "./View/shared/WerkmundoShell";
 import { LoginView } from "./View/user/LoginView";
 import { RegistrationView } from "./View/user/RegistrationView";
@@ -8,6 +8,7 @@ import { PrivacyView } from "./View/legal/PrivacyView";
 import { DashboardView } from "./View/dashboard/DashboardView";
 import { CompanySetupView } from "./View/onboarding/CompanySetupView";
 import { InvoiceSetupView } from "./View/onboarding/InvoiceSetupView";
+import { VoiceInputView } from "./View/voice/VoiceInputView";
 
 function HomeView() {
   return (
@@ -46,6 +47,9 @@ export default function App() {
       <Route path="/login" element={<LoginView />} />
       <Route path="/registrieren" element={<RegistrationView />} />
       <Route path="/dashboard" element={<DashboardView />} />
+      <Route path="/aufnahme" element={<VoiceInputView />} />
+      {/* Alter Pfad aus dem Vorsemester (Navbar „Neues Angebot“) */}
+      <Route path="/home" element={<Navigate to="/aufnahme" replace />} />
       <Route path="/einrichtung/unternehmen" element={<CompanySetupView />} />
       <Route path="/einrichtung/rechnungen" element={<InvoiceSetupView />} />
       <Route path="/kontakt" element={<ContactView />} />

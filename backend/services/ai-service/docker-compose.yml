@@ -26,5 +26,7 @@ services:
       CAMUNDA_ENGINE_URL: ${CAMUNDA_ENGINE_URL:-http://host.docker.internal:8085/engine-rest}
       CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://host.docker.internal:8083}
       KEYCLOAK_URL: ${KEYCLOAK_URL:-http://host.docker.internal:8090}
+      # Frontend-Origins, die /ai/transcribe aus dem Browser aufrufen duerfen (kommagetrennt).
+      AI_CORS_ORIGINS: ${AI_CORS_ORIGINS:-http://localhost:5173}
     extra_hosts:
       - "host.docker.internal:host-gateway"

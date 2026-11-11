@@ -16,7 +16,7 @@ Squads laut `Beispiel/docs/team-ownership.md`:
 
 1. **Such-Endpoint des catalog-service:** `GET /catalog/material/search?q=&limit=` + Header `X-Handwerker-Id`, Antwort `{ "candidates": [ {id, articleNumber, name, description, unit, category} ] }`. Bleibt der Vertrag so?
 2. **`katalogProduktId`** (String/UUID) ist die Verknüpfung für den Preis-Lookup im offer-service. Mit dem Mock-Katalog sind die IDs Zahlen → keine Preise. Für einen Ende-zu-Ende-Test daher `CATALOG_MOCK_ENABLED=false` und lokalen catalog-service nutzen.
-3. **Speech-to-Text:** Die Transkription liegt im offer-service (`/speech-capture/transcribe`). Laut Team-Ownership gehört „Sprachaufnahme und KI-Analyse“ zu Team 1. Klären, ob die Transkription in den ai-service wandert. Bis dahin kein `SpeechToTextClient` (leerer Platzhalter gelöscht).
+3. **Speech-to-Text:** ✅ (Issue #55) Liegt jetzt im ai-service (`POST /ai/transcribe`, Deepgram), da „Sprachaufnahme und KI-Analyse“ laut Team-Ownership zu Team 1 gehört. Das Frontend nutzt nur noch diesen Endpoint. Mit Team 2 abstimmen, ob `/speech-capture/transcribe` im offer-service entfernt wird.
 4. **`leistungen`** werden laut altem Datenvertrag vom offer-service beim Speichern ignoriert – prüfen.
 
 ## Im eigenen Team entscheiden

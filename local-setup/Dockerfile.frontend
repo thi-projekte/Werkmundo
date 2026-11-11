@@ -31,6 +31,7 @@ ENV VITE_OFFER_SERVICE_URL=http://localhost:8082
 ENV VITE_DOCUMENT_SERVICE_URL=http://localhost:8084
 ENV VITE_CATALOG_SERVICE_URL=http://localhost:8083
 ENV VITE_PE_URL=http://localhost:8085/engine-rest
+ENV VITE_AI_SERVICE_URL=http://localhost:8086
 
 RUN npm run build
 

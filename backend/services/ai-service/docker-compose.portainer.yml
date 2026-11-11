@@ -1,0 +1,56 @@
+# =============================================================================
+# ai-service - Server-Stack fuer Portainer (winfprojekt.de)
+#
+# Anleitung: docs/DEPLOYMENT-PORTAINER.md
+#
+# - Portainer baut das Image direkt aus diesem Repository (Stack -> Repository,
+#   Compose path: backend/services/ai-service/docker-compose.portainer.yml).
+# - Kein ports:-Mapping: Der Nginx Proxy Manager erreicht den Container ueber das
+#   externe Netz "nginx-proxy-manager" unter  ai-service:8081.
+# - Container-Name "ai-service" NICHT aendern - die Process Engine ruft
+#   http://ai-service:8081/ai/process auf.
+# - Secrets NUR als Portainer-Stack-Variablen setzen, NIE hier eintragen.
+# =============================================================================
+services:
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: werkmundo/ai-service:server
+    container_name: ai-service
+    restart: unless-stopped
+    environment:
+      HTTP_PORT: "8081"
+
+      # ---- Pflicht-Secrets (Portainer-Stack-Variablen) ----
+      MEGALLM_API_KEY: ${MEGALLM_API_KEY}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
+      AI_SERVICE_OIDC_SECRET: ${AI_SERVICE_OIDC_SECRET}
+
+      # ---- LLM ----
+      MEGALLM_MODEL: ${MEGALLM_MODEL:-gemini-3-flash-preview}
+      MEGALLM_MODEL_FALLBACK: ${MEGALLM_MODEL_FALLBACK:-google-gemma-4-26b}
+
+      # ---- Frontend-Zugriff auf /ai/transcribe ----
+      AI_CORS_ORIGINS: ${AI_CORS_ORIGINS:-https://craftvoice.winfprojekt.de,https://cv.winfprojekt.de}
+      # Sobald das Frontend Keycloak-Tokens mitschickt: "authenticated" setzen.
+      AI_TRANSCRIBE_AUTH_POLICY: ${AI_TRANSCRIBE_AUTH_POLICY:-permit}
+
+      # ---- Process Engine (muss auf /engine-rest enden, interner Container-Name) ----
+      CAMUNDA_ENGINE_URL: ${CAMUNDA_ENGINE_URL:-http://craftvoice-processengine:8080/engine-rest}
+
+      # ---- Katalog (LLM-Call 2) - echter catalog-service, damit Preise per UUID gefunden werden ----
+      CATALOG_MOCK_ENABLED: ${CATALOG_MOCK_ENABLED:-false}
+      CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://catalog-service:8080}
+
+      # ---- Keycloak: technisches Token (client_credentials, Client "ai-service") ----
+      AI_TECHNICAL_TOKEN_ENABLED: ${AI_TECHNICAL_TOKEN_ENABLED:-true}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-https://id-craftvoice.winfprojekt.de}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-handwerker-realm}
+      AI_SERVICE_OIDC_CLIENT_ID: ${AI_SERVICE_OIDC_CLIENT_ID:-ai-service}
+    networks:
+      - nginx-proxy-manager
+
+networks:
+  nginx-proxy-manager:
+    external: true

@@ -25,6 +25,7 @@ docker compose up --build -d
 | Health | http://localhost:8086/q/health |
 | Analyse synchron (zum Testen) | `POST http://localhost:8086/ai/analyze` |
 | Analyse für die Process Engine | `POST http://localhost:8086/ai/process` |
+| Sprachaufnahme → Text (vom Frontend) | `POST http://localhost:8086/ai/transcribe` (multipart, Feld `audio`) |
 
 Mit echter KI: `cp .env.example .env`, `MEGALLM_API_KEY=...` eintragen, `docker compose up -d` neu starten.
 
@@ -48,6 +49,9 @@ docker run --rm -v "$PWD":/app -v ai-service-m2:/root/.m2 -w /app maven:3.9-ecli
 ## Ablauf
 
 ```text
+Frontend ──POST /ai/transcribe (Audio)──▶ ai-service ──▶ Deepgram   → {"transkript": "..."}
+   │ Transkript prüfen/bearbeiten
+   ▼
 Frontend → offer-service → Process Engine ──POST /ai/process──▶ ai-service
                                 ▲                                   │ 202 sofort
                                 │                                   ▼ (Hintergrund)
@@ -113,6 +117,9 @@ Alles per Env-Variable (Vorlage: [.env.example](.env.example)). Wichtigste Werte
 |---|---|---|
 | `HTTP_PORT` | `8086` | Port (8081–8085 und 8090 belegt das lokale Setup) |
 | `MEGALLM_API_KEY` | leer → Stub | API-Key für MegaLLM, **nie committen** |
+| `DEEPGRAM_API_KEY` | leer → Beispiel-Transkript | Speech-to-Text für `/ai/transcribe`, **nie committen** |
+| `AI_CORS_ORIGINS` | `http://localhost:5173` | Frontend-Origins für `/ai/transcribe` |
+| `AI_TRANSCRIBE_AUTH_POLICY` | `permit` | online `authenticated`, sobald das Frontend Tokens schickt |
 | `MEGALLM_MODEL` / `MEGALLM_MODEL_FALLBACK` | `gemini-3-flash-preview` / `google-gemma-4-26b` | Modellwahl |
 | `CATALOG_MOCK_ENABLED` | `true` | `false` = echter catalog-service |
 | `CATALOG_SERVICE_URL` | `http://localhost:8083` | catalog-service |
@@ -126,6 +133,7 @@ Die Online-Konfiguration (Sicherheit, technisches Token) ist vorbereitet, aber l
 
 ## Weitere Dokumente
 
+- [docs/DEPLOYMENT-PORTAINER.md](docs/DEPLOYMENT-PORTAINER.md) – Server-Deployment: Portainer-Stack, Secrets, Nginx Proxy Manager
 - [docs/UMSETZUNG-ISSUE-29.md](docs/UMSETZUNG-ISSUE-29.md) – jeder TODO-Kommentar aus der Zielstruktur und wie er erledigt wurde
 - [docs/OFFENE-PUNKTE.md](docs/OFFENE-PUNKTE.md) – Abstimmungen mit den anderen Squads
 - [docs/LOKALES-SETUP.md](docs/LOKALES-SETUP.md) – Einbindung in `local-setup/docker-compose.local.yml` (Issue #40)
