@@ -33,6 +33,10 @@ public class DemoDataSeeder {
     private static final Logger LOG = Logger.getLogger(DemoDataSeeder.class);
     private static final String SEED_RESOURCE = "demo/denocke-seed.sql";
 
+    @org.eclipse.microprofile.config.inject.ConfigProperty(
+            name = "demo.seed.enabled", defaultValue = "false")
+    boolean demoSeedEnabled;
+
     @Inject
     EntityManager em;
 
@@ -41,7 +45,7 @@ public class DemoDataSeeder {
 
     void onStart(@Observes StartupEvent ev) {
         // Nur im echten Deployment seeden — NICHT in Tests (@QuarkusTest) oder Dev-Mode.
-        if (LaunchMode.current() != LaunchMode.NORMAL) {
+        if (!demoSeedEnabled || LaunchMode.current() != LaunchMode.NORMAL) {
             return;
         }
         try {
