@@ -35,7 +35,7 @@ import jakarta.ws.rs.core.UriBuilder;
 import java.security.Principal;
 import java.util.List;
 
-@Path("/offers")
+@Path("/api/offers")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class OfferResource {
@@ -75,7 +75,7 @@ public class OfferResource {
         }
 
         Offer offer = createOfferUseCase.execute(request.toCommand(requireCraftsmanId(securityContext)));
-        return Response.created(UriBuilder.fromPath("/offers/{businessKey}")
+        return Response.created(UriBuilder.fromPath("/api/offers/{businessKey}")
                         .build(offer.getBusinessKey()))
                 .entity(OfferResponse.from(offer))
                 .build();

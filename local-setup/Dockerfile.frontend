@@ -1,0 +1,47 @@
+# ---------- Build Stage ----------
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+COPY frontend/package*.json ./
+
+RUN npm ci
+
+COPY frontend/*.tsx ./
+COPY frontend/*.ts ./
+COPY frontend/shared ./shared
+COPY frontend/View ./View
+COPY frontend/ViewModel ./ViewModel
+COPY frontend/Model ./Model
+COPY frontend/infrastructure ./infrastructure
+COPY frontend/app ./app
+COPY frontend/index.html ./
+COPY frontend/tsconfig.json ./
+COPY frontend/tsconfig.app.json ./
+COPY frontend/tsconfig.node.json ./
+COPY frontend/vite.config.ts ./
+
+# Vite embeds these values into the browser bundle during the build
+# Keep them local so the image is independent of frontend/.env
+ENV VITE_KEYCLOAK_URL=http://localhost:8090
+ENV VITE_KEYCLOAK_REALM=handwerker-realm
+ENV VITE_KEYCLOAK_CLIENT_ID=mein-frontend
+ENV VITE_USER_SERVICE_URL=http://localhost:8081/api/users
+ENV VITE_OFFER_SERVICE_URL=http://localhost:8082
+ENV VITE_DOCUMENT_SERVICE_URL=http://localhost:8084
+ENV VITE_CATALOG_SERVICE_URL=http://localhost:8083
+ENV VITE_PE_URL=http://localhost:8085/engine-rest
+
+RUN npm run build
+
+
+# ---------- Production Stage ----------
+FROM nginx:alpine
+
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

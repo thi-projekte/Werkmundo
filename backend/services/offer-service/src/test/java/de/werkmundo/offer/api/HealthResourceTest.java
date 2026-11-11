@@ -7,6 +7,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@io.quarkus.test.junit.TestProfile(H2StartupTestProfile.class)
 class HealthResourceTest {
     @Test
     void reportsThatHttpServiceIsRunning() {

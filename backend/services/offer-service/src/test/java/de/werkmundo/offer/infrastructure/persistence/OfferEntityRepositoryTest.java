@@ -1,71 +1,67 @@
-
 package de.werkmundo.offer.infrastructure.persistence;
 
-import io.quarkus.test.junit.QuarkusTest;
+import de.werkmundo.offer.domain.Offer;
+import de.werkmundo.offer.domain.OfferRepository;
+import de.werkmundo.offer.domain.OfferStatus;
+import de.werkmundo.offer.infrastructure.OfferJpaRepository;
 import io.quarkus.test.TestTransaction;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.UUID;
-
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
+@TestProfile(OfferPostgresTestProfile.class)
+@EnabledIfEnvironmentVariable(named = "OFFER_DB_ENABLED", matches = "true")
 class OfferEntityRepositoryTest {
-
-    @Inject
-    OfferEntityRepository repository;
-
-    @Inject
-    EntityManager entityManager;
+    @Inject OfferRepository repository;
+    @Inject EntityManager entityManager;
 
     @Test
     @TestTransaction
-    void shouldSaveAndLoadOfferWithRelations() {
-        OfferEntity offer = new OfferEntity();
-        offer.businessKey = "test-" + UUID.randomUUID();
-        offer.customerId = "customer-1";
-        offer.craftsmanId = "craftsman-1";
-        offer.status = "DRAFT";
-        offer.createdAt = LocalDateTime.now();
-        offer.updatedAt = offer.createdAt;
-
-        OfferPositionEntity position = new OfferPositionEntity();
-        position.offer = offer;
-        position.type = "MATERIAL";
-        position.name = "Testmaterial";
-        position.quantity = BigDecimal.ONE;
-        position.unitPrice = new BigDecimal("25.00");
-        position.positionOrder = 1;
-        offer.positions.add(position);
-
-        OfferStatusHistoryEntity history =
-                new OfferStatusHistoryEntity();
-        history.offer = offer;
-        history.status = "DRAFT";
-        history.changedAt = offer.createdAt;
-        offer.statusHistory.add(history);
-
-        offer.correctionSuggestions.add("Testhinweis");
-        offer.customerChangeRequests.add("Teständerung");
-
-        repository.persistAndFlush(offer);
+    void structuredRepositoryWritesTheExistingApplicationsTable() {
+        assertInstanceOf(OfferJpaRepository.class, repository);
+        String key = "shared-" + UUID.randomUUID();
+        Offer offer = new Offer(key);
+        offer.setCraftsmanId("shared-test-owner");
+        repository.create(offer);
         entityManager.clear();
 
-        OfferEntity loaded = repository
-                .findByBusinessKey(offer.businessKey)
-                .orElseThrow();
+        var row = entityManager.createQuery("from Offer where businessKey = :key",
+                de.winfprojekt.craftvoice.offerservice.offer.Offer.class)
+                .setParameter("key", key).getSingleResult();
+        assertEquals("shared-test-owner", row.handwerkerId);
+        assertEquals("ENTWURF", row.status);
+        assertEquals(OfferStatus.DRAFT, repository.findByBusinessKey(key).orElseThrow().getStatus());
+    }
 
-        assertEquals("DRAFT", loaded.status);
-        assertEquals("customer-1", loaded.customerId);
-        assertEquals("Testmaterial", loaded.positions.get(0).name);
-        assertEquals(1, loaded.statusHistory.size());
-        assertEquals("Testhinweis",
-                loaded.correctionSuggestions.get(0));
-        assertEquals("Teständerung",
-                loaded.customerChangeRequests.get(0));
+    @Test
+    @TestTransaction
+    void existingProcessOfferIsVisibleWithoutLosingItsPreciseStatusOrHistoryNote() {
+        String key = "process-" + UUID.randomUUID();
+        var row = new de.winfprojekt.craftvoice.offerservice.offer.Offer();
+        row.businessKey = key;
+        row.handwerkerId = "process-test-owner";
+        row.status = "IN_BEARBEITUNG";
+        var history = new de.winfprojekt.craftvoice.offerservice.offer.OfferStatusHistory();
+        history.offer = row;
+        history.status = "IN_BEARBEITUNG";
+        history.notiz = "Original process note";
+        row.statusHistory.add(history);
+        entityManager.persist(row);
+        entityManager.flush();
+        entityManager.clear();
+
+        Offer loaded = repository.findByBusinessKey(key).orElseThrow();
+        assertEquals(OfferStatus.PROCESSING, loaded.getStatus());
+        repository.save(loaded);
+        entityManager.clear();
+        var reloaded = entityManager.find(de.winfprojekt.craftvoice.offerservice.offer.Offer.class, row.id);
+        assertEquals("IN_BEARBEITUNG", reloaded.status);
+        assertEquals("Original process note", reloaded.statusHistory.getFirst().notiz);
     }
 }

@@ -1,0 +1,19 @@
+# Wird von der Backend-CI genutzt (.github/workflows/backend-ci.yml):
+# vorher "mvn package" ausfuehren, dann mit Kontext = Service-Ordner bauen.
+# Fuer den lokalen Start ohne Java: ../Dockerfile (Multi-Stage) bzw. docker-compose.yml.
+FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.21
+
+ENV LANGUAGE='en_US:en'
+
+COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185 target/quarkus-app/*.jar /deployments/
+COPY --chown=185 target/quarkus-app/app/ /deployments/app/
+COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
+
+EXPOSE 8086
+USER 185
+ENV HTTP_PORT=8086
+ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
+
+ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]

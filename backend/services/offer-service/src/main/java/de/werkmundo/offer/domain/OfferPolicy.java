@@ -15,6 +15,7 @@ public final class OfferPolicy {
         }
 
         return switch (currentStatus) {
+            case PROCESSING -> newStatus == OfferStatus.CANCELLED;
             case DRAFT -> newStatus == OfferStatus.READY_TO_SEND || newStatus == OfferStatus.CANCELLED;
             case READY_TO_SEND -> newStatus == OfferStatus.DRAFT
                     || newStatus == OfferStatus.SENT

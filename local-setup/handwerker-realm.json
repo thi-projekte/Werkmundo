@@ -1,0 +1,81 @@
+{
+  "realm": "handwerker-realm",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "resetPasswordAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": false,
+  "roles": {
+    "realm": [
+      { "name": "OWNER" },
+      { "name": "EMPLOYEE" },
+      { "name": "ACCOUNTANT" }
+    ],
+    "client": {
+      "frontend": [
+        { "name": "OWNER" },
+        { "name": "EMPLOYEE" },
+        { "name": "ACCOUNTANT" }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "mein-frontend",
+      "name": "CraftVoice Web-Frontend (Login-Client)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      }
+    },
+    {
+      "clientId": "frontend",
+      "name": "Rollentraeger-Client (offer-service liest resource_access/frontend/roles)",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "user-service",
+      "name": "User-Service (Resource Server)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "secret",
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true
+    },
+    {
+      "clientId": "offer-service",
+      "name": "Offer-Service (Resource Server)",
+      "enabled": true,
+      "bearerOnly": true
+    }
+  ],
+  "users": [
+    {
+      "username": "test@craftvoice.local",
+      "email": "test@craftvoice.local",
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "Handwerker",
+      "enabled": true,
+      "credentials": [
+        { "type": "password", "value": "test", "temporary": false }
+      ],
+      "realmRoles": ["OWNER"],
+      "clientRoles": {
+        "frontend": ["OWNER"]
+      }
+    }
+  ]
+}

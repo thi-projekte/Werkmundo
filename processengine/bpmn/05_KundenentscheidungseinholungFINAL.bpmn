@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_kundenentscheidungseinholung" targetNamespace="http://werkmundo.de/bpmn" exporter="Camunda Modeler" exporterVersion="5.52.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:collaboration id="Collaboration_kundenentscheidungseinholung">
+    <bpmn:participant id="Pool_kundenentscheidungseinholung" name="Kundenentscheidungseinholung" processRef="kundenentscheidungseinholung" />
+    <bpmn:participant id="Participant_Kunde" name="Kunde" />
+    <bpmn:messageFlow id="MF_Kundenentscheidung" name="Kundenentscheidung" sourceRef="Participant_Kunde" targetRef="Task_KundenentscheidungEmpfangen" />
+    <bpmn:messageFlow id="MF_Angebotserinnerung" name="Angebotserinnerung" sourceRef="Task_AngebotserinnerungAnKundenSenden" targetRef="Participant_Kunde" />
+  </bpmn:collaboration>
+  <bpmn:process id="kundenentscheidungseinholung" name="Kundenentscheidungseinholung" isExecutable="true" camunda:versionTag="4.0" camunda:historyTimeToLive="180">
+    <bpmn:documentation>Teilprozess der Angebotsabwicklung. Eingang: angebotId, kundeId. Endzustände: Angebot angenommen | Angebot abgelehnt | Angebot abgelaufen (Variable ergebnisKundenentscheidungseinholung).</bpmn:documentation>
+    <bpmn:laneSet id="LaneSet_kundenentscheidungseinholung">
+      <bpmn:lane id="Lane_KE_DokumentenService" name="Dokumenten-Service">
+        <bpmn:flowNodeRef>Task_AngebotserinnerungAnKundenSenden</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_KundeAnAngebotErinnert</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_KE_AngebotsService" name="Angebots-Service">
+        <bpmn:flowNodeRef>Start_KundenentscheidungBenoetigt</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_KundenentscheidungEmpfangen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Timer_SiebenTageOhneKundenentscheidung</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Timer_AngebotsfristAbgelaufen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_AngebotAngenommen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_AngebotAngenommen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_AngebotAbgelehnt</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AngebotAlsAbgelaufenKennzeichnen</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_AngebotAbgelaufen</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_KundenentscheidungBenoetigt" name="Kundenentscheidung benötigt">
+      <bpmn:outgoing>Flow_Start_Empfangen</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:receiveTask id="Task_KundenentscheidungEmpfangen" name="Kundenentscheidung empfangen" messageRef="Message_KundenentscheidungEingegangen">
+      <bpmn:documentation>Nachricht kundenentscheidungEingegangen: Der Kunde nutzt den Link im Angebot, der Angebots-Service korreliert über den Business Key. Variable: kundenentscheidung = ANGENOMMEN | ABGELEHNT.</bpmn:documentation>
+      <bpmn:incoming>Flow_Start_Empfangen</bpmn:incoming>
+      <bpmn:outgoing>Flow_Empfangen_GW</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:boundaryEvent id="Timer_SiebenTageOhneKundenentscheidung" name="7 Tage ohne Kundenentscheidung" cancelActivity="false" attachedToRef="Task_KundenentscheidungEmpfangen">
+      <bpmn:outgoing>Flow_Timer_Erinnerung</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TED_Timer_SiebenTageOhneKundenentscheidung">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">P7D</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="Timer_AngebotsfristAbgelaufen" name="Angebotsfrist abgelaufen" attachedToRef="Task_KundenentscheidungEmpfangen">
+      <bpmn:outgoing>Flow_Timer_Abgelaufen</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TED_Timer_AngebotsfristAbgelaufen">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">P30D</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sendTask id="Task_AngebotserinnerungAnKundenSenden" name="Angebotserinnerung an Kunden senden" camunda:asyncBefore="true" camunda:delegateExpression="${angebotserinnerungSenden}">
+      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): versendet eine Erinnerungs-Mail mit Link zum Angebot.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
+          <camunda:inputParameter name="kundeId">${kundeId}</camunda:inputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Timer_Erinnerung</bpmn:incoming>
+      <bpmn:outgoing>Flow_Erinnerung_End</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:exclusiveGateway id="Gateway_AngebotAngenommen" name="Angebot angenommen?">
+      <bpmn:incoming>Flow_Empfangen_GW</bpmn:incoming>
+      <bpmn:outgoing>Flow_GW_Angenommen</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GW_Abgelehnt</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_AngebotAngenommen" name="Angebot angenommen">
+      <bpmn:extensionElements>
+        <camunda:executionListener expression="${execution.setVariable(&#39;ergebnisKundenentscheidungseinholung&#39;, &#39;ANGEBOT_ANGENOMMEN&#39;)}" event="start" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GW_Angenommen</bpmn:incoming>
+      <bpmn:terminateEventDefinition id="TED_End_AngebotAngenommen" />
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_AngebotAbgelehnt" name="Angebot abgelehnt">
+      <bpmn:extensionElements>
+        <camunda:executionListener expression="${execution.setVariable(&#39;ergebnisKundenentscheidungseinholung&#39;, &#39;ANGEBOT_ABGELEHNT&#39;)}" event="start" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GW_Abgelehnt</bpmn:incoming>
+      <bpmn:terminateEventDefinition id="TED_End_AngebotAbgelehnt" />
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="Task_AngebotAlsAbgelaufenKennzeichnen" name="Angebot als abgelaufen kennzeichnen" camunda:asyncBefore="true" camunda:delegateExpression="${angebotAlsAbgelaufenKennzeichnen}">
+      <bpmn:documentation>Angebots-Service (OfferServiceAdapter): setzt den Angebotsstatus auf ABGELAUFEN; der Annahme-Link wird ungültig.</bpmn:documentation>
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="angebotId">${angebotId}</camunda:inputParameter>
+        </camunda:inputOutput>
+        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Timer_Abgelaufen</bpmn:incoming>
+      <bpmn:outgoing>Flow_Abgelaufen_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_Start_Empfangen" sourceRef="Start_KundenentscheidungBenoetigt" targetRef="Task_KundenentscheidungEmpfangen" />
+    <bpmn:sequenceFlow id="Flow_Empfangen_GW" sourceRef="Task_KundenentscheidungEmpfangen" targetRef="Gateway_AngebotAngenommen" />
+    <bpmn:sequenceFlow id="Flow_GW_Angenommen" name="Angenommen" sourceRef="Gateway_AngebotAngenommen" targetRef="End_AngebotAngenommen">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${kundenentscheidung == 'ANGENOMMEN'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_GW_Abgelehnt" name="Abgelehnt" sourceRef="Gateway_AngebotAngenommen" targetRef="End_AngebotAbgelehnt">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${kundenentscheidung == 'ABGELEHNT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Timer_Erinnerung" sourceRef="Timer_SiebenTageOhneKundenentscheidung" targetRef="Task_AngebotserinnerungAnKundenSenden" />
+    <bpmn:sequenceFlow id="Flow_Erinnerung_End" sourceRef="Task_AngebotserinnerungAnKundenSenden" targetRef="End_KundeAnAngebotErinnert" />
+    <bpmn:sequenceFlow id="Flow_Timer_Abgelaufen" sourceRef="Timer_AngebotsfristAbgelaufen" targetRef="Task_AngebotAlsAbgelaufenKennzeichnen" />
+    <bpmn:sequenceFlow id="Flow_Abgelaufen_End" sourceRef="Task_AngebotAlsAbgelaufenKennzeichnen" targetRef="End_AngebotAbgelaufen" />
+    <bpmn:endEvent id="End_KundeAnAngebotErinnert" name="Kunde an Angebot erinnert">
+      <bpmn:incoming>Flow_Erinnerung_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_AngebotAbgelaufen" name="Angebot abgelaufen">
+      <bpmn:extensionElements>
+        <camunda:executionListener expression="${execution.setVariable(&#39;ergebnisKundenentscheidungseinholung&#39;, &#39;ANGEBOT_ABGELAUFEN&#39;)}" event="start" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Abgelaufen_End</bpmn:incoming>
+      <bpmn:terminateEventDefinition id="TED_End_AngebotAbgelaufen" />
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmn:message id="Message_KundenentscheidungEingegangen" name="kundenentscheidungEingegangen" />
+  <bpmndi:BPMNDiagram id="Diagram_kundenentscheidungseinholung">
+    <bpmndi:BPMNPlane id="Plane_kundenentscheidungseinholung" bpmnElement="Collaboration_kundenentscheidungseinholung">
+      <bpmndi:BPMNShape id="Pool_kundenentscheidungseinholung_di" bpmnElement="Pool_kundenentscheidungseinholung" isHorizontal="true">
+        <dc:Bounds x="120" y="160" width="980" height="460" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_KE_AngebotsService_di" bpmnElement="Lane_KE_AngebotsService" isHorizontal="true">
+        <dc:Bounds x="150" y="320" width="950" height="300" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_KE_DokumentenService_di" bpmnElement="Lane_KE_DokumentenService" isHorizontal="true">
+        <dc:Bounds x="150" y="160" width="950" height="160" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_KundenentscheidungBenoetigt_di" bpmnElement="Start_KundenentscheidungBenoetigt">
+        <dc:Bounds x="210" y="402" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="190" y="445" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_KundenentscheidungEmpfangen_di" bpmnElement="Task_KundenentscheidungEmpfangen">
+        <dc:Bounds x="290" y="380" width="160" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AngebotserinnerungAnKundenSenden_di" bpmnElement="Task_AngebotserinnerungAnKundenSenden">
+        <dc:Bounds x="480" y="200" width="160" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_AngebotAngenommen_di" bpmnElement="Gateway_AngebotAngenommen" isMarkerVisible="true">
+        <dc:Bounds x="560" y="395" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="545" y="450" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AngebotAngenommen_di" bpmnElement="End_AngebotAngenommen">
+        <dc:Bounds x="882" y="402" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="925" y="413" width="110" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AngebotAbgelehnt_di" bpmnElement="End_AngebotAbgelehnt">
+        <dc:Bounds x="882" y="332" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="925" y="343" width="100" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AngebotAlsAbgelaufenKennzeichnen_di" bpmnElement="Task_AngebotAlsAbgelaufenKennzeichnen">
+        <dc:Bounds x="520" y="510" width="160" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_KundeAnAngebotErinnert_di" bpmnElement="End_KundeAnAngebotErinnert">
+        <dc:Bounds x="882" y="222" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="934" y="226" width="92" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_AngebotAbgelaufen_di" bpmnElement="End_AngebotAbgelaufen">
+        <dc:Bounds x="882" y="532" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="926" y="543" width="99" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Timer_AngebotsfristAbgelaufen_di" bpmnElement="Timer_AngebotsfristAbgelaufen">
+        <dc:Bounds x="402" y="442" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="430" y="485" width="75" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Timer_SiebenTageOhneKundenentscheidung_di" bpmnElement="Timer_SiebenTageOhneKundenentscheidung">
+        <dc:Bounds x="402" y="362" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="430" y="328" width="105" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Empfangen_di" bpmnElement="Flow_Start_Empfangen">
+        <di:waypoint x="246" y="420" />
+        <di:waypoint x="290" y="420" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Empfangen_GW_di" bpmnElement="Flow_Empfangen_GW">
+        <di:waypoint x="450" y="420" />
+        <di:waypoint x="560" y="420" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_GW_Angenommen_di" bpmnElement="Flow_GW_Angenommen">
+        <di:waypoint x="610" y="420" />
+        <di:waypoint x="882" y="420" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="700" y="402" width="65" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_GW_Abgelehnt_di" bpmnElement="Flow_GW_Abgelehnt">
+        <di:waypoint x="585" y="395" />
+        <di:waypoint x="585" y="350" />
+        <di:waypoint x="882" y="350" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="700" y="332" width="55" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Timer_Erinnerung_di" bpmnElement="Flow_Timer_Erinnerung">
+        <di:waypoint x="420" y="362" />
+        <di:waypoint x="420" y="240" />
+        <di:waypoint x="480" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Erinnerung_End_di" bpmnElement="Flow_Erinnerung_End">
+        <di:waypoint x="640" y="240" />
+        <di:waypoint x="882" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Timer_Abgelaufen_di" bpmnElement="Flow_Timer_Abgelaufen">
+        <di:waypoint x="420" y="478" />
+        <di:waypoint x="420" y="550" />
+        <di:waypoint x="520" y="550" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Abgelaufen_End_di" bpmnElement="Flow_Abgelaufen_End">
+        <di:waypoint x="680" y="550" />
+        <di:waypoint x="882" y="550" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Participant_Kunde_di" bpmnElement="Participant_Kunde" isHorizontal="true">
+        <dc:Bounds x="120" y="40" width="980" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="MF_Kundenentscheidung_di" bpmnElement="MF_Kundenentscheidung">
+        <di:waypoint x="330" y="100" />
+        <di:waypoint x="330" y="380" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="338" y="115" width="105" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Angebotserinnerung_di" bpmnElement="MF_Angebotserinnerung">
+        <di:waypoint x="560" y="200" />
+        <di:waypoint x="560" y="100" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="568" y="115" width="105" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

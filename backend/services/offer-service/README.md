@@ -1,79 +1,87 @@
 # Offer-Service
 
-Java 25 / Quarkus 3.40.1.1. Der Service verwaltet Angebote, Positionen,
-Statushistorien, Korrekturhinweise und Kundenänderungswünsche. Die produktive
-Persistenz verwendet PostgreSQL mit Flyway; lokal ist alternativ ein
-In-Memory-Repository verfügbar.
-
-## Einrichtung
-
-Die vollständigen PowerShell-Schritte, Datenbankvariablen und CRUD-Beispiele
-stehen in [SERVICE_AND_DATABASE_SETUP.md](SERVICE_AND_DATABASE_SETUP.md).
-Die dortigen persönlichen Verzeichnispfade durch den eigenen Checkout ersetzen.
-
-- Java 25 und Docker Desktop sind für den Datenbanktest erforderlich.
-- `docker-compose.db.yml` startet PostgreSQL 17 auf `127.0.0.1:55432`.
-- Datenbank: `offer_db`, Benutzer: `offer_user`.
-- Das Kennwort wird über `OFFER_DB_PASSWORD` gesetzt.
-- `OFFER_PERSISTENCE=postgres` und `OFFER_DB_ENABLED=true` aktivieren die
-  Datenbank für lokale Entwicklungs- und Testläufe.
-- Die Migration legt fünf Tabellen an. Die Daten bleiben im benannten Volume.
-- `docker compose -f docker-compose.db.yml down` stoppt die Datenbank, ohne
-  das Volume zu löschen.
+Java 25 / Quarkus 3.40.1.1. Ein Maven-Modul enthält die bisherigen
+Dashboard-, Rechnungs-, Sprach- und Prozessfunktionen sowie die strukturierte
+Auftraggeber-API. Im PostgreSQL-Betrieb verwenden beide Angebots-APIs dasselbe
+Repository-Datenmodell und denselben Angebotsbestand.
 
 ## Schnittstellen
 
-| Methode | Pfad | Zweck |
+Die bisherigen Verträge unter `/offers`, `/angebote`, `/dashboard`,
+`/rechnungen` und `/speech-capture` bleiben als Kompatibilitätsschnittstellen
+erhalten. Ihre Datenformate und Prozessstatus werden nicht pauschal umbenannt.
+
+Die strukturierte Auftraggeber-API liegt unter `/api/offers`:
+
+| Methode | Pfad relativ zu `/api/offers` | Zweck |
 |---|---|---|
-| POST | `/offers` | Angebot mit neuem `businessKey` anlegen |
-| GET | `/offers` | Eigene Angebote auflisten |
-| GET / PUT / DELETE | `/offers/{businessKey}` | Eigenes Angebot lesen, ändern oder löschen |
-| POST | `/offers/{businessKey}/approve` | Freigeben und Kundenzugriffstoken ausstellen |
-| POST | `/offers/{businessKey}/sent` | Versandstatus setzen |
-| POST | `/offers/{businessKey}/cancel` | Angebot stornieren |
-| GET | `/offers/{businessKey}/customer` | Angebot mit Kundenzugriffstoken lesen |
-| POST | `/offers/{businessKey}/customer/accept` | Angebot annehmen |
-| POST | `/offers/{businessKey}/customer/reject` | Angebot ablehnen |
-| POST | `/offers/{businessKey}/customer/changes` | Änderungswunsch übermitteln |
+| POST / GET | leer | Angebot mit Business-Key anlegen / eigene Angebote auflisten |
+| GET / PUT / DELETE | `/{businessKey}` | Eigenes Angebot lesen, ändern oder löschen |
+| POST | `/{businessKey}/approve` | Freigeben und Kundenzugriffstoken ausstellen |
+| POST | `/{businessKey}/sent` | Versandstatus setzen |
+| POST | `/{businessKey}/cancel` | Stornieren |
+| GET | `/{businessKey}/customer` | Kundenzugriff mit Token |
+| POST | `/{businessKey}/customer/accept` | Annehmen |
+| POST | `/{businessKey}/customer/reject` | Ablehnen |
+| POST | `/{businessKey}/customer/changes` | Änderungswunsch übermitteln |
 
-Handwerkeraktionen benötigen einen authentifizierten Principal und prüfen den
-Besitzer. Für lokale manuelle Tests ist Basic Auth ausschließlich im
-Entwicklungsprofil konfiguriert. Kunden verwenden den Header
-`X-Offer-Access-Token`. Gespeichert werden Token-Hash und Ablaufzeit, nicht das
-Zugriffstoken selbst. Ein bereits vorhandener `businessKey` darf beim Anlegen
-nicht überschrieben werden.
+Handwerkeraktionen prüfen die authentifizierte Identität und den Besitzer.
+Die strukturierte Kunden-API erwartet `X-Offer-Access-Token`; sie speichert
+Hash und Ablaufzeit. Der bestehende Annahmelink verwendet weiterhin den
+bisherigen separaten Annahmetoken. Eine Vereinheitlichung ist noch offen.
 
-## Prüfungen
+`OfferStatusMapper` übersetzt die Prozesszustände. Bei unverändertem
+fachlichem Status bleibt der genauere Prozessstatus erhalten. Laufende
+KI-Verarbeitung wird als `PROCESSING` abgebildet und ist kein editierbarer
+Entwurf. Anfahrtspositionen werden als `TRAVEL` abgebildet.
 
-Unit-Tests ohne laufenden HTTP-Server und ohne Datenbank:
+## Persistenz und Migration
+
+`OfferJpaRepository` verwendet die bestehenden Entity-Klassen unter
+`de.winfprojekt.craftvoice.offerservice`. Die vorherigen separaten
+Squad-Entity-Klassen sind entfernt. Maßgebliche Tabellen sind `offer`,
+`offer_position`, `offer_status_history` und ihre ergänzenden Tabellen.
+Rechnungen liegen weiterhin in derselben fachlichen Offer-Datenbank.
+Dokumente besitzen eine eigene Datenbank im Document-Service.
+
+V1 bleibt unverändert. V2 ersetzt ausschließlich leere Squad-Ausgangstabellen
+durch das gemeinsame Schema. Enthält eine dieser Tabellen Datensätze, bricht
+V2 ab. V2 ist keine Datenmigration für gefüllte Squad-Datenbanken und keine
+Übernahmeanleitung für eine bestehende Serverdatenbank aus `main`.
+Vor einer solchen Übernahme ist eine gesonderte Datenmigration erforderlich.
+
+Hibernate validiert das Flyway-Schema. Die explizite Snake-Case-Namensstrategie
+muss mit den in der Migration definierten Spaltennamen übereinstimmen.
+Angewendete Migrationen dürfen nicht nachträglich geändert werden.
+
+## Prüfung
+
+Im Repository-Hauptordner mit Java 25 und laufendem Docker Desktop:
 
 ```powershell
-.\mvnw.cmd -B '-Dtest=*,!HealthResourceTest,!OfferEntityRepositoryTest,!OfferJpaRepositoryIntegrationTest' test
+.\scripts\Test-Auftraggeber.ps1
 ```
 
-Vollständiger Testlauf mit laufender PostgreSQL-Datenbank und den oben
-gesetzten Datenbankvariablen:
+Das Skript startet die getrennten PostgreSQL-Testdatenbanken. Erforderliche
+Passwörter werden aus der Umgebung übernommen oder abgefragt. HTTP-Regressionen
+verwenden ein isoliertes H2-Profil; die Persistenztests verwenden ausdrücklich
+`OfferPostgresTestProfile` und PostgreSQL. Fehlende oder übersprungene
+Datenbanktests führen im Gesamtskript zu einem Fehler.
 
-```powershell
-.\mvnw.cmd -B '-Dquarkus.http.test-port=18081' test
-```
+Lokal am 11.11.2026 nachgewiesen: 169 Offer-Tests und 11 Document-Tests,
+jeweils ohne Fehler oder übersprungene Tests; beide Builds erfolgreich.
+Die Tests prüfen unter anderem den gemeinsamen Angebotsbestand und den Erhalt
+von Prozessstatus und Historiennotizen. Das ist kein vollständiger Nachweis
+eines Ablaufs mit Browser, echten Keycloak-Tokens und Process Engine.
 
-## Offene Integration
+## Verbleibende Arbeit
 
-Diese Implementierung unterscheidet sich von der bestehenden Implementierung
-unter `de.winfprojekt.craftvoice.offerservice` auf `main`. Beide dürfen nicht
-unverändert in dieselbe Anwendung übernommen werden: REST-Routen und
-Datenbanktabellen überschneiden sich, Konfiguration und Datenverträge weichen ab.
+- Gemeinsames lokales Startsetup mit Java 25 und passenden Datenbankvariablen.
+- Echte OIDC-, Browser- und Prozessintegration sowie technische Caller-Rechte.
+- Absicherung paralleler Angebotsänderungen gegen verlorene Aktualisierungen.
+- Angebotsnummern und fachliche Dokumentversionen.
+- Auftragsbestätigung und vollständiger bearbeitbarer Rechnungsablauf.
+- Produktive PDF-Erzeugung und Versand im Document-Service.
 
-- Keycloak/OIDC ist für Produktion vorbereitet (`KEYCLOAK_AUTH_SERVER_URL`,
-  optional `KEYCLOAK_CLIENT_ID`). Der Besitzer stammt aus dem JWT-Claim `sub`.
-  In Entwicklung bleibt die beschriebene lokale Basic Auth erhalten. Die
-  gemeinsame Prüfung mit echten Keycloak-Tokens steht noch aus.
-- KI-, Katalog-, User-Service- und Workflow-Adapter enthalten noch Platzhalter.
-- Die UI erwartet teilweise andere Endpunkte, Feldnamen und Statuswerte.
-- Patricks Docker-Build aus `main` verwendet Java 21 und muss für diese
-  Implementierung auf Java 25 abgestimmt werden.
-- Erfolgreiche Unit-Tests ersetzen keine HTTP-, PostgreSQL- oder Gesamtsystemtests.
-
-Der dokumentierte frühere Datenbanktest bestätigt nicht automatisch den
-aktuellen vollständigen Integrationsstand.
+Der In-Memory-Adapter ist nur eine Entwicklungs-/Testalternative und kein
+Nachweis für gemeinsame persistente Speicherung mit den bisherigen Funktionen.

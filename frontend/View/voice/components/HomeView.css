@@ -1,0 +1,329 @@
+.wm-recording-dashboard .wm-record-cta {
+  position: relative;
+}
+
+.wm-recording-dashboard .wm-capture-state {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 18px 0 2px;
+  color: #291741;
+}
+
+.wm-capture-state > p {
+  margin: 0;
+  color: #77777a;
+  font-size: 12px;
+}
+
+.wm-recording-dashboard .wm-capture-indicator {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wm-capture-indicator span {
+  width: 5px;
+  height: 12px;
+  border-radius: 999px;
+  background: #8bd344;
+  animation: wm-wave 900ms ease-in-out infinite alternate;
+}
+
+.wm-capture-indicator span:nth-child(2),
+.wm-capture-indicator span:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+.wm-capture-indicator span:nth-child(3) {
+  animation-delay: 360ms;
+}
+
+.wm-capture-actions {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wm-capture-actions button {
+  min-height: 40px;
+  flex: 1 1 150px;
+  padding: 8px 12px;
+  border: 1px solid #d5d4d8;
+  border-radius: 6px;
+  color: #291741;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wm-capture-actions button:last-child {
+  border-color: #291741;
+  color: #fff;
+  background: #291741;
+}
+
+.wm-capture-actions button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.wm-audio-segment {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  color: #291741;
+  font-size: 12px;
+}
+
+.wm-audio-segment audio {
+  width: 100%;
+}
+
+@keyframes wm-wave {
+  to {
+    height: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wm-capture-indicator span {
+    animation: none;
+  }
+}
+
+.wm-recording-dashboard .wm-offer-composer {
+  display: flex;
+  flex-direction: column;
+  min-height: 570px;
+}
+
+.wm-recording-dashboard .wm-offer-intro {
+  margin-bottom: 22px;
+}
+
+.wm-recording-dashboard .wm-offer-mode {
+  width: min(100%, 360px);
+  min-height: 42px;
+  align-self: center;
+  margin: 0 0 12px;
+}
+
+.wm-recording-dashboard .wm-customer-select-row {
+  width: min(100%, 720px);
+  align-self: center;
+}
+
+.wm-recording-dashboard .wm-mic-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 18px 12px;
+  text-align: center;
+}
+
+.wm-recording-dashboard .wm-mic-trigger,
+.wm-recording-dashboard .wm-review-mic {
+  display: grid;
+  width: 132px;
+  height: 132px;
+  flex: 0 0 132px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: #291741;
+}
+
+.wm-recording-dashboard .wm-mic-trigger {
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(41, 23, 65, .18);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.wm-recording-dashboard .wm-mic-trigger:hover {
+  box-shadow: 0 11px 26px rgba(41, 23, 65, .25);
+}
+
+.wm-recording-dashboard .wm-mic-stage > p {
+  margin: 0;
+  color: #77777a;
+  font-size: 13px;
+}
+
+.wm-recording-dashboard .wm-mic-stage.is-recording .wm-mic-trigger {
+  color: #291741;
+  background: #8bd344;
+  animation: wm-mic-pulse 1.5s ease-in-out infinite;
+}
+
+.wm-stop-recording {
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid #d5d4d8;
+  border-radius: 6px;
+  color: #291741;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wm-recording-dashboard .wm-recording-review {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 40px minmax(112px, 1fr) auto auto;
+  justify-items: center;
+  align-items: center;
+  gap: 16px;
+  width: min(100%, 780px);
+  align-self: center;
+  padding: 16px 0 0;
+}
+
+.wm-recording-dashboard .wm-draft-title {
+  width: min(100%, 420px);
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d5d4d8;
+  border-radius: 6px;
+  outline: none;
+  color: #77777a;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+}
+
+.wm-recording-dashboard .wm-draft-title:focus {
+  border-color: #8bd344;
+  box-shadow: 0 0 0 2px rgba(139, 211, 68, .2);
+}
+
+.wm-recording-dashboard .wm-draft-title[aria-invalid="true"] {
+  border-color: #a53d3d;
+}
+
+.wm-recording-dashboard .wm-review-mic {
+  width: 124px;
+  height: 124px;
+  min-height: 124px;
+}
+
+.wm-recording-dashboard .wm-audio-player {
+  display: flex;
+  justify-content: center;
+  width: min(100%, 560px);
+}
+
+.wm-recording-dashboard .wm-audio-player audio {
+  width: 100%;
+  height: 42px;
+}
+
+.wm-recording-dashboard .wm-audio-player > p {
+  margin: 0;
+  color: #77777a;
+  font-size: 12px;
+}
+
+.wm-recording-dashboard .wm-capture-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.wm-recording-dashboard .wm-capture-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #d5d4d8;
+  border-radius: 6px;
+  color: #291741;
+  background: #fff;
+  font-size: 12px;
+}
+
+.wm-recording-dashboard .wm-capture-actions .wm-capture-resume {
+  border-color: #8bd344;
+  color: #291741;
+  background: #8bd344;
+}
+
+.wm-recording-dashboard .wm-capture-actions .wm-capture-next {
+  border-color: #291741;
+  color: #fff;
+  background: #291741;
+}
+
+.wm-recording-dashboard .wm-capture-actions button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.wm-recording-dashboard .wm-dashboard-text {
+  flex: 1;
+  grid-template-rows: minmax(180px, 1fr) auto auto;
+  width: min(100%, 720px);
+  align-self: center;
+  padding-top: 12px;
+}
+
+.wm-recording-dashboard .wm-dashboard-text .wm-draft-title {
+  justify-self: center;
+  width: min(100%, 420px);
+}
+
+.wm-recording-dashboard .wm-dashboard-text textarea {
+  min-height: 180px;
+  resize: vertical;
+  font-size: 13px;
+}
+
+.wm-recording-dashboard .wm-dashboard-text button {
+  color: #fff;
+  background: #291741;
+}
+
+@keyframes wm-mic-pulse {
+  50% {
+    box-shadow: 0 0 0 12px rgba(139, 211, 68, .2);
+  }
+}
+
+@media (max-width: 700px) {
+  .wm-recording-dashboard .wm-offer-composer {
+    min-height: 540px;
+  }
+
+  .wm-recording-dashboard .wm-recording-review {
+    grid-template-rows: 40px minmax(100px, 1fr) auto auto;
+    gap: 12px;
+  }
+
+  .wm-recording-dashboard .wm-capture-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .wm-recording-dashboard .wm-capture-actions button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wm-recording-dashboard .wm-mic-stage.is-recording .wm-mic-trigger {
+    animation: none;
+  }
+}

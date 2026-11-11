@@ -1,6 +1,7 @@
 package de.werkmundo.offer.domain;
 
 public enum OfferStatus {
+    PROCESSING,
     DRAFT,
     READY_TO_SEND,
     SENT,

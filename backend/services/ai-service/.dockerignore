@@ -1,0 +1,8 @@
+# target/ bleibt im Kontext: docker/Dockerfile.jvm (CI) kopiert target/quarkus-app.
+# Das Multi-Stage-Dockerfile kopiert nur pom.xml und src/.
+.mvn/
+.env
+docs/
+beispiele/
+contracts/
+*.md

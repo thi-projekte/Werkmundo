@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Run with OFFER_PERSISTENCE=postgres and OFFER_DB_ENABLED=true. */
 @QuarkusTest
+@io.quarkus.test.junit.TestProfile(OfferPostgresTestProfile.class)
+@org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "OFFER_DB_ENABLED", matches = "true")
 class OfferJpaRepositoryIntegrationTest {
     @Inject
     OfferRepository repository;
@@ -73,6 +75,7 @@ class OfferJpaRepositoryIntegrationTest {
     void deletesOfferAndItsRelatedData() {
         String key = "issue32-delete-" + UUID.randomUUID();
         Offer offer = new Offer(key);
+        offer.setCraftsmanId("delete-test-owner");
         offer.addCorrectionSuggestion("Remove with offer");
         offer.addPosition(new OfferPosition(
                 OfferPositionType.MATERIAL, "Cable", "2m cable", "Test", BigDecimal.ONE,
