@@ -17,6 +17,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 
 @QuarkusTest
+@io.quarkus.test.junit.TestProfile(de.werkmundo.offer.api.H2StartupTestProfile.class)
 class ProcessEngineRestClientWireMockTest {
 
     static WireMockServer wireMockServer;

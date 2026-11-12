@@ -1,0 +1,158 @@
+# Extension of Patrick's docker-compose.local.yml; use scripts/Start-Local.ps1.
+# The original shared PostgreSQL stack and its volumes are not reused or deleted.
+name: werkmundo-local
+
+services:
+  postgres:
+    profiles: [patrick-original]
+
+  user-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: user_service
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD:?User database password required}
+    volumes:
+      - local_user_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U user_service -d user_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  offer-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: offer_db
+      POSTGRES_USER: offer_service
+      POSTGRES_PASSWORD: ${OFFER_DB_PASSWORD:?Offer database password required}
+    volumes:
+      - local_offer_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U offer_service -d offer_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  document-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: document_db
+      POSTGRES_USER: document_service
+      POSTGRES_PASSWORD: ${DOCUMENT_DB_PASSWORD:?Document database password required}
+    volumes:
+      - local_document_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U document_service -d document_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  keycloak:
+    container_name: wm-local-keycloak
+    ports: !override ['127.0.0.1:8090:8080']
+    volumes: !override
+      - ./handwerker-realm.json:/opt/keycloak/data/import/handwerker-realm-realm.json:ro
+      - local_keycloak_original_data:/opt/keycloak/data
+
+  user-service:
+    container_name: wm-local-user-service
+    image: werkmundo/user-service:integrated-local
+    environment:
+      DB_HOST: user-db
+      DB_NAME: user_db
+      DB_USER: user_service
+      DB_PASSWORD: ${USER_DB_PASSWORD}
+      USER_SERVICE_OIDC_SECRET: ${USER_SERVICE_OIDC_SECRET}
+      KEYCLOAK_URL: http://keycloak:8080
+      QUARKUS_HTTP_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports: !override ['127.0.0.1:8081:8080']
+    depends_on: !override
+      user-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  offer-service:
+    build:
+      dockerfile: local-setup/Dockerfile.offer-service.integrated
+    container_name: wm-local-offer-service
+    image: werkmundo/offer-service:integrated-local
+    environment: !override
+      OFFER_DB_JDBC_URL: jdbc:postgresql://offer-db:5432/offer_db
+      OFFER_DB_USER: offer_service
+      OFFER_DB_PASSWORD: ${OFFER_DB_PASSWORD}
+      QUARKUS_OIDC_TOKEN_ISSUER: http://localhost:8090/realms/handwerker-realm
+      USER_SERVICE_URL: http://user-service:8080
+      DB_HOST: offer-db
+      DB_NAME: offer_db
+      DB_USER: offer_service
+      DB_PASSWORD: ${OFFER_DB_PASSWORD}
+      OFFER_PERSISTENCE: postgres
+      KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080/realms/handwerker-realm
+      PE_URL: ${LOCAL_PE_URL:-http://process-engine:8080/engine-rest}
+      CATALOG_SERVICE_URL: ${LOCAL_CATALOG_URL:-http://catalog-service:8080}
+      QUARKUS_HTTP_CORS_ENABLED: 'true'
+      QUARKUS_HTTP_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      QUARKUS_HTTP_CORS_HEADERS: Authorization,Content-Type,Accept,X-Offer-Access-Token
+    ports: !override ['127.0.0.1:8082:8080']
+    depends_on: !override
+      offer-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  document-service:
+    profiles: !override []
+    container_name: wm-local-document-service
+    build:
+      context: ../backend/services/document-service
+      dockerfile: Dockerfile.build
+    image: werkmundo/document-service:integrated-local
+    environment: !override
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://document-db:5432/document_db
+      QUARKUS_DATASOURCE_USERNAME: document_service
+      QUARKUS_DATASOURCE_PASSWORD: ${DOCUMENT_DB_PASSWORD}
+      KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080/realms/handwerker-realm
+      QUARKUS_OIDC_TOKEN_ISSUER: http://localhost:8090/realms/handwerker-realm
+      QUARKUS_HTTP_CORS_ENABLED: 'true'
+      QUARKUS_HTTP_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      QUARKUS_HTTP_CORS_HEADERS: Authorization,Content-Type,Accept
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes: !override []
+    ports: !override ['127.0.0.1:8084:8080']
+    depends_on: !override
+      document-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  ai-service:
+    build:
+      context: ../backend/services/ai-service
+      dockerfile: Dockerfile
+    image: werkmundo/ai-service:integrated-local
+    restart: unless-stopped
+    ports: ['127.0.0.1:8086:8086']
+    environment:
+      HTTP_PORT: '8086'
+      MEGALLM_API_KEY: ${MEGALLM_API_KEY:-}
+      CAMUNDA_ENGINE_URL: ${LOCAL_PE_URL:-http://process-engine:8080/engine-rest}
+      CATALOG_MOCK_ENABLED: 'true'
+    profiles: [ai]
+
+  frontend:
+    container_name: wm-local-frontend
+    image: werkmundo/frontend:integrated-local
+    ports: !override ['127.0.0.1:5173:80']
+    depends_on: !override
+      - user-service
+      - offer-service
+      - document-service
+
+volumes:
+  local_user_db:
+  local_offer_db:
+  local_document_db:
+  local_keycloak_original_data:

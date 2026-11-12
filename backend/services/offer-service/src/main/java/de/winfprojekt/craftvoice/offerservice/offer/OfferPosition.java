@@ -21,6 +21,7 @@ public class OfferPosition extends BaseEntity {
     public String hersteller;
     public String bezeichnung;
     public String beschreibung;
+    @Column(precision = 38, scale = 4)
     public BigDecimal menge;
     public String einheit;
     public String katalogProduktId;   // Referenz auf catalog-service, keine FK

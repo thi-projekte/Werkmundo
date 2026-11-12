@@ -34,4 +34,3 @@ Zeitwerte stammen aus Java `LocalDateTime` und enthalten im JSON üblicherweise 
 `src/data/api/dashboardApi.ts` holt über `API_CONFIG.OFFER_SERVICE_URL + "/dashboard"` ein Keycloak-Token und sendet es als Bearer-Token. `src/features/dashboard/hooks/useDashboard.ts` stellt Lade-/Fehlerzustand bereit. Die API-Typen liegen im API-Modul; eine separate `domain/models/Dashboard.ts` ist derzeit keine Voraussetzung.
 
 Die Kennzahlen sind aggregierte Prototypwerte; Rechnungskennzahlen sind Platzhalter. Details und Reifegrad im [Projekt-Handbuch](../../../../../../../../../../../docs/PROJECT-HANDBOOK.md).
-

@@ -43,6 +43,7 @@ import static org.mockito.Mockito.*;
  * Integrationstests für {@link OfferResource}: Prüfung des Angebots-Anlegens sowie einen fehlerhaften Request.
  */
 @QuarkusTest
+@io.quarkus.test.junit.TestProfile(de.werkmundo.offer.api.H2StartupTestProfile.class)
 class OfferResourceTest {
 
     @InjectMock

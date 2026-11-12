@@ -211,7 +211,7 @@ public class OfferResource {
     /**
      * Endpunkt zur Annahme eines Angebots durch den Handwerker nach KI-Durchlauf.
      * Dieser Endpunkt ist öffentlich zugänglich.
-     * 
+     *
      * @param id Angebots-ID des angenommenen Angebots
      * @return HTTP-Response mit "204 No Content status code" im Happy Path oder
      *         alternativ eine Fehlermeldung

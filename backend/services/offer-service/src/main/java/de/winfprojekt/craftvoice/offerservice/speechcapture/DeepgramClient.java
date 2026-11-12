@@ -32,7 +32,7 @@ public class DeepgramClient {
 
         try {
             String requestContentType = contentType != null ? contentType : "audio/webm";
-            
+
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.deepgram.com/v1/listen?language=de&model=nova-2"))
                     .header("Authorization", "Token " + apiKey)

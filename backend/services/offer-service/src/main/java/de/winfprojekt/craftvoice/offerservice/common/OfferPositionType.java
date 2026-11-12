@@ -7,5 +7,6 @@ package de.winfprojekt.craftvoice.offerservice.common;
 public enum OfferPositionType {
     MATERIAL,
     ANFAHRT,
-    ARBEITSZEIT
+    ARBEITSZEIT,
+    OTHER
 }

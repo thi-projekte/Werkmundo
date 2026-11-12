@@ -33,6 +33,7 @@ public class InvoicePosition extends BaseEntity {
 
     public String hersteller;
     public String bezeichnung;
+    @Column(precision = 38, scale = 4)
     public BigDecimal menge;
     public String einheit;
 

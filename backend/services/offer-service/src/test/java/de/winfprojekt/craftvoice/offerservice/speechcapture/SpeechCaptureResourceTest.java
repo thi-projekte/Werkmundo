@@ -14,6 +14,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 
 @QuarkusTest
+@io.quarkus.test.junit.TestProfile(de.werkmundo.offer.api.H2StartupTestProfile.class)
 public class SpeechCaptureResourceTest {
 
     @InjectMock

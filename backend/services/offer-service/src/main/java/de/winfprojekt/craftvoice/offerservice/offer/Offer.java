@@ -26,6 +26,21 @@ public class Offer extends BaseEntity {
     @Column(name = "offer_title")
     public String title;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "customer_access_token_hash")
+    public String customerAccessTokenHash;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "customer_access_token_expires_at")
+    public java.time.Instant customerAccessTokenExpiresAt;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @ElementCollection
+    @CollectionTable(name = "offer_customer_requests", joinColumns = @JoinColumn(name = "offer_id"))
+    @jakarta.persistence.OrderColumn(name = "request_order")
+    @Column(name = "request_text", columnDefinition = "TEXT")
+    public List<String> customerChangeRequests = new ArrayList<>();
+
     // Status Konstanten
     public static final String STATUS_ERFASST = "ERFASST";
     public static final String STATUS_ENTWURF = "ENTWURF";
@@ -63,7 +78,7 @@ public class Offer extends BaseEntity {
      * Dient dem Frontend als Vorbelegung des Arbeitszeit-Felds. Ist der Wert
      * {@code null}, muss der Handwerker die Stunden selbst eintragen.
      */
-    @Column(name = "geschaetzte_arbeitsdauer_stunden", precision = 15, scale = 2)
+    @Column(name = "geschaetzte_arbeitsdauer_stunden", precision = 19, scale = 4)
     public BigDecimal geschaetzteArbeitsdauerStunden;
 
     @OneToMany(mappedBy = "offer", cascade = CascadeType.ALL, orphanRemoval = true)

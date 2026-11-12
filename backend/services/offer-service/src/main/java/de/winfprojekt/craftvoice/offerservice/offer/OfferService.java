@@ -390,7 +390,7 @@ public class OfferService {
     @Transactional
     public OfferResponse setArbeitsstunden(String businessKey, String userId, SetArbeitsstundenRequest request) {
         Offer offer = findOwnOfferOrThrow(businessKey, userId);
-        
+
         if (!Offer.STATUS_KI_FERTIG.equals(offer.status)) {
             throw new WebApplicationException(
                     "Angebot mit businessKey " + businessKey + " befindet sich nicht im Status KI_FERTIG", 409);
@@ -572,7 +572,7 @@ public class OfferService {
     /**
      * Methode, die den Status eines angenommenen Angebots durch den Handwerker nach
      * KI-Durchlauf entsprechend ändert und abspeichert
-     * 
+     *
      * @param id Angebots-ID des angenommenen Angebots
      */
     @Transactional
@@ -658,10 +658,10 @@ public class OfferService {
 
         offer.persist();
     }
-  
+
     /**
      * Berechnet den Gesamtpreis (Aufsummieren aller Positionen) eines Angebots
-     * 
+     *
      * @param offer Angebots-Objekt, von welchem der Gesamtpreis berechnet werden
      *              soll
      */

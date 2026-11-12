@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.*;
  * Rechnungsfelder = 0, Aktivitätsliste und Attention-Liste.
  */
 @QuarkusTest
+@io.quarkus.test.junit.TestProfile(de.werkmundo.offer.api.H2StartupTestProfile.class)
 class DashboardResourceTest {
 
     @InjectMock

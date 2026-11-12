@@ -134,7 +134,7 @@ public class InvoiceResource {
     @Authenticated
     public Response createInvoiceForPe(@PathParam("businessKey") String businessKey) {
         LOG.info("Endpunkt /rechnungen/" + businessKey + "/erstellen wurde aufgerufen");
-        
+
         // 1. Rechnung synchron erstellen (so dass der Request-Scope und das OIDC-Token für den user-service aktiv sind)
         CreateInvoiceRequest request = new CreateInvoiceRequest();
         request.businessKey = businessKey;
@@ -152,7 +152,7 @@ public class InvoiceResource {
                 LOG.error("Fehler bei der asynchronen PE-Benachrichtigung für businessKey " + businessKey, e);
             }
         });
-        
+
         LOG.info("Asynchrone PE-Benachrichtigung wurde gestartet");
         return Response.noContent().build();
     }

@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
  * Integrationstests für {@link InvoiceResource}: INV-2 (POST /rechnungen) und INV-3 (GET /rechnungen).
  */
 @QuarkusTest
+@io.quarkus.test.junit.TestProfile(de.werkmundo.offer.api.H2StartupTestProfile.class)
 @TestSecurity(user = "test-user", roles = {"OWNER"})
 @OidcSecurity(claims = {
         @Claim(key = "sub", value = "99")

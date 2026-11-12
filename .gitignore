@@ -26,3 +26,6 @@ build/
 # Private Schlüssel
 *.pem
 *.key
+
+# Generated local Keycloak import
+local-setup/.runtime/
