@@ -14,6 +14,11 @@ public class UserJpaRepository implements PanacheRepository<UserEntity>, UserRep
     }
 
     @Override
+    public UserEntity findByNormalizedEmail(String normalizedEmail) {
+        return find("lower(email) = ?1", normalizedEmail).firstResult();
+    }
+
+    @Override
     public UserEntity findByKeycloakId(String keycloakId) {
         return find("keycloakId", keycloakId).firstResult();
     }

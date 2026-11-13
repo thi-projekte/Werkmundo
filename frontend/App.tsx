@@ -12,6 +12,7 @@ import { AppLayout } from "./View/shared/navigation/AppLayout";
 import { InvoiceView } from "./View/document/InvoiceView";
 import { CustomerListView } from "./View/customer/CustomerListView";
 import { ProfileView } from "./View/user/ProfileView";
+import { RequireAuth } from "./View/user/RequireAuth";
 
 function HomeView() {
   return (
@@ -49,15 +50,34 @@ export default function App() {
       <Route path="/" element={<HomeView />} />
       <Route path="/login" element={<LoginView />} />
       <Route path="/registrieren" element={<RegistrationView />} />
-      {/* Bereiche mit Navigationsleiste */}
-      <Route element={<AppLayout />}>
+      <Route
+        element={
+          <RequireAuth>
+            <AppLayout />
+          </RequireAuth>
+        }
+      >
         <Route path="/dashboard" element={<DashboardView />} />
         <Route path="/rechnungen" element={<InvoiceView />} />
         <Route path="/kunden" element={<CustomerListView />} />
         <Route path="/profil" element={<ProfileView />} />
       </Route>
-      <Route path="/einrichtung/unternehmen" element={<CompanySetupView />} />
-      <Route path="/einrichtung/rechnungen" element={<InvoiceSetupView />} />
+      <Route
+        path="/einrichtung/unternehmen"
+        element={
+          <RequireAuth>
+            <CompanySetupView />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/einrichtung/rechnungen"
+        element={
+          <RequireAuth>
+            <InvoiceSetupView />
+          </RequireAuth>
+        }
+      />
       <Route path="/kontakt" element={<ContactView />} />
       <Route path="/impressum" element={<ImprintView />} />
       <Route path="/datenschutz" element={<PrivacyView />} />

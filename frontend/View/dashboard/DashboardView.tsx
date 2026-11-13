@@ -1,14 +1,21 @@
 import "./components/dashboard.css";
 import { DashboardOverview } from "./components/DashboardOverview";
 import { useDashboard } from "../../ViewModel/dashboard/legacy/useDashboard";
-import { getCustomers, type CustomerProfile } from "../../infrastructure/api/userApi";
+import { getCurrentUser, getCustomers, type CustomerProfile, type UserProfile } from "../../infrastructure/api/userApi";
 import { Mic, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+function profileName(profile: UserProfile | null): string {
+  if (!profile) return "";
+  return [profile.firstName, profile.lastName].filter(Boolean).join(" ");
+}
+
 export function DashboardView() {
   const [offerMode, setOfferMode] = useState<"voice" | "text">("voice");
   const [offerText, setOfferText] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [customersLoading, setCustomersLoading] = useState(true);
   const [customersError, setCustomersError] = useState<string | null>(null);
@@ -26,6 +33,20 @@ export function DashboardView() {
 
   useEffect(() => {
     let cancelled = false;
+    void getCurrentUser()
+      .then((result) => {
+        if (!cancelled) setProfile(result);
+      })
+      .catch((profileFailure: unknown) => {
+        if (!cancelled) {
+          setProfileError(
+            profileFailure instanceof Error
+              ? `Profil konnte nicht geladen werden: ${profileFailure.message}`
+              : "Profil konnte nicht geladen werden.",
+          );
+        }
+      });
+
     void getCustomers()
       .then((result) => {
         if (!cancelled) setCustomers(result);
@@ -52,7 +73,11 @@ export function DashboardView() {
     <div className="dashboard-page wm-dashboard">
       {notice && <p className="wm-dashboard-feedback wm-dashboard-success" role="status">{notice}</p>}
       <header className="wm-dashboard-heading">
-        <div><h1>Willkommen <span>zurück!</span></h1></div>
+        <div>
+          <h1>Willkommen <span>{profileName(profile) ? `${profileName(profile)}.` : "zurück!"}</span></h1>
+          {profile?.email && <p>{profile.email}</p>}
+          {profileError && <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">{profileError}</p>}
+        </div>
       </header>
       <section className="wm-offer-composer" aria-labelledby="wm-offer-title">
         <div className="wm-offer-intro">

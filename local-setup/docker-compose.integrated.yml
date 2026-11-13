@@ -65,6 +65,7 @@ services:
       DB_PASSWORD: ${USER_DB_PASSWORD}
       USER_SERVICE_OIDC_SECRET: ${USER_SERVICE_OIDC_SECRET}
       KEYCLOAK_URL: http://keycloak:8080
+      QUARKUS_OIDC_AUTH_SERVER_URL: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
       QUARKUS_HTTP_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports: !override ['127.0.0.1:8081:8080']
     depends_on: !override
@@ -80,14 +81,13 @@ services:
       OFFER_DB_JDBC_URL: jdbc:postgresql://offer-db:5432/offer_db
       OFFER_DB_USER: offer_service
       OFFER_DB_PASSWORD: ${OFFER_DB_PASSWORD}
-      QUARKUS_OIDC_TOKEN_ISSUER: http://localhost:8090/realms/handwerker-realm
       USER_SERVICE_URL: http://user-service:8080
       DB_HOST: offer-db
       DB_NAME: offer_db
       DB_USER: offer_service
       DB_PASSWORD: ${OFFER_DB_PASSWORD}
       OFFER_PERSISTENCE: postgres
-      KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080/realms/handwerker-realm
+      KEYCLOAK_AUTH_SERVER_URL: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
       PE_URL: ${LOCAL_PE_URL:-http://process-engine:8080/engine-rest}
       CATALOG_SERVICE_URL: ${LOCAL_CATALOG_URL:-http://catalog-service:8080}
       QUARKUS_HTTP_CORS_ENABLED: 'true'
@@ -111,8 +111,7 @@ services:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://document-db:5432/document_db
       QUARKUS_DATASOURCE_USERNAME: document_service
       QUARKUS_DATASOURCE_PASSWORD: ${DOCUMENT_DB_PASSWORD}
-      KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080/realms/handwerker-realm
-      QUARKUS_OIDC_TOKEN_ISSUER: http://localhost:8090/realms/handwerker-realm
+      KEYCLOAK_AUTH_SERVER_URL: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
       QUARKUS_HTTP_CORS_ENABLED: 'true'
       QUARKUS_HTTP_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       QUARKUS_HTTP_CORS_HEADERS: Authorization,Content-Type,Accept

@@ -1,3 +1,5 @@
+import { authorizedJson } from "../http/apiClient";
+
 export type CustomerProfile = {
   id: number;
   email: string;
@@ -5,13 +7,21 @@ export type CustomerProfile = {
   lastName?: string;
 };
 
-const userServiceUrl =
-  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8081";
+export type UserProfile = {
+  id: number;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  roles?: string[];
+};
 
-export async function getCustomers(): Promise<CustomerProfile[]> {
-  const response = await fetch(`${userServiceUrl}/customers`);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return (await response.json()) as CustomerProfile[];
+const userServiceUrl =
+  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:8081/api/users";
+
+export function getCurrentUser(): Promise<UserProfile> {
+  return authorizedJson<UserProfile>(`${userServiceUrl}/me`);
+}
+
+export function getCustomers(): Promise<CustomerProfile[]> {
+  return authorizedJson<CustomerProfile[]>(`${userServiceUrl}/customers`);
 }
