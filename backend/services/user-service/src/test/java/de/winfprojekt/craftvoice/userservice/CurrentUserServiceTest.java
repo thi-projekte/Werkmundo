@@ -2,14 +2,22 @@ package de.winfprojekt.craftvoice.userservice;
 
 import de.winfprojekt.craftvoice.userservice.application.port.IdentityProvider;
 import de.winfprojekt.craftvoice.userservice.domain.UserRepository;
+import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.ForbiddenException;
-import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -35,12 +43,41 @@ class CurrentUserServiceTest {
     }
 
     @Test
-    void unknownSubjectsAreNotAutomaticallyProvisionedAsOwners() {
+    void unknownSubjectWithFreeEmailIsProvisionedFromTheToken() {
         when(userRepository.findByKeycloakId("keycloak-user")).thenReturn(null);
+        when(userRepository.findByNormalizedEmail("user@example.com")).thenReturn(null);
+        when(jwt.getClaim("realm_access")).thenReturn(Map.of(
+                "roles", List.of("OWNER", "offline_access", "CUSTOMER")));
 
-        assertThrows(NotFoundException.class, service::syncUserWithDatabase);
+        UserEntity result = service.syncUserWithDatabase();
 
-        verify(userRepository, never()).persistUser(org.mockito.ArgumentMatchers.any());
+        ArgumentCaptor<UserEntity> captor = ArgumentCaptor.forClass(UserEntity.class);
+        verify(userRepository).persistUser(captor.capture());
+        UserEntity persisted = captor.getValue();
+        assertSame(persisted, result);
+        assertEquals("keycloak-user", persisted.keycloakId);
+        assertEquals("user@example.com", persisted.email);
+        assertEquals(UserStatus.ACTIVE, persisted.status);
+        assertNull(persisted.firstName);
+        assertNull(persisted.lastName);
+        assertEquals(Set.of(UserRole.OWNER), persisted.roles);
+        verifyNoInteractions(identityProvider);
+    }
+
+    @Test
+    void unknownSubjectWithExistingEmailDoesNotOverwriteThatUser() {
+        UserEntity existing = new UserEntity();
+        existing.keycloakId = "other-subject";
+        existing.email = "user@example.com";
+        existing.status = UserStatus.ACTIVE;
+        when(userRepository.findByKeycloakId("keycloak-user")).thenReturn(null);
+        when(userRepository.findByNormalizedEmail("user@example.com")).thenReturn(existing);
+
+        ClientErrorException error = assertThrows(ClientErrorException.class, service::syncUserWithDatabase);
+
+        assertEquals(409, error.getResponse().getStatus());
+        assertEquals("other-subject", existing.keycloakId);
+        verify(userRepository, never()).persistUser(any());
         verifyNoInteractions(identityProvider);
     }
 
@@ -119,6 +156,20 @@ class CurrentUserServiceTest {
         assertEquals("Ada", user.firstName);
         assertEquals("Lovelace", user.lastName);
         assertEquals(0, user.roles.size());
+        verifyNoInteractions(identityProvider);
+    }
+
+    @Test
+    void activeUsersReceiveAppRolesFromTheToken() {
+        UserEntity user = pendingUser();
+        user.status = UserStatus.ACTIVE;
+        user.roles.add(UserRole.EMPLOYEE);
+        when(userRepository.findByKeycloakId("keycloak-user")).thenReturn(user);
+        when(jwt.getClaim("realm_access")).thenReturn(Map.of("roles", List.of("OWNER", "unknown-role")));
+
+        UserEntity result = service.syncUserWithDatabase();
+
+        assertEquals(Set.of(UserRole.OWNER), result.roles);
         verifyNoInteractions(identityProvider);
     }
 

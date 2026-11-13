@@ -6,6 +6,8 @@ public interface UserRepository {
 
     UserEntity findByEmail(String email);
 
+    UserEntity findByNormalizedEmail(String normalizedEmail);
+
     UserEntity findByKeycloakId(String keycloakId);
 
     UserEntity findById(Long id);

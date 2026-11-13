@@ -1,3 +1,4 @@
+import { authorizedFetch, authorizedJson, ApiError } from "../http/apiClient";
 import type { OfferRecord } from "./offerApi";
 
 export type InvoiceRecord = {
@@ -17,45 +18,43 @@ export type InvoiceRecord = {
   };
 };
 
+export type DocumentMetadata = {
+  documentId: string;
+  documentType?: string;
+  fileName?: string;
+};
+
 const offerServiceUrl =
   import.meta.env.VITE_OFFER_SERVICE_URL || "http://localhost:8082";
 const documentServiceUrl =
-  import.meta.env.VITE_DOCUMENT_SERVICE_URL || "http://localhost:8083";
+  import.meta.env.VITE_DOCUMENT_SERVICE_URL || "http://localhost:8084";
 
-async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return (await response.json()) as T;
+export function listDocuments(): Promise<DocumentMetadata[]> {
+  return authorizedJson<DocumentMetadata[]>(`${documentServiceUrl}/documents`);
 }
 
 export function getDocumentOffers(): Promise<OfferRecord[]> {
-  return getJson<OfferRecord[]>(`${offerServiceUrl}/offers`);
+  return authorizedJson<OfferRecord[]>(`${offerServiceUrl}/offers`);
 }
 
 export function getInvoices(): Promise<InvoiceRecord[]> {
-  return getJson<InvoiceRecord[]>(`${offerServiceUrl}/rechnungen`);
+  return authorizedJson<InvoiceRecord[]>(`${offerServiceUrl}/rechnungen`);
 }
 
-export async function createInvoice(businessKey: string): Promise<InvoiceRecord> {
-  const response = await fetch(`${offerServiceUrl}/rechnungen`, {
+export function createInvoice(businessKey: string): Promise<InvoiceRecord> {
+  return authorizedJson<InvoiceRecord>(`${offerServiceUrl}/rechnungen`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ businessKey }),
   });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return (await response.json()) as InvoiceRecord;
 }
 
 export async function shareOffer(businessKey: string): Promise<void> {
-  const response = await fetch(
+  const response = await authorizedFetch(
     `${documentServiceUrl}/documents/offers/${encodeURIComponent(businessKey)}/share`,
     { method: "POST" },
   );
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    throw new ApiError(`HTTP ${response.status}`, response.status);
   }
 }
