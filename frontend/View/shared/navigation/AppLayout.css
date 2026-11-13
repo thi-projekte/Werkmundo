@@ -1,0 +1,151 @@
+/* =========================
+   App Shell
+   Mobile/Tablet (< 1024px): Inhalt oben, Navigation unten
+   Desktop (>= 1024px):      Navigation als Sidebar links
+   ========================= */
+
+:root {
+  --sidebar-width: clamp(200px, 15vw, 240px);
+}
+
+html:has(.shell),
+body:has(.shell) {
+  margin: 0;
+  background: #f0f0f0;
+}
+
+#root:has(.shell) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.shell,
+.shell * {
+  box-sizing: border-box;
+}
+
+.shell {
+  height: 100svh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #291741;
+  background: #f0f0f0;
+  font: 14px/1.35 Inter, Arial, sans-serif;
+}
+
+.shell-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+}
+
+@media (min-width: 768px) {
+  .shell-content {
+    padding: clamp(20px, 3vw, 32px) clamp(24px, 4vw, 40px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .shell {
+    flex-direction: row;
+  }
+
+  /* Navigation steht im DOM hinter dem Inhalt, wird aber links angezeigt */
+  .shell > nav.navbar {
+    order: -1;
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    height: 100%;
+    flex-shrink: 0;
+  }
+
+  .shell-content {
+    height: 100%;
+    padding: 26px 28px;
+  }
+}
+
+/* Wortmarke in der Sidebar */
+.wm-navbar-wordmark {
+  display: block;
+  color: #f0f0f0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+
+/* Aktiver Eintrag im Werkmundo-Farbschema statt des alten orangen Akzents */
+.wm-navbar .nav-item.active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.wm-navbar-wordmark span {
+  color: #8bd344;
+}
+
+.wm-navbar .navbar-logo-wrapper {
+  margin-bottom: 14px;
+}
+
+/* =========================
+   Platzhalterseiten
+   ========================= */
+
+.wm-page {
+  width: min(100%, 1320px);
+  margin: 0 auto;
+}
+
+.wm-page h1 {
+  margin: 0 0 20px;
+  color: #291741;
+  font-size: clamp(30px, 3.2vw, 42px);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.wm-page h1 span {
+  color: #8bd344;
+}
+
+.wm-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: clamp(16px, 2vw, 24px);
+  border: 1px solid #d5d4d8;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.wm-placeholder-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  flex: 0 0 48px;
+  place-items: center;
+  border-radius: 8px;
+  background: #e4f2d8;
+  color: #291741;
+}
+
+.wm-placeholder h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.wm-placeholder p {
+  margin: 5px 0 0;
+  color: #77777a;
+  font-size: 12px;
+}

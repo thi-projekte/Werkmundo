@@ -29,3 +29,6 @@ build/
 
 # Generated local Keycloak import
 local-setup/.runtime/
+
+# Lokale Datenbank-Sicherungen (enthalten Testdaten)
+local-setup/backups/
