@@ -84,7 +84,9 @@ export const DashboardOverview = ({
               </li>
             ))}
           </ul>
-        ) : !loading && !error ? (
+        ) : error ? (
+          <p className="wm-dashboard-feedback">Aktivitäten konnten nicht geladen werden.</p>
+        ) : !loading ? (
           <p className="wm-dashboard-feedback">Noch keine Aktivitäten vorhanden.</p>
         ) : (
           <p className="wm-dashboard-feedback">Aktivitäten werden geladen …</p>

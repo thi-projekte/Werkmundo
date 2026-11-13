@@ -1,10 +1,10 @@
-import "./components/dashboard.css";
 import { DashboardOverview } from "./components/DashboardOverview";
 import { useDashboard } from "../../ViewModel/dashboard/legacy/useDashboard";
 import { getCustomers, type CustomerProfile } from "../../infrastructure/api/userApi";
 import { Mic, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import "./components/dashboard.css";
 
 export function DashboardView() {
   const [offerMode, setOfferMode] = useState<"voice" | "text">("voice");
@@ -74,7 +74,7 @@ export function DashboardView() {
                 </option>
               ))}
             </select>
-            <button className="wm-add-customer" type="button" onClick={() => navigate("/einrichtung/unternehmen")}>
+            <button className="wm-add-customer" type="button" onClick={() => navigate("/kunden/neu")}>
               <Plus size={16} aria-hidden="true" /> Kunde anlegen
             </button>
           </div>
@@ -85,13 +85,30 @@ export function DashboardView() {
           <button type="button" className={offerMode === "text" ? "is-active" : ""} aria-pressed={offerMode === "text"} onClick={() => setOfferMode("text")}>Text</button>
         </div>
         {offerMode === "voice" ? (
-          <button className="wm-record-cta" type="button" onClick={() => navigate("/home")}>
+          <button className="wm-record-cta" type="button" onClick={() => navigate("/home", {
+            state: {
+              mode: "voice",
+              customerId: selectedCustomerId && selectedCustomerId !== "draft"
+                ? Number(selectedCustomerId)
+                : null,
+              saveAsDraft: selectedCustomerId === "draft",
+            },
+          })}>
             <Mic size={17} aria-hidden="true" /> Aufnahme starten
           </button>
         ) : (
           <div className="wm-dashboard-text">
             <textarea aria-label="Auftrag beschreiben" value={offerText} onChange={(event) => setOfferText(event.target.value)} placeholder="Gib hier deinen Text ein und die KI wird dir ein passendes Angebot erstellen." />
-            <button type="button" onClick={() => navigate("/home", { state: { mode: "text", transcript: offerText } })}>Angebot erstellen</button>
+            <button type="button" onClick={() => navigate("/home", {
+              state: {
+                mode: "text",
+                transcript: offerText,
+                customerId: selectedCustomerId && selectedCustomerId !== "draft"
+                  ? Number(selectedCustomerId)
+                  : null,
+                saveAsDraft: selectedCustomerId === "draft",
+              },
+            })}>Angebot erstellen</button>
           </div>
         )}
       </section>

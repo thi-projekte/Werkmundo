@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import "./HomeView.css";
 import { Mic } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useVoiceInput } from "@/features/voice-input/hooks/useVoiceInput";
-import { createOffer, saveOfferDraft } from "@/data/api/offerService";
-import { getCustomers, type CustomerProfile } from "@/services/userService";
+import { useVoiceInput } from "../../../ViewModel/voice/legacy/useVoiceInput";
+import { createOffer, saveOfferDraft } from "../../../infrastructure/api/offerApi";
+import { getCustomers, type CustomerProfile } from "../../../infrastructure/api/userApi";
 import {
   ArrowRight,
   RotateCcw,
@@ -109,11 +109,10 @@ export const HomeView = () => {
       speechSnippet,
       ...(draftTitle.trim() ? { title: draftTitle.trim() } : {}),
     });
-    navigate("/laden", {
+    navigate(`/angebote/${encodeURIComponent(offer.businessKey)}/bearbeiten`, {
       state: {
         businessKey: offer.businessKey,
         offerId: offer.id,
-        mode: "ki-warten",
       },
     });
   };
@@ -228,7 +227,7 @@ export const HomeView = () => {
             <button
               className="wm-add-customer"
               type="button"
-              onClick={() => navigate("/unternehmen?tab=kunde")}
+              onClick={() => navigate("/kunden/neu")}
             >
               + Kunde anlegen
             </button>

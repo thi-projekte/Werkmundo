@@ -63,9 +63,11 @@ export function WerkmundoFooter() {
 
 export function AuthLayout({
   title,
+  backTo,
   children,
 }: {
   title: string;
+  backTo?: string;
   children: ReactNode;
 }) {
   usePageTitle(title);
@@ -73,7 +75,7 @@ export function AuthLayout({
   return (
     <div className="werkmundo">
       <BrandBar />
-      <PageHeading title={title} backTo={title === "Login" ? "/" : "/login"} />
+      <PageHeading title={title} backTo={backTo ?? (title === "Login" ? "/" : "/login")} />
       <main className="wm-auth-layout">
         <div className="wm-auth-copy">
           {children}

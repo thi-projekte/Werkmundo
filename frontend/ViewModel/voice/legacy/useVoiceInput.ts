@@ -1,10 +1,8 @@
 import { useRef, useState } from "react";
-import { startMicrophone } from "../services/microphoneService";
-import { getToken } from "@/services/authService";
+import { startMicrophone } from "../../../infrastructure/audio/microphoneService";
 
 const OFFER_SERVICE_URL =
-  import.meta.env.VITE_API_URL ||
-  "https://offerservice-craftvoice.winfprojekt.de";
+  import.meta.env.VITE_OFFER_SERVICE_URL || "http://localhost:8082";
 
 export const useVoiceInput = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -188,16 +186,10 @@ export const useVoiceInput = () => {
     const formData = new FormData();
     formData.append("audio", mergedBlob, "aufnahme.webm");
 
-    // Auth-Token mitschicken — der Endpunkt ist geschützt (sonst 401).
-    // WICHTIG: Content-Type NICHT setzen, damit der Browser die multipart-
-    // Boundary selbst ergänzt.
-    const token = await getToken();
-
     const response = await fetch(
       `${OFFER_SERVICE_URL}/speech-capture/transcribe`,
       {
         method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       },
     );
