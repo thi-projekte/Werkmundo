@@ -1,3 +1,5 @@
+written by Laura Knaub
+
 # Handwerker-Squad in der neuen Systemarchitektur
 
 ## Zweck und Leseschlüssel
