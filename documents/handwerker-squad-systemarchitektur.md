@@ -1,125 +1,229 @@
-# Handwerker-Squad: Beitrag zur neuen Systemarchitektur
+# Handwerker-Squad in der neuen Systemarchitektur
 
-> **Stand:** 12.11.2026 · **Basis:** dokumentierter Repository-Stand auf `main`\
-> **Für wen?** Alle Projektmitglieder – auch ohne Detailwissen über den Handwerker-Squad.
+## Zweck und Leseschlüssel
 
-## Auf einen Blick
+Dieses Dokument erklärt, welche Teile der neuen Werkmundo-Architektur dem
+Handwerker-Squad zugeordnet sind, wo sie im Repository liegen und wie sie mit
+den anderen Komponenten zusammenarbeiten. Es richtet sich auch an Leserinnen
+und Leser, die das Projekt oder die verwendeten Fachbegriffe noch nicht kennen.
 
-**Squad P (Team 1) verantwortet die Handwerker-Oberfläche, den User-Service und den AI-Service.** Die Bausteine decken Anmeldung/Profilverwaltung, Dashboard, Spracheingabe und die strukturierte Auswertung von Angebotsbeschreibungen ab. Ein vollständiger Angebotsprozess benötigt zusätzlich Komponenten anderer Teams.
+Mit **Handwerker-Squad** ist hier Team 1 aus der
+[Zuständigkeitsübersicht](team-ownership.md) gemeint. Die Bezeichnung
+„Squad P“ aus der Architekturzeichnung beschreibt denselben Bereich.
+Die Zeichnung ist eine vereinfachte Zuständigkeitsübersicht; das Diagramm
+weiter unten zeigt den derzeit dokumentierten technischen Ablauf.
 
-| Beitrag von Squad P | Aufgabe | Code im Repository |
-|---|---|---|
-| **Frontend** | Login-/Registrierungsansichten, Profil, Dashboard, Spracheingabe | `frontend/View/user/`, `frontend/View/dashboard/`, `frontend/View/voice/` sowie jeweilige `ViewModel/`- und `Model/`-Bereiche |
-| **User-Service** | Handwerker-, Unternehmens- und Kundenprofile verwalten | `backend/services/user-service` |
-| **AI-Service** | Spracheingaben in Angebotsleistungen und Materialpositionen strukturieren | `backend/services/ai-service` |
+Die Dokumentation unterscheidet zwischen:
 
-## Wo sind die Komponenten in der Architektur?
+- **Umgesetzt / im Repository vorhanden:** Quellcode, Konfiguration oder
+  Schnittstellen sind vorhanden.
+- **Vorgesehen / noch nicht vollständig nachgewiesen:** Eine Komponente ist
+  für den Ablauf vorgesehen, fehlt aber zum Beispiel im lokalen Setup oder
+  wurde nicht als vollständiger End-to-End-Ablauf bestätigt.
+
+## Einordnung in einem Satz
+
+Das Handwerker-Squad stellt die Benutzeroberfläche und die Funktionen für
+Handwerkerkonto, Kunden- und Unternehmensprofil sowie KI-gestützte
+Auftragserfassung bereit. Die Oberfläche nutzt dafür den `user-service`;
+KI-Aufträge laufen laut Service-Vertrag über den Angebotsservice und die
+Process Engine zum `ai-service`. Das Squad betreibt weder den Prozessablauf
+noch eine eigene Dashboard-Microservice-Implementierung.
+
+## Architekturüberblick
 
 ```mermaid
-flowchart TB
-    H[Handwerker] --> F[Frontend – Squad P]
-    F -. vorgesehene Anmeldung .-> K[Keycloak – Identität]
-    F --> U[User-Service – Squad P]
-    U --> D[(Profil-Datenbank)]
-    F -. Angebotsprozess .-> P[Process Engine – Team 3]
-    P --> A[AI-Service – Squad P]
-    A <--> C[Katalog – Team 2]
-    A -- ergebnisKI / businessKey --> P
-    P -. Angebotsverwaltung .-> O[Offer-Service – Team 2]
-    classDef squad fill:#d9f2ee,stroke:#087c83,color:#17334c;
-    class F,U,A squad;
+flowchart LR
+    subgraph P["Handwerker-Squad (Squad P)"]
+        UI["Weboberfläche<br/>Login, Profil, Kunden,<br/>Dashboard und Auftragseingabe"]
+        UserAPI["user-service<br/>Profil-, Unternehmens- und Kundendaten"]
+        UserDB[("User-PostgreSQL<br/>persistente Benutzerdaten")]
+        AI["ai-service<br/>Sprach-/Textanalyse und Produktvorschläge"]
+        UI <-->|"REST: Profil und Kunden"| UserAPI
+        UserAPI -->|"speichert und liest"| UserDB
+    end
+
+    subgraph V["Prozess-Squad (Squad V)"]
+        PE["Process Engine<br/>führt BPMN-Abläufe aus"]
+        Messages["Workflow-Nachrichten<br/>Zuordnung über Business Key"]
+        PE <--> Messages
+    end
+
+    Offer["Offer-Service<br/>Angebotsdaten und Start des Ablaufs"]
+    Catalog["Catalog-Service<br/>Produkt- und Materialsuche"]
+    LLM["Externer KI-Anbieter"]
+
+    UI -->|"Angebotsauftrag"| Offer
+    Offer -->|"startet Workflow"| PE
+    PE -->|"Analyseauftrag per HTTP"| AI
+    AI -->|"Ergebnis ergebnisKI"| Messages
+    AI -->|"Produktsuche"| Catalog
+    AI -->|"Textanalyse"| LLM
 ```
 
-**Leseschlüssel:** Grün markiert Komponenten von Squad P. Gepunktete Linien zeigen eine fachlich vorgesehene Verbindung – keine bestätigte vollständige Integration. Die Grafik ist eine vereinfachte Übersicht, kein Produktionsnachweis.
+Die Anmeldung wird zusätzlich mit **Keycloak** abgestimmt. Keycloak ist der
+Dienst für Anmeldung und Identität; die fachlichen Profil- und Kundendaten
+bleiben davon getrennt im `user-service` und seiner Datenbank.
 
-## Beispiel: Wie entsteht aus Sprache ein Angebot?
+Die Verbindungen über Offer-Service, Process Engine, Catalog-Service und
+externen KI-Anbieter zeigen die vorgesehene beziehungsweise im Service-Vertrag
+beschriebene Zusammenarbeit. Sie bedeuten nicht, dass alle diese Dienste im
+lokalen Setup verfügbar oder als vollständiger Ablauf getestet sind.
 
-1. Der Handwerker erfasst eine Leistung per Sprache oder Text im Frontend.
-2. Im vorgesehenen Angebotsablauf übergibt die **Process Engine** die Beschreibung an den **AI-Service**.
-3. Der AI-Service ermittelt Leistungen, Materialien, Notizen und gegebenenfalls Korrekturvorschläge.
-4. Für Materialien kann der **Katalog** nach Produkten durchsucht werden. **Preise** werden durch den zuständigen Angebots-Service ergänzt, nicht durch die KI.
-5. Der AI-Service sendet das Ergebnis als Prozessnachricht an die Engine zurück. Andere Services übernehmen die weitere Angebotserstellung.
+## Was das Handwerker-Squad wo ergänzt
 
-> Das beschreibt den vorgesehenen Ablauf. Eine durchgängige Ende-zu-Ende-Integration ist im dokumentierten Stand nicht nachgewiesen.
-
-## Die drei Beiträge genauer erklärt
-
-### 1. Frontend – was der Handwerker sieht
-
-Die Oberfläche trennt **View** (Anzeige), **ViewModel** (Ansichtslogik) und **Model** (Datenmodell). Wichtig sind:
-
-- `frontend/View/user/` – Login-, Registrierungs- und Profilansichten
-- `frontend/View/dashboard/` – Dashboard
-- `frontend/View/voice/` – Spracheingabe
-- `frontend/infrastructure/api/userApi.ts` – API-Client für Nutzerfunktionen
-- `frontend/infrastructure/auth/keycloakClient.ts` – vorgesehene Keycloak-Anbindung
-
-### 2. User-Service – wer welche Profildaten verwaltet
-
-Der Service verwaltet fachliche Handwerker- und Unternehmensdaten sowie Kundenprofile. **Keycloak** kümmert sich dagegen um Anmeldung und Identität. Laut Service-README verwendet der User-Service Java 17, Quarkus 3.15.1 und PostgreSQL. Die API beginnt mit `/api/users`.
-
-| Beispiel-Endpunkt | Aufgabe |
-|---|---|
-| `POST /api/users/register` | Registrierung anstoßen |
-| `GET /api/users/me` | Eigenes Profil lesen/synchronisieren |
-| `PUT /api/users/profile` | Profil ändern |
-| `PUT /api/users/company` | Firmendaten ändern (`OWNER`) |
-| `/api/users/profile/hourly-rate` | Stundensatz konfigurieren |
-| `/api/users/profile/travel-config...` | Anfahrt konfigurieren |
-| `/api/users/customers` | Kundenprofile verwalten |
-
-Die Rollen `OWNER` und `EMPLOYEE` begrenzen einzelne Funktionen.
-
-### 3. AI-Service – wie Sprache zu strukturierten Daten wird
-
-Der AI-Service ist **zustandslos und hat keine eigene Datenbank**.
-
-| API | Verhalten |
-|---|---|
-| `POST /ai/analyze` | Synchron; Ergebnis kommt direkt zurück – geeignet für lokale Tests |
-| `POST /ai/process` | Asynchron; zuerst HTTP 202, danach Prozessnachricht `ergebnisKI` mit `businessKey` an die Engine |
-
-Lokal können ein **Stub** anstelle einer echten MegaLLM-Ausgabe und ein **Mock-Katalog** eingesetzt werden. Das testet den technischen Ablauf, nicht die reale KI- oder Kataloganbindung.
-
-## Aktueller Integrationsstand: Was ist noch offen?
-
-| Bereich | Was dokumentiert ist | Was das bedeutet |
+| Baustein | Ablage im Repository | Aufgabe und Abgrenzung |
 |---|---|---|
-| **Login** | `LoginView.tsx` navigiert beim Absenden derzeit direkt zum Dashboard; keine Anmeldung bei Keycloak oder User-Service aus dieser View. | Eine Login-Maske ist noch kein Nachweis für funktionierende Authentifizierung. |
-| **API-Pfade** | Backend: `/api/users/...`; `userApi.ts`: derzeit `/customers`. | Frontend und Backend müssen abgestimmt und gemeinsam getestet werden. |
-| **Angebotsprozess** | Vollständiger Prozess mit Engine ist durch den lokalen Containerstart nicht nachgewiesen. | Ende-zu-Ende-Test bleibt gesondert erforderlich. |
-| **KI und Katalog** | Stub-Ausgaben und Mock-Katalog sind möglich. | Lokaler Test ist nicht gleich Live-Integration. |
+| Benutzeroberfläche | `frontend/View/user`, `frontend/View/dashboard`, `frontend/View/voice`, `frontend/View/onboarding` | Zeigt Anmeldung, Dashboard, Auftragseingabe und Einrichtungsansichten. Die View ist die sichtbare Oberfläche im Browser. |
+| Frontend-Logik | `frontend/ViewModel/user`, `frontend/ViewModel/dashboard`, `frontend/ViewModel/voice` | Verbindet Ansichten mit Anmelde-, Dashboard- und Eingabelogik. Das ViewModel hält UI-Abläufe von der Darstellung getrennt. |
+| Frontend-Daten und API-Aufrufe | `frontend/Model/user`, `frontend/Model/dashboard`, `frontend/Model/voice`, `frontend/infrastructure/api` | Beschreibt Frontend-Daten und kapselt HTTP-Aufrufe, zum Beispiel an Benutzer- und KI-Schnittstellen. |
+| Benutzer- und Kundenservice | `backend/services/user-service` | Stellt REST-Endpunkte für Registrierung, eigenes Profil, Unternehmensdaten, Profilwerte und Kunden bereit. |
+| Benutzerdatenbank | Datenbank des `user-service` | Speichert fachliche Benutzer-, Unternehmens- und Kundendaten. Sie ist eine eigene Datenbank und wird nicht direkt vom Browser angesprochen. |
+| KI-Service | `backend/services/ai-service` | Nimmt Analyseaufträge entgegen, strukturiert Beschreibungen in Angebotspositionen und kann passende Katalogprodukte suchen. Der Service besitzt keine eigene Datenbank. |
+| KI- und Workflow-Verträge | `contracts/ai`, `contracts/workflow` | Beschreiben JSON-Datenformate, damit Services Aufträge und Ergebnisse in vereinbarter Form austauschen können. |
+| Dashboard | `frontend/View/dashboard`, `frontend/ViewModel/dashboard`, `frontend/infrastructure/api/dashboardApi.ts` | Stellt Dashboard-Funktionen im Frontend bereit. Ein eigener ausführbarer `backend/services/dashboard-service` ist im aktuellen Repository nicht vorhanden. |
 
-**Wichtig:** Die Dokumentation beschreibt den Stand des Codes und seine Grenzen – keine Produktionsfreigabe.
+Die Zuordnung gibt den Stand der zentralen
+[Team-Ownership-Dokumentation](team-ownership.md) wieder. Sie beschreibt
+fachliche Verantwortungsbereiche und ist nicht gleichbedeutend mit einem
+separaten Server oder einer eigenen Datenbank für jede Zeile.
 
-## Lokal starten und prüfen
+## Die Komponenten in verständlicher Sprache
 
-1. **Docker Desktop** starten.
-2. Im Repository-Root `Start-Local.cmd` ausführen.
-3. Nach der gemeinsamen Setup-Anleitung sind typischerweise erreichbar: Frontend `http://localhost:5173`, Keycloak `http://localhost:8090`, User-Service auf Port `8081`, Offer-Service auf `8082` und AI-Service optional auf `8086`.
-4. AI-Service einzeln prüfen: `http://localhost:8086/q/health`; für synchrone Tests `POST /ai/analyze`.
-5. Zum Beenden die Stop-Anleitung in `local-setup/INTEGRATED-SETUP.md` verwenden. Volumes nicht löschen, wenn lokale Daten erhalten bleiben sollen.
+### 1. Browseroberfläche und Frontend
 
-API-Schlüssel und lokal erzeugte Zugangsdaten **niemals committen**. `POST /ai/process` ist ohne laufende Process Engine kein vollständiger Ende-zu-Ende-Test.
+Das Frontend ist die Anwendung, die ein Handwerker im Browser bedient. Es
+enthält Ansichten und zugehörige Logik für Benutzer, Dashboard und
+Sprach-/Texteingabe. API-Adapter bündeln die Kommunikation mit dem Backend,
+damit die Ansichten nicht selbst Serveradressen und technische Details
+verwalten müssen.
 
-## Abgrenzung zu anderen Teams
+Das Dashboard kann beispielsweise Kunden über die Benutzer-API laden. Ein
+Dashboard-Bildschirm ist dabei zunächst nur ein Teil der Oberfläche und kein
+eigener Backend-Service.
 
-| Team | Zuständigkeit |
+Im aktuellen Quellstand existieren sowohl eine Login-Ansicht als auch ein
+Keycloak-fähiges Auth-ViewModel. Die Login-Ansicht enthält jedoch noch einen
+direkten Navigationspfad zum Dashboard; sie ruft in diesem Pfad das
+Auth-ViewModel nicht auf. Deshalb ist eine vollständige Anmeldung direkt über
+den Browser nicht allein durch das Vorhandensein dieser Dateien nachgewiesen.
+
+### 2. `user-service` und Benutzerdatenbank
+
+Der `user-service` ist die Backend-Komponente für Benutzer-, Unternehmens-
+und Kundendaten. Das Frontend sendet dafür HTTP-Anfragen an seine REST-API;
+der Service prüft die Anfrage und liest oder speichert die Daten in seiner
+eigenen PostgreSQL-Datenbank.
+
+Beispiele für die angebotenen Aufgaben sind:
+
+- Registrierung und Lesen beziehungsweise Aktualisieren des eigenen Profils
+- Pflege von Unternehmensangaben und Profilwerten
+- Anlegen, Auflisten, Ändern und Löschen von Kunden
+- Verwaltung von Profilbildern und Anstoßen eines Passwort-Resets
+
+Keycloak stellt die Identität und Anmeldung bereit. Es ersetzt nicht die
+Benutzerdatenbank: Identitätsdaten und fachliche Werkmundo-Profildaten haben
+unterschiedliche Aufgaben. Die Rollen und Token-Prüfung müssen in der
+Keycloak- und Service-Konfiguration zusammenpassen.
+
+### 3. `ai-service` und die KI-gestützte Auftragserfassung
+
+Der `ai-service` wandelt eine Beschreibung eines Auftrags in strukturierte
+Informationen um, zum Beispiel Leistungen, Material, Notizen und eine
+geschätzte Arbeitsdauer. Für Materialien kann er zusätzlich passende Produkte
+im Katalog suchen. Preise werden laut Servicebeschreibung nicht an die KI
+übermittelt; der Angebotsservice kann sie anhand einer Produkt-ID ergänzen.
+
+Der AI-Service ist zustandslos: Er speichert die Angebote nicht in einer
+eigenen Datenbank. Bei der vorgesehenen asynchronen Verarbeitung meldet er
+das Ergebnis als Workflow-Nachricht `ergebnisKI` an die Process Engine zurück.
+Ein **Business Key** ist dabei eine Kennung, mit der die Nachricht dem
+richtigen Angebotsvorgang zugeordnet wird.
+
+Ohne konfigurierten KI-Zugang kann der Service lokal mit einem Stub-Ergebnis
+arbeiten; für die Katalogsuche ist ein Mock-Modus vorgesehen. Das ermöglicht
+lokale Entwicklung, ist aber keine echte KI- oder Katalogintegration.
+
+### 4. Process Engine und weitere Squads
+
+Die Process Engine und BPMN-Modelle gehören laut Zuständigkeitsübersicht zum
+Prozess-Squad (Squad V), nicht zum Handwerker-Squad. BPMN ist eine
+standardisierte Darstellungsform für Geschäftsabläufe. Die Engine führt
+solche Abläufe aus und koordiniert, wann ein Service aufgerufen wird und
+welche Nachricht als Nächstes verarbeitet wird.
+
+Der `ai-service` stellt dafür den KI-Schritt und den Rückkanal zum Workflow
+bereit. Der Angebotsservice und der Katalog liegen ebenfalls außerhalb der
+Handwerker-Squad-Zuständigkeit. Diese Trennung verhindert, dass die
+Benutzeroberfläche direkt in Datenbanken oder interne Prozessschritte
+eingreifen muss.
+
+## Typischer Ablauf und Datenwege
+
+### Profil oder Kunden verwalten
+
+1. Der Handwerker öffnet eine Profil- oder Kundenansicht im Frontend.
+2. Der Frontend-API-Adapter sendet eine REST-Anfrage an den `user-service`.
+3. Der Service verarbeitet die Anfrage und greift auf seine PostgreSQL-
+   Datenbank zu.
+4. Das Ergebnis kommt als HTTP-Antwort zurück und wird in der Oberfläche
+   angezeigt.
+
+Der Browser spricht dabei nicht direkt mit PostgreSQL.
+
+### Auftrag mit KI-Unterstützung erstellen
+
+1. Der Handwerker erfasst eine Beschreibung als Sprache oder Text.
+2. Für den vorgesehenen Gesamtprozess wird der Auftrag über den
+   Angebotsservice an die Process Engine übergeben.
+3. Die Process Engine startet den BPMN-Ablauf und ruft den `ai-service` auf.
+4. Der `ai-service` erzeugt strukturierte Angebotsinformationen und kann
+   Produktkandidaten beim Katalog suchen.
+5. Der `ai-service` sendet das Ergebnis als `ergebnisKI`-Nachricht mit der
+   Vorgangskennung zurück.
+6. Die Process Engine setzt den Ablauf fort; die weiteren Angebots- und
+   Prozessschritte gehören zu den dafür zuständigen Komponenten und Squads.
+
+Der tatsächliche KI-Aufruf ist damit nicht als direkte Browser-zu-KI-
+Verbindung beschrieben. Im lokalen Setup fehlen Process Engine und
+Catalog-Service; der vollständige Ablauf ist dort folglich nicht verfügbar.
+
+## Umsetzungsstand und wichtige Grenzen
+
+- **Vorhanden:** Frontend-Bereiche für Benutzer, Dashboard und Eingabe,
+  Frontend-API-Adapter sowie die Services und Schnittstellen, die in der
+  obigen Tabelle genannt sind.
+- **Nicht als eigener Service vorhanden:** Für das Dashboard ist aktuell
+  kein ausführbares `dashboard-service`-Projekt im Repository vorhanden.
+  Dashboard-Funktionalität im Frontend ist nicht dasselbe wie ein
+  Dashboard-Backend.
+- **Lokal eingeschränkt:** Der gemeinsame lokale Start umfasst den
+  `user-service` und optional den `ai-service`, jedoch keine Process Engine
+  und keinen Catalog-Service. Ohne diese Abhängigkeiten ist der vollständige
+  KI- und Angebotsprozess nicht nachgewiesen.
+- **Integration nicht pauschal bestätigt:** Vorhandene Keycloak-Konfiguration,
+  REST-Endpunkte und Service-Container belegen für sich allein noch keinen
+  durchgängigen Browser-, Token- und Geschäftsprozess-Test.
+- **KI-Ersatzbetrieb:** Stub-Antwort und Mock-Katalog eignen sich für
+  Entwicklung und Tests, ersetzen aber keine produktive KI- beziehungsweise
+  Kataloganbindung.
+
+Für lokale Start- und Integrationsgrenzen siehe
+[Gemeinsamer lokaler Start](../local-setup/INTEGRATED-SETUP.md), für die
+Endpunkte und Konfiguration des Benutzerservices dessen
+[Service-Dokumentation](../backend/services/user-service/README.md) und für
+Analyseablauf und KI-Schnittstellen die
+[Dokumentation des AI-Service](../backend/services/ai-service/README.md).
+
+## Begriffe
+
+| Begriff | Bedeutung |
 |---|---|
-| **Squad P / Team 1** | Handwerker-Frontend, User-Service, AI-Service |
-| **Team 2** | Offer-Service, Katalog |
-| **Team 3** | BPMN, Process Engine, Connectoren, Nachrichtenkorrelation |
-
-Änderungen an gemeinsamen Schnittstellen müssen mit den betroffenen Teams abgestimmt werden.
-
-## Weiterführende Dokumentation
-
-- [Team-Zuständigkeiten](team-ownership.md)
-- [Integriertes lokales Setup](../local-setup/INTEGRATED-SETUP.md)
-- [Installationsguide](InstallationsGuide.md)
-- [User-Service-README](../backend/services/user-service/README.md)
-- [AI-Service-README](../backend/services/ai-service/README.md)
-- [AI-Service: offene Punkte](../backend/services/ai-service/docs/OFFENE-PUNKTE.md)
-- [Squad-Integrationsprüfung](squad-integration-pruefung.md)
-
-**Ablagehinweis:** Diese Datei gehört in den vorgesehenen Dokumentationsordner (`doc/` gemäß Akzeptanzkriterium; ggf. im Repository tatsächlich `documents/`). Relative Links bei abweichendem Ablageort prüfen.
+| **REST / API** | Vereinbarte HTTP-Schnittstelle, über die Programme Daten anfragen oder ändern. |
+| **Service** | Eigenständige Backend-Komponente mit einer klar abgegrenzten fachlichen Aufgabe. |
+| **PostgreSQL** | Datenbanksystem, in dem ein Service seine Daten dauerhaft speichern kann. |
+| **Keycloak / OIDC** | Dienst und Standard für Anmeldung und Weitergabe geprüfter Identitätsinformationen. |
+| **BPMN / Process Engine** | Modell und Ausführungsumgebung für einen mehrstufigen Geschäftsablauf. |
+| **Workflow-Nachricht** | Mitteilung an die Process Engine, dass ein asynchroner Arbeitsschritt ein Ergebnis geliefert hat. |
+| **Stub / Mock** | Vereinfachter Ersatz für einen externen Dienst, damit lokal ohne diesen Dienst entwickelt oder getestet werden kann. |
