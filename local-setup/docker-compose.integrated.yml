@@ -74,8 +74,6 @@ services:
         condition: service_started
 
   offer-service:
-    build:
-      dockerfile: local-setup/Dockerfile.offer-service.integrated
     container_name: wm-local-offer-service
     image: werkmundo/offer-service:integrated-local
     environment: !override

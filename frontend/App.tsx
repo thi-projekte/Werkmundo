@@ -8,6 +8,10 @@ import { PrivacyView } from "./View/legal/PrivacyView";
 import { DashboardView } from "./View/dashboard/DashboardView";
 import { CompanySetupView } from "./View/onboarding/CompanySetupView";
 import { InvoiceSetupView } from "./View/onboarding/InvoiceSetupView";
+import { AppLayout } from "./View/shared/navigation/AppLayout";
+import { InvoiceView } from "./View/document/InvoiceView";
+import { CustomerListView } from "./View/customer/CustomerListView";
+import { ProfileView } from "./View/user/ProfileView";
 
 function HomeView() {
   return (
@@ -45,7 +49,13 @@ export default function App() {
       <Route path="/" element={<HomeView />} />
       <Route path="/login" element={<LoginView />} />
       <Route path="/registrieren" element={<RegistrationView />} />
-      <Route path="/dashboard" element={<DashboardView />} />
+      {/* Bereiche mit Navigationsleiste */}
+      <Route element={<AppLayout />}>
+        <Route path="/dashboard" element={<DashboardView />} />
+        <Route path="/rechnungen" element={<InvoiceView />} />
+        <Route path="/kunden" element={<CustomerListView />} />
+        <Route path="/profil" element={<ProfileView />} />
+      </Route>
       <Route path="/einrichtung/unternehmen" element={<CompanySetupView />} />
       <Route path="/einrichtung/rechnungen" element={<InvoiceSetupView />} />
       <Route path="/kontakt" element={<ContactView />} />
