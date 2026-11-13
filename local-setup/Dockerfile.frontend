@@ -23,9 +23,9 @@ COPY frontend/vite.config.ts ./
 
 # Vite embeds these values into the browser bundle during the build
 # Keep them local so the image is independent of frontend/.env
-ENV VITE_KEYCLOAK_URL=http://localhost:8090
-ENV VITE_KEYCLOAK_REALM=handwerker-realm
-ENV VITE_KEYCLOAK_CLIENT_ID=mein-frontend
+ENV VITE_KEYCLOAK_URL=https://terramax-keycloak.winfprojekt.de
+ENV VITE_KEYCLOAK_REALM=werkmundo
+ENV VITE_KEYCLOAK_CLIENT_ID=werkmundo-frontend
 ENV VITE_USER_SERVICE_URL=http://localhost:8081/api/users
 ENV VITE_OFFER_SERVICE_URL=http://localhost:8082
 ENV VITE_DOCUMENT_SERVICE_URL=http://localhost:8084
