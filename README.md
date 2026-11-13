@@ -44,6 +44,8 @@ Pro Aufgabe wird ein eigener Branch erstellt.
 
 Die Zuständigkeiten stehen in
 [documents/team-ownership.md](documents/team-ownership.md).
+Eine allgemein verständliche Erklärung der Handwerker-Komponenten bietet
+[documents/handwerker-squad-systemarchitektur.md](documents/handwerker-squad-systemarchitektur.md).
 
 Die Branch-Namen und der Integrationsweg nach main werden
 in den gemeinsamen Arbeitsregeln festgehalten.
