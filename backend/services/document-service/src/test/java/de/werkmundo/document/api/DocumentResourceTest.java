@@ -1,22 +1,21 @@
 package de.werkmundo.document.api;
 
 import static io.restassured.RestAssured.given;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.werkmundo.document.application.port.DocumentSender;
-import de.werkmundo.document.application.port.InvoicePdfGenerator;
-import de.werkmundo.document.domain.DocumentRepository;
 import de.werkmundo.document.domain.Document;
-import de.werkmundo.document.domain.DocumentType;
 import de.werkmundo.document.domain.DocumentMetadata;
+import de.werkmundo.document.domain.DocumentRepository;
+import de.werkmundo.document.domain.DocumentType;
 import io.quarkus.arc.lookup.LookupIfProperty;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Produces;
 import jakarta.enterprise.inject.Instance;
+import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,12 +23,31 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 class DocumentResourceTest {
-    private static final byte[] TEST_PDF = {1, 2, 3};
     private static final String METADATA_ROUTE = "/documents/{documentId}";
+    private static final String SNAPSHOT = """
+            {
+              "customerId": "customer-1",
+              "documentDate": "2026-11-15",
+              "issuer": {"name": "Werkmundo Handwerk", "address": "Werkstrasse 1, 85049 Ingolstadt"},
+              "customer": {"name": "Max Mustermann", "address": "Kundenweg 2, 85051 Ingolstadt",
+                           "email": "kunde@example.com"},
+              "items": [
+                {"description": "Reparatur", "quantity": 2, "unit": "Stunden",
+                 "unitPrice": 50.00, "lineTotal": 100.00}
+              ],
+              "currency": "EUR",
+              "netAmount": 100.00,
+              "taxLines": [],
+              "totalAmount": 100.00,
+              "notes": "Termin nach Absprache"
+            }
+            """;
 
     @Inject
     Instance<DocumentRepository> repository;
@@ -57,7 +75,7 @@ class DocumentResourceTest {
     void returnsNotFoundForAnotherOwnersDocument() {
         String documentId = repository.get().save(
                 new Document(DocumentType.OFFER, "business-123", "handwerker-42", "kunde-1", null,
-                        "angebot-business-123.pdf", TEST_PDF));
+                        "angebot-business-123.pdf", new byte[] {1}));
 
         given()
                 .when().get(METADATA_ROUTE, documentId)
@@ -68,7 +86,7 @@ class DocumentResourceTest {
     @TestSecurity(user = "handwerker-42")
     void readsAndSharesStoredOfferDocument() {
         String documentId = repository.get().save(new Document(DocumentType.OFFER, "stored-offer",
-                "handwerker-42", "kunde-1", null, "angebot-stored-offer.pdf", TEST_PDF));
+                "handwerker-42", "kunde-1", null, "angebot-stored-offer.pdf", new byte[] {1}));
 
         given().when().get("/documents/offers/stored-offer")
                 .then().statusCode(200)
@@ -85,7 +103,7 @@ class DocumentResourceTest {
     @TestSecurity(user = "handwerker-99")
     void hidesForeignDocumentsFromDownloadListingAndSharing() {
         String id = repository.get().save(new Document(DocumentType.OFFER, "foreign-offer", "handwerker-42",
-                "kunde-1", null, "angebot-foreign-offer.pdf", TEST_PDF));
+                "kunde-1", null, "angebot-foreign-offer.pdf", new byte[] {1}));
         given().when().get(METADATA_ROUTE + "/pdf", id).then().statusCode(404);
         given().when().post("/documents/offers/foreign-offer/share").then().statusCode(404);
         given().when().get("/documents").then().statusCode(200).body("size()", equalTo(0));
@@ -93,29 +111,65 @@ class DocumentResourceTest {
 
     @Test
     @TestSecurity(user = "handwerker-42")
-    void createsInvoiceFromArchivePayloadAndSharesIt() {
+    void createsInvoicePdfFromSnapshotAndSharesIt() throws Exception {
         String id = given().contentType("application/json")
-                .body("""
-                        {"rechnungsentwurf":{"kundendaten":{"email":"kunde@example.com"}}}
-                        """)
+                .body(SNAPSHOT)
                 .when().post("/documents/invoices/rechnung-123/generate")
                 .then().statusCode(201).extract().path("documentId");
+
         given().when().get(METADATA_ROUTE, id).then().statusCode(200)
                 .body("type", equalTo("INVOICE"))
                 .body("referenceId", equalTo("rechnung-123"));
         byte[] pdf = given().when().get(METADATA_ROUTE + "/pdf", id)
                 .then().statusCode(200).contentType("application/pdf").extract().asByteArray();
-        assertArrayEquals(TEST_PDF, pdf);
+        String text = extractText(pdf);
+        assertTrue(text.contains("Invoice"));
+        assertTrue(text.contains("Max Mustermann"));
+        assertTrue(text.contains("100.00 EUR"));
+
         given().when().post("/documents/invoices/rechnung-123/share").then().statusCode(204);
         assertEquals("kunde@example.com", adapters.lastSent().recipientEmail());
     }
 
     @Test
     @TestSecurity(user = "handwerker-42")
-    void rejectsInvoiceWithoutCustomerSnapshot() {
-        given().contentType("application/json").body("{\"rechnungsentwurf\":{}}")
+    void createsOrderConfirmationPdfFromSnapshot() throws Exception {
+        String id = given().contentType("application/json")
+                .body(SNAPSHOT)
+                .when().post("/documents/order-confirmations/order-123/generate")
+                .then().statusCode(201).extract().path("documentId");
+
+        given().when().get(METADATA_ROUTE, id).then().statusCode(200)
+                .body("type", equalTo("ORDER_CONFIRMATION"))
+                .body("fileName", equalTo("auftragsbestaetigung-order-123.pdf"));
+        byte[] pdf = given().when().get(METADATA_ROUTE + "/pdf", id)
+                .then().statusCode(200).contentType("application/pdf").extract().asByteArray();
+        String text = extractText(pdf);
+        assertTrue(text.contains("Order confirmation"));
+        assertTrue(text.contains("Reparatur"));
+        assertTrue(text.contains("Termin nach Absprache"));
+    }
+
+    @Test
+    @TestSecurity(user = "handwerker-42")
+    void rejectsSnapshotWithoutRequiredFields() {
+        given().contentType("application/json").body("""
+                        {"documentDate":"2026-11-15","issuer":{"name":"Handwerker"},
+                         "items":[{"description":"Leistung","quantity":1,"unitPrice":10,"lineTotal":10}],
+                         "currency":"EUR","netAmount":10,"taxLines":[],"totalAmount":10}
+                        """)
                 .when().post("/documents/invoices/rechnung-123/generate")
                 .then().statusCode(400);
+
+        given().contentType("application/json").body(SNAPSHOT.replace("\"taxLines\": [],", ""))
+                .when().post("/documents/invoices/rechnung-123/generate")
+                .then().statusCode(400);
+    }
+
+    private static String extractText(byte[] pdfBytes) throws Exception {
+        try (var pdf = Loader.loadPDF(pdfBytes)) {
+            return new PDFTextStripper().getText(pdf);
+        }
     }
 
     @ApplicationScoped
@@ -124,11 +178,6 @@ class DocumentResourceTest {
 
         Document lastSent() {
             return lastSent.get();
-        }
-
-        @Produces
-        InvoicePdfGenerator invoicePdfGenerator() {
-            return draft -> TEST_PDF;
         }
 
         @Produces

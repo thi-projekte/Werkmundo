@@ -1,9 +1,9 @@
 package de.werkmundo.document.api;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import de.werkmundo.document.application.port.DocumentSender;
-import de.werkmundo.document.application.port.InvoicePdfGenerator;
-import de.werkmundo.document.application.usecase.CreateInvoiceDocumentUseCase;
+import de.werkmundo.document.application.port.DocumentPdfGenerator;
+import de.werkmundo.document.application.usecase.CreateDocumentFromSnapshotUseCase;
+import de.werkmundo.document.api.dto.DocumentSnapshotRequest;
 import de.werkmundo.document.domain.Document;
 import de.werkmundo.document.domain.DocumentMetadata;
 import de.werkmundo.document.domain.DocumentRepository;
@@ -36,7 +36,7 @@ public class DocumentResource {
     SecurityIdentity identity;
 
     @Inject
-    Instance<InvoicePdfGenerator> invoicePdfGenerator;
+    Instance<DocumentPdfGenerator> documentPdfGenerator;
 
     @Inject
     Instance<DocumentRepository> repository;
@@ -48,22 +48,16 @@ public class DocumentResource {
     @Path("/invoices/{businessKey}/generate")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response generateInvoiceDocument(
-            @PathParam("businessKey") String businessKey, GenerateInvoiceRequest request) {
-        requireReference(businessKey);
-        if (request == null || request.rechnungsentwurf() == null || !request.rechnungsentwurf().isObject()) {
-            throw new BadRequestException("Invoice draft is required");
-        }
-        String recipientEmail = request.rechnungsentwurf().path("kundendaten").path("email").textValue();
-        if (recipientEmail == null || recipientEmail.isBlank()) {
-            throw new BadRequestException("Invoice draft with customer email is required");
-        }
-        if (!invoicePdfGenerator.isResolvable()) {
-            throw new ServiceUnavailableException("Invoice PDF generation is not configured");
-        }
+            @PathParam("businessKey") String businessKey, DocumentSnapshotRequest request) {
+        return createDocument(DocumentType.INVOICE, businessKey, request);
+    }
 
-        CreateInvoiceDocumentUseCase useCase =
-                new CreateInvoiceDocumentUseCase(invoicePdfGenerator.get(), documentRepository());
-        return created(useCase.execute(businessKey, ownerId(), request.rechnungsentwurf(), recipientEmail));
+    @POST
+    @Path("/order-confirmations/{businessKey}/generate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response generateOrderConfirmation(
+            @PathParam("businessKey") String businessKey, DocumentSnapshotRequest request) {
+        return createDocument(DocumentType.ORDER_CONFIRMATION, businessKey, request);
     }
 
     @GET
@@ -88,11 +82,11 @@ public class DocumentResource {
     @GET
     @Path("/{documentId}/pdf")
     @Produces(APPLICATION_PDF)
-    public Response downloadInvoicePdf(@PathParam("documentId") String documentId) {
+    public Response downloadPdf(@PathParam("documentId") String documentId) {
         requireReference(documentId);
         Document document = findDocument(documentId);
-        if (document.type() != DocumentType.INVOICE) {
-            throw new NotFoundException("Invoice document was not found");
+        if (document.type() == DocumentType.OFFER) {
+            throw new NotFoundException("Generated document was not found");
         }
         return pdfResponse(document);
     }
@@ -122,6 +116,18 @@ public class DocumentResource {
 
         documentSender.get().sendToCustomer(document);
         return Response.noContent().build();
+    }
+
+    private Response createDocument(DocumentType type, String businessKey, DocumentSnapshotRequest request) {
+        requireReference(businessKey);
+        validateSnapshot(request);
+        if (!documentPdfGenerator.isResolvable()) {
+            throw new ServiceUnavailableException("Document PDF generation is not configured");
+        }
+
+        CreateDocumentFromSnapshotUseCase useCase =
+                new CreateDocumentFromSnapshotUseCase(documentPdfGenerator.get(), documentRepository());
+        return created(useCase.execute(type, businessKey, ownerId(), request));
     }
 
     private DocumentMetadata findByReference(DocumentType type, String referenceId) {
@@ -154,6 +160,55 @@ public class DocumentResource {
         }
     }
 
+    private static void validateSnapshot(DocumentSnapshotRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Document snapshot is required");
+        }
+        if (request.documentDate() == null) {
+            throw new BadRequestException("documentDate is required");
+        }
+        validateParty(request.issuer(), "issuer");
+        validateParty(request.customer(), "customer");
+        if (request.customer().email() == null || request.customer().email().isBlank()) {
+            throw new BadRequestException("customer.email is required");
+        }
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new BadRequestException("items must contain at least one entry");
+        }
+        for (DocumentSnapshotRequest.LineItem item : request.items()) {
+            if (item == null || item.description() == null || item.description().isBlank()
+                    || item.quantity() == null || item.quantity().signum() <= 0
+                    || item.unitPrice() == null || item.unitPrice().signum() < 0
+                    || item.lineTotal() == null || item.lineTotal().signum() < 0) {
+                throw new BadRequestException(
+                        "Each item requires a description, positive quantity, and non-negative prices");
+            }
+        }
+        if (request.currency() == null || !request.currency().matches("[A-Z]{3}")) {
+            throw new BadRequestException("currency must be a three-letter uppercase code");
+        }
+        if (request.netAmount() == null || request.netAmount().signum() < 0
+                || request.totalAmount() == null || request.totalAmount().signum() < 0) {
+            throw new BadRequestException("netAmount and totalAmount must be non-negative");
+        }
+        if (request.taxLines() == null) {
+            throw new BadRequestException("taxLines is required; use an empty list when no tax breakdown is supplied");
+        }
+        for (DocumentSnapshotRequest.TaxLine taxLine : request.taxLines()) {
+            if (taxLine == null || taxLine.label() == null || taxLine.label().isBlank()
+                    || taxLine.amount() == null || taxLine.amount().signum() < 0
+                    || (taxLine.rate() != null && taxLine.rate().signum() < 0)) {
+                throw new BadRequestException("Each tax line requires a label and non-negative amounts");
+            }
+        }
+    }
+
+    private static void validateParty(DocumentSnapshotRequest.Party party, String name) {
+        if (party == null || party.name() == null || party.name().isBlank()) {
+            throw new BadRequestException(name + ".name is required");
+        }
+    }
+
     private static Response created(String documentId) {
         return Response.status(Response.Status.CREATED).entity(new CreatedDocument(documentId)).build();
     }
@@ -167,8 +222,5 @@ public class DocumentResource {
     }
 
     public record CreatedDocument(String documentId) {
-    }
-
-    public record GenerateInvoiceRequest(JsonNode rechnungsentwurf) {
     }
 }

@@ -2,7 +2,8 @@ package de.werkmundo.document.domain;
 
 public enum DocumentType {
     OFFER("angebot"),
-    INVOICE("rechnung");
+    INVOICE("rechnung"),
+    ORDER_CONFIRMATION("auftragsbestaetigung");
 
     private final String filePrefix;
 

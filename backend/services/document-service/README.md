@@ -1,14 +1,15 @@
 # Document-Service
 
 Java 25 / Quarkus 3.40.1.1. Der aktuelle Stand enthält REST-Endpunkte,
-Besitzerprüfungen, ein PostgreSQL-Repository und eine Flyway-Migration für
-Dokumentmetadaten und PDF-Inhalte. Er ist noch kein vollständig integrierter
-PDF- und Versandservice.
+Besitzerprüfungen, ein PostgreSQL-Repository und PDF-Erzeugung für Rechnungen
+und Auftragsbestätigungen. Ein Gateway oder eine Verbindung zum Offer-Service
+ist noch nicht integriert.
 
 ## Datenbank
 
-Die Migration `src/main/resources/db/migration/V1__create_documents.sql`
-legt die Tabelle `documents` an. Sie enthält Besitzer, Dokumenttyp,
+Die Migrationen unter `src/main/resources/db/migration/` legen die Tabelle
+`documents` an und erlauben die Dokumenttypen Angebot, Rechnung und
+Auftragsbestätigung. Die Tabelle enthält Besitzer, Dokumenttyp,
 Referenz, Empfänger, Dateiname, PDF-Bytes (`bytea`) und Erstellungszeitpunkt.
 Abfragen sind nach Besitzer getrennt. SQL-Parameter werden gebunden.
 
@@ -34,29 +35,91 @@ alternative Speicherimplementierung. Speicherendpunkte antworten dann mit
 
 ## Schnittstellen
 
-Alle Endpunkte erfordern eine authentifizierte Identität.
+Alle Endpunkte erfordern eine authentifizierte Identität. Im lokalen
+Quarkus-Dev-Modus ist Keycloak deaktiviert und eine lokale Basic-Auth-Identität
+aktiviert:
+
+| Benutzer | Passwort |
+|---|---|
+| `document-dev` | `document-dev-password` |
+
+Diese Identität ist ausschließlich für `quarkus:dev` konfiguriert. Der
+Dev-Server bindet an `127.0.0.1`; die eingebettete Benutzerverwaltung ist im
+Produktionsprofil deaktiviert und dort bleibt OIDC erforderlich. Das Passwort
+ist öffentlich und darf nicht für andere Umgebungen verwendet werden.
 
 | Methode | Pfad | Zweck |
 |---|---|---|
 | GET | `/documents` | Metadaten eigener Dokumente |
 | GET | `/documents/{documentId}` | Metadaten eines eigenen Dokuments |
 | GET | `/documents/offers/{businessKey}` | Metadaten des neuesten eigenen Angebotsdokuments |
-| GET | `/documents/{documentId}/pdf` | PDF eines Rechnungsdokuments; Angebote werden derzeit abgewiesen |
-| POST | `/documents/invoices/{businessKey}/generate` | Rechnungsdokument aus `rechnungsentwurf` erzeugen |
+| GET | `/documents/{documentId}/pdf` | Eigenes Rechnungs- oder Auftragsbestätigungs-PDF herunterladen |
+| POST | `/documents/invoices/{businessKey}/generate` | Rechnung aus einem Dokument-Snapshot erzeugen |
+| POST | `/documents/order-confirmations/{businessKey}/generate` | Auftragsbestätigung aus einem Dokument-Snapshot erzeugen |
 | POST | `/documents/offers/{businessKey}/share` | Angebotsdokument versenden |
 | POST | `/documents/invoices/{businessKey}/share` | Rechnungsdokument versenden |
 
-Der Rechnungsentwurf wird als JSON-Objekt mit
-`rechnungsentwurf.kundendaten.email` erwartet. Erzeugung und Versand brauchen
-die unten genannten konkreten Adapter.
+Beide Erzeugungsendpunkte verwenden denselben API-eigenen
+`DocumentSnapshotRequest`-Vertrag. Er enthält Aussteller, Kunde, Positionen,
+Währung, Nettobetrag, Gesamtbetrag und eine explizite `taxLines`-Liste. Der
+Document-Service berechnet keine Steuern und leitet keine Beträge her: Die
+übergebenen Werte werden dargestellt. Wenn noch keine Steueraufschlüsselung
+vorliegt, wird `taxLines` als leere Liste übergeben. So kann die Steuerlogik
+später ergänzt werden, ohne interne Offer-Service-Typen in die API aufzunehmen.
+
+Beispiel für einen manuellen, authentifizierten Aufruf:
+
+```powershell
+$snapshot = @'
+{
+  "customerId": "customer-1",
+  "documentDate": "2026-11-15",
+  "issuer": { "name": "Werkmundo Handwerk", "address": "Werkstrasse 1" },
+  "customer": {
+    "name": "Max Mustermann",
+    "address": "Kundenweg 2",
+    "email": "kunde@example.com"
+  },
+  "items": [
+    {
+      "description": "Reparatur",
+      "quantity": 2,
+      "unit": "Stunden",
+      "unitPrice": 50.00,
+      "lineTotal": 100.00
+    }
+  ],
+  "currency": "EUR",
+  "netAmount": 100.00,
+  "taxLines": [],
+  "totalAmount": 100.00,
+  "notes": "Termin nach Absprache"
+}
+'@
+
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/documents/invoices/invoice-123/generate" `
+  -ContentType "application/json" -Headers @{ Authorization = "Bearer <token>" } `
+  -Body $snapshot
+
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/documents/order-confirmations/order-123/generate" `
+  -ContentType "application/json" -Headers @{ Authorization = "Bearer <token>" } `
+  -Body $snapshot
+```
+
+Der `ownerId` wird nicht aus dem Snapshot angenommen, sondern aus der
+authentifizierten Identität abgeleitet. Bis das Gateway verfügbar ist, können
+die Endpunkte direkt mit Testdaten aufgerufen werden. Bei `quarkus:dev` kann
+der oben genannte lokale Benutzer für Basic Auth verwendet werden. Der
+Versandadapter ist weiterhin nicht produktiv implementiert.
 
 ## Noch fehlende Bausteine
 
-- `InvoicePdfGenerator`: Es existiert nur das Interface, keine produktive
-  PDF-Erzeugung. Der Erzeugungsendpunkt liefert ohne Implementierung `503`.
 - `DocumentSender`: Es existiert nur das Interface, keine produktive
   Versandimplementierung. Versand liefert ohne Implementierung `503`.
-- Erzeugung von Angebots-PDFs und deren Download sind noch nicht umgesetzt.
+- Das Gateway und die automatische Übergabe vom Offer-Service stehen noch aus.
+- Angebots-PDF-Erzeugung ist noch nicht umgesetzt.
 - Die produktive OIDC-Konfiguration ist vorbereitet: `KEYCLOAK_AUTH_SERVER_URL`
   und bei Bedarf `KEYCLOAK_CLIENT_ID` setzen. Der Besitzer wird aus dem JWT-Claim
   `sub` abgeleitet. Der gemeinsame Test mit echten Keycloak-Tokens steht aus.
@@ -73,14 +136,15 @@ Mit Java 25 im Serviceverzeichnis:
 .\mvnw.cmd -B '-Dquarkus.http.test-port=18082' test
 ```
 
-Die vorhandenen sieben API-Tests verwenden Testidentitäten, ein
-In-Memory-Repository, drei feste Bytes als PDF und einen simulierten Sender.
-Sie prüfen API-Verhalten und Besitzertrennung. Sie bestätigen weder echte
-PDF-Erzeugung oder E-Mail-Zustellung noch das PostgreSQL-Repository.
+Die API-Tests verwenden Testidentitäten, ein In-Memory-Repository, die echte
+PDF-Erzeugung und einen simulierten Sender. Unit-Tests prüfen die Inhalte der
+erzeugten PDFs einschließlich optionaler Steueraufschlüsselung. Die Tests
+bestätigen keine E-Mail-Zustellung; PostgreSQL wird in den separaten
+opt-in-Tests geprüft.
 
-Vier zusätzliche PostgreSQL-Tests prüfen binäre Inhalte, Besitzertrennung,
-Dokumentversionen und die Flyway-Migration. Ohne `DOCUMENT_DB_TESTS=true`
-werden ausschließlich diese vier Tests übersprungen. Für den vollständigen
+Fünf zusätzliche PostgreSQL-Tests prüfen binäre Inhalte, Besitzertrennung,
+Dokumentversionen, den neuen Dokumenttyp und die Flyway-Migrationen. Ohne
+`DOCUMENT_DB_TESTS=true` werden ausschließlich diese fünf Tests übersprungen. Für den vollständigen
 Lauf mit laufender Dokumentdatenbank:
 
 ```powershell

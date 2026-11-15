@@ -99,13 +99,23 @@ class PostgresDocumentRepositoryTest {
     }
 
     @Test
+    void storesOrderConfirmationDocumentType() {
+        String reference = "order-" + UUID.randomUUID();
+        String id = repository().save(new Document(DocumentType.ORDER_CONFIRMATION, reference, owner, null,
+                "customer@example.com", "order-confirmation.pdf", CONTENT));
+
+        assertEquals(DocumentType.ORDER_CONFIRMATION,
+                repository().findByIdAndOwner(id, owner).orElseThrow().type());
+    }
+
+    @Test
     void flywayHasAppliedTheDocumentSchema() throws Exception {
         try (var connection = dataSource.getConnection();
              var statement = connection.prepareStatement(
-                     "SELECT count(*) FROM flyway_schema_history WHERE version = '1' AND success = true");
+                     "SELECT count(*) FROM flyway_schema_history WHERE version IN ('1', '2') AND success = true");
              var result = statement.executeQuery()) {
             assertTrue(result.next());
-            assertEquals(1, result.getInt(1));
+            assertEquals(2, result.getInt(1));
         }
     }
 }
