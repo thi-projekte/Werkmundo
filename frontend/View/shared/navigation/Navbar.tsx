@@ -3,9 +3,10 @@ import {
   CircleUserRound,
   ContactRound,
   FileText,
-  LayoutDashboard,
+  House,
+  LogOut,
 } from "lucide-react";
-import wordmark from "../../../../documents/UI/Schriftzug_weiß.svg";
+import wordmark from "../../../shared/assets/schriftzug-weiss.svg";
 import "./navbar-css.css";
 
 const navItems = [
