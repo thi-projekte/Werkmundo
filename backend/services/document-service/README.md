@@ -210,7 +210,7 @@ Mailpit nimmt SMTP auf `127.0.0.1:1025` an. Die Mailbox wird unter
 
 ```powershell
 Set-Location "backend\services\document-service"
-$env:DOCUMENT_DB_PASSWORD = (Get-Content .env | ConvertFrom-StringData).DOCUMENT_DB_PASSWORD
+$env:DOCUMENT_DB_PASSWORD = "admin"
 docker compose -f docker-compose.db.yml up -d --wait
 ```
 
@@ -222,11 +222,11 @@ den Befehlen wiederholen oder ändern.
 
 ```powershell
 Set-Location "backend\services\document-service"
-$env:DOCUMENT_DB_PASSWORD = (Get-Content .env | ConvertFrom-StringData).DOCUMENT_DB_PASSWORD
+$env:OFFER_DB_PASSWORD = "admin"
 $env:DOCUMENT_STORAGE_POSTGRES_ENABLED = "true"
 $env:QUARKUS_DATASOURCE_JDBC_URL = "jdbc:postgresql://127.0.0.1:55433/document_db"
 $env:QUARKUS_DATASOURCE_USERNAME = "document_user"
-$env:QUARKUS_DATASOURCE_PASSWORD = $env:DOCUMENT_DB_PASSWORD
+$env:QUARKUS_DATASOURCE_PASSWORD = $env:OFFER_DB_PASSWORD
 
 # Überschreibt den Dev-Mail-Mock: Mails gehen an Mailpit, nicht ins Internet.
 $env:QUARKUS_MAILER_MOCK = "false"
