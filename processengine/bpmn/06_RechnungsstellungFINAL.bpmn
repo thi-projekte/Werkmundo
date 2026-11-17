@@ -8,13 +8,15 @@
     <bpmn:messageFlow id="MF_Dokument" name="Dokument" sourceRef="Call_Dokumentenversand" targetRef="Participant_Kunde" />
     <bpmn:messageFlow id="Flow_1km0o7w" name="Rechnungsentwurf" sourceRef="Task_RechnungsentwurfAnFrontendSenden" targetRef="Participant_Frontend" />
     <bpmn:messageFlow id="Flow_0v0tp9b" name="Rechnungsprüfergebnis" sourceRef="Participant_Frontend" targetRef="Task_RechnungspruefergebnisEmpfangen" />
+    <bpmn:messageFlow id="MF_DokumentZurAenderung" name="Dokument zur Änderung" sourceRef="Call_Dokumentaenderung" targetRef="Participant_Frontend" />
+    <bpmn:messageFlow id="MF_Dokumentaenderung" name="Dokumentänderung" sourceRef="Participant_Frontend" targetRef="Call_Dokumentaenderung" />
     <bpmn:textAnnotation id="Annotation_Rechnungsentwurf">
       <bpmn:text>PDF-Vorschau + darunter alle Positionen zur Bearbeitung (Auswahl aus dem Produktkatalog)</bpmn:text>
     </bpmn:textAnnotation>
     <bpmn:textAnnotation id="Annotation_Rechnungspruefergebnis">
-      <bpmn:text>Wieder 2 Optionen:
+      <bpmn:text>2 Optionen:
 BESTAETIGT |
-POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
+AENDERUNG_GEWUENSCHT</bpmn:text>
     </bpmn:textAnnotation>
     <bpmn:textAnnotation id="TextAnnotation_0bw7dkm">
       <bpmn:text>Manueller schritt, da Handwerker erstmal erbeitet und Rechnung erst danach erstellt und rausschickt</bpmn:text>
@@ -23,8 +25,8 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
     <bpmn:association id="Association_17xy683" associationDirection="None" sourceRef="Annotation_Rechnungspruefergebnis" targetRef="Flow_0v0tp9b" />
     <bpmn:association id="Association_1qdnkcp" associationDirection="None" sourceRef="Task_AuftragAusfuehren" targetRef="TextAnnotation_0bw7dkm" />
   </bpmn:collaboration>
-  <bpmn:process id="rechnungsstellung" name="Rechnungsstellung" isExecutable="true" camunda:versionTag="4.0" camunda:historyTimeToLive="180">
-    <bpmn:documentation>Teilprozess der Angebotsabwicklung. Erst wenn der Handwerker den Auftrag ausgeführt und das im Frontend gemeldet hat, entsteht ohne Spracheingabe die Rechnung aus den Positionen des angenommenen Angebots. In der Rechnungsentwurfsprüfung sieht der Handwerker das PDF und darunter die Positionen, die er wie beim Angebot ändern oder aus dem Produktkatalog ergänzen kann – bis er bestätigt. Danach wird die Rechnung versendet. Eingang: angebotId, handwerkerId, kundeId. Ausgang: rechnungId. Endzustand: Rechnung versendet.</bpmn:documentation>
+  <bpmn:process id="rechnungsstellung" name="Rechnungsstellung" isExecutable="true" camunda:versionTag="5.0" camunda:historyTimeToLive="180">
+    <bpmn:documentation>Teilprozess der Angebotsabwicklung. Erst wenn der Handwerker den Auftrag ausgeführt und das im Frontend gemeldet hat, entsteht ohne Spracheingabe die Rechnung aus den Positionen des angenommenen Angebots. In der Rechnungsentwurfsprüfung sieht der Handwerker das PDF und die Positionen und kann bestätigen oder eine Änderung anstoßen. Bei einer Änderung wird – wie beim Angebot – der wiederverwendbare Teilprozess Dokumentänderung (dokumentart = RECHNUNG) aufgerufen; der Handwerker ändert dort so lange, bis er bestätigt. Danach wird die Rechnung versendet. Eingang: angebotId, handwerkerId, kundeId. Ausgang: rechnungId. Endzustand: Rechnung versendet.</bpmn:documentation>
     <bpmn:laneSet id="LaneSet_rechnungsstellung">
       <bpmn:lane id="Lane_RS_DokumentenService" name="Dokumenten-Service">
         <bpmn:flowNodeRef>Call_Dokumentenversand</bpmn:flowNodeRef>
@@ -38,7 +40,7 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
         <bpmn:flowNodeRef>Task_RechnungsvorschauErstellen</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Task_RechnungspruefergebnisEmpfangen</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Gateway_Rechnungspruefergebnis</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>Task_RechnungsentwurfUeberarbeiten</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Call_Dokumentaenderung</bpmn:flowNodeRef>
       </bpmn:lane>
       <bpmn:lane id="Lane_RS_Handwerker" name="Handwerker">
         <bpmn:flowNodeRef>Start_RechnungsstellungBenoetigt</bpmn:flowNodeRef>
@@ -91,7 +93,7 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
     </bpmn:sendTask>
     <bpmn:exclusiveGateway id="Gateway_1pk3h74">
       <bpmn:incoming>Flow_141jc0e</bpmn:incoming>
-      <bpmn:incoming>Flow_0cax87l</bpmn:incoming>
+      <bpmn:incoming>Flow_Dokumentaenderung_GW</bpmn:incoming>
       <bpmn:outgoing>Flow_1gt4j11</bpmn:outgoing>
     </bpmn:exclusiveGateway>
     <bpmn:sequenceFlow id="Flow_Start_Ausfuehren" sourceRef="Start_RechnungsstellungBenoetigt" targetRef="Task_AuftragAusfuehren" />
@@ -103,11 +105,13 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
     <bpmn:sequenceFlow id="Flow_Vorschau_Senden" sourceRef="Task_RechnungsvorschauErstellen" targetRef="Task_RechnungsentwurfAnFrontendSenden" />
     <bpmn:sequenceFlow id="Flow_Senden_Empfangen" sourceRef="Task_RechnungsentwurfAnFrontendSenden" targetRef="Task_RechnungspruefergebnisEmpfangen" />
     <bpmn:sequenceFlow id="Flow_Empfangen_GW" sourceRef="Task_RechnungspruefergebnisEmpfangen" targetRef="Gateway_Rechnungspruefergebnis" />
-    <bpmn:sequenceFlow id="Flow_GW_Geaendert" name="Positionen geändert" sourceRef="Gateway_Rechnungspruefergebnis" targetRef="Task_RechnungsentwurfUeberarbeiten">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${rechnungspruefergebnis == 'POSITIONEN_GEAENDERT'}</bpmn:conditionExpression>
+    <bpmn:sequenceFlow id="Flow_GW_Aenderung" name="Änderung gewünscht" sourceRef="Gateway_Rechnungspruefergebnis" targetRef="Call_Dokumentaenderung">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${rechnungspruefergebnis == 'AENDERUNG_GEWUENSCHT'}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
-    <bpmn:sequenceFlow id="Flow_141jc0e" name="bestätigt" sourceRef="Gateway_Rechnungspruefergebnis" targetRef="Gateway_1pk3h74" />
-    <bpmn:sequenceFlow id="Flow_0cax87l" sourceRef="Task_RechnungsentwurfUeberarbeiten" targetRef="Gateway_1pk3h74" />
+    <bpmn:sequenceFlow id="Flow_141jc0e" name="bestätigt" sourceRef="Gateway_Rechnungspruefergebnis" targetRef="Gateway_1pk3h74">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${rechnungspruefergebnis == 'BESTAETIGT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Dokumentaenderung_GW" sourceRef="Call_Dokumentaenderung" targetRef="Gateway_1pk3h74" />
     <bpmn:serviceTask id="Task_RechnungsentwurfAusAngebotErstellen" name="Rechnungsentwurf aus Angebot erstellen" camunda:asyncBefore="true" camunda:delegateExpression="${rechnungsentwurfAusAngebotErstellen}">
       <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter, CreateInvoiceUseCase): POST /rechnungen mit angebotId. Übernimmt Kunde und Positionen des angenommenen Angebots in einen Rechnungsentwurf.</bpmn:documentation>
       <bpmn:extensionElements>
@@ -122,7 +126,7 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       <bpmn:incoming>Flow_Empfangen_Erstellen</bpmn:incoming>
       <bpmn:outgoing>Flow_0stdpnw</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:serviceTask id="Task_RechnungsvorschauErstellen" name="Rechnungsentwurf erstellen" camunda:asyncBefore="true" camunda:delegateExpression="${rechnungsvorschauErstellen}">
+    <bpmn:serviceTask id="Task_RechnungsvorschauErstellen" name="Rechnungsvorschau erstellen" camunda:asyncBefore="true" camunda:delegateExpression="${rechnungsvorschauErstellen}">
       <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): POST /dokumente/RECHNUNG/{rechnungId}/vorschau. Vorschau-PDF mit Wasserzeichen „Entwurf“.</bpmn:documentation>
       <bpmn:extensionElements>
         <camunda:inputOutput>
@@ -135,34 +139,27 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       <bpmn:outgoing>Flow_Vorschau_Senden</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:receiveTask id="Task_RechnungspruefergebnisEmpfangen" name="Rechnungsprüfergebnis empfangen" messageRef="Message_RechnungspruefergebnisEingegangen">
-      <bpmn:documentation>Nachricht rechnungspruefergebnisEingegangen vom Frontend (über Dokumenten-Service), Korrelation über Business Key. Variablen: rechnungspruefergebnis = BESTAETIGT | POSITIONEN_GEAENDERT; geaenderteRechnungspositionen (JSON, nur bei Änderung).</bpmn:documentation>
+      <bpmn:documentation>Nachricht rechnungspruefergebnisEingegangen vom Frontend (über Dokumenten-Service), Korrelation über Business Key. Variable: rechnungspruefergebnis = BESTAETIGT | AENDERUNG_GEWUENSCHT. Die geänderten Positionen kommen erst im Teilprozess Dokumentänderung.</bpmn:documentation>
       <bpmn:incoming>Flow_Senden_Empfangen</bpmn:incoming>
       <bpmn:outgoing>Flow_Empfangen_GW</bpmn:outgoing>
     </bpmn:receiveTask>
     <bpmn:exclusiveGateway id="Gateway_Rechnungspruefergebnis" name="Rechnungsprüfergebnis?">
       <bpmn:incoming>Flow_Empfangen_GW</bpmn:incoming>
-      <bpmn:outgoing>Flow_GW_Geaendert</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GW_Aenderung</bpmn:outgoing>
       <bpmn:outgoing>Flow_141jc0e</bpmn:outgoing>
     </bpmn:exclusiveGateway>
-    <bpmn:serviceTask id="Task_RechnungsentwurfUeberarbeiten" name="Rechnungsentwurf überarbeiten" camunda:asyncBefore="true" camunda:delegateExpression="${rechnungsentwurfUeberarbeiten}">
-      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): PUT /rechnungen/{rechnungId}/entwurf mit den geänderten Positionen. Prüft sie gegen den Produktkatalog, berechnet Preise und Summen neu.</bpmn:documentation>
+    <bpmn:callActivity id="Call_Dokumentaenderung" name="Dokumentänderung" calledElement="dokumentaenderung">
+      <bpmn:documentation>Wiederverwendbarer Teilprozess (auch aus Angebotsentwurfserstellung und Kundenentscheidungseinholung aufgerufen): Der Handwerker ändert den Rechnungsentwurf, bis er bestätigt. Endzustand: Dokument geändert.</bpmn:documentation>
       <bpmn:extensionElements>
-        <camunda:inputOutput>
-          <camunda:inputParameter name="rechnungId">${rechnungId}</camunda:inputParameter>
-          <camunda:inputParameter name="rechnungspositionen">${geaenderteRechnungspositionen}</camunda:inputParameter>
-          <camunda:outputParameter name="rechnungsentwurf">${rechnungsentwurf}</camunda:outputParameter>
-        </camunda:inputOutput>
-        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
+        <camunda:in businessKey="#{execution.processBusinessKey}" />
+        <camunda:in source="angebotId" target="angebotId" />
+        <camunda:in source="handwerkerId" target="handwerkerId" />
+        <camunda:in sourceExpression="${&#39;RECHNUNG&#39;}" target="dokumentart" />
+        <camunda:in sourceExpression="${rechnungId}" target="dokumentId" />
       </bpmn:extensionElements>
-      <bpmn:incoming>Flow_GW_Geaendert</bpmn:incoming>
-      <bpmn:outgoing>Flow_0cax87l</bpmn:outgoing>
-      <bpmn:property id="Property_1vz4ll0" name="__targetRef_placeholder" />
-      <bpmn:dataInputAssociation id="DataInputAssociation_Produktkatalog">
-        <bpmn:sourceRef>DataStore_Produktkatalog</bpmn:sourceRef>
-        <bpmn:targetRef>Property_1vz4ll0</bpmn:targetRef>
-      </bpmn:dataInputAssociation>
-    </bpmn:serviceTask>
-    <bpmn:dataStoreReference id="DataStore_Produktkatalog" name="Produktkatalog" />
+      <bpmn:incoming>Flow_GW_Aenderung</bpmn:incoming>
+      <bpmn:outgoing>Flow_Dokumentaenderung_GW</bpmn:outgoing>
+    </bpmn:callActivity>
   </bpmn:process>
   <bpmn:message id="Message_AuftragsabschlussEingegangen" name="auftragsabschlussEingegangen" />
   <bpmn:message id="Message_RechnungspruefergebnisEingegangen" name="rechnungspruefergebnisEingegangen" />
@@ -223,14 +220,8 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
           <dc:Bounds x="1447" y="470.5" width="165" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BPMNShape_0zvrgk9" bpmnElement="Task_RechnungsentwurfUeberarbeiten">
-        <dc:Bounds x="1610" y="480" width="140" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BPMNShape_18r42ya" bpmnElement="DataStore_Produktkatalog">
-        <dc:Bounds x="1655" y="632" width="50" height="50" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1715" y="650" width="74" height="14" />
-        </bpmndi:BPMNLabel>
+      <bpmndi:BPMNShape id="Call_Dokumentaenderung_di" bpmnElement="Call_Dokumentaenderung">
+        <dc:Bounds x="1630" y="480" width="160" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_Start_Ausfuehren_di" bpmnElement="Flow_Start_Ausfuehren">
         <di:waypoint x="246" y="380" />
@@ -273,11 +264,11 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
         <di:waypoint x="1455" y="520" />
         <di:waypoint x="1505" y="520" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="BPMNEdge_0uwbu8a" bpmnElement="Flow_GW_Geaendert">
+      <bpmndi:BPMNEdge id="Flow_GW_Aenderung_di" bpmnElement="Flow_GW_Aenderung">
         <di:waypoint x="1555" y="520" />
-        <di:waypoint x="1610" y="520" />
+        <di:waypoint x="1630" y="520" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1544" y="536" width="52" height="27" />
+          <dc:Bounds x="1563" y="536" width="53" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_141jc0e_di" bpmnElement="Flow_141jc0e">
@@ -288,8 +279,8 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
           <dc:Bounds x="1469" y="593" width="42" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0cax87l_di" bpmnElement="Flow_0cax87l">
-        <di:waypoint x="1750" y="520" />
+      <bpmndi:BPMNEdge id="Flow_Dokumentaenderung_GW_di" bpmnElement="Flow_Dokumentaenderung_GW">
+        <di:waypoint x="1790" y="520" />
         <di:waypoint x="1860" y="520" />
         <di:waypoint x="1860" y="775" />
       </bpmndi:BPMNEdge>
@@ -300,21 +291,17 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       <bpmndi:BPMNShape id="Participant_Kunde_di" bpmnElement="Participant_Kunde" isHorizontal="true">
         <dc:Bounds x="120" y="1050" width="2160" height="60" />
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Association_17xy683_di" bpmnElement="Association_17xy683">
+        <di:waypoint x="1400" y="220" />
+        <di:waypoint x="1380" y="220" />
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="Annotation_Rechnungsentwurf_di" bpmnElement="Annotation_Rechnungsentwurf">
         <dc:Bounds x="900" y="203" width="230" height="52" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Annotation_Rechnungspruefergebnis_di" bpmnElement="Annotation_Rechnungspruefergebnis">
-        <dc:Bounds x="1590" y="203" width="292" height="72" />
-        <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="TextAnnotation_0bw7dkm_di" bpmnElement="TextAnnotation_0bw7dkm">
         <dc:Bounds x="300" y="200" width="210" height="57" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="BPMNEdge_0fl4qx8" bpmnElement="DataInputAssociation_Produktkatalog">
-        <di:waypoint x="1680" y="632" />
-        <di:waypoint x="1680" y="560" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="MF_Auftragsabschluss_di" bpmnElement="MF_Auftragsabschluss">
         <di:waypoint x="590" y="140" />
         <di:waypoint x="590" y="480" />
@@ -343,18 +330,31 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
           <dc:Bounds x="1403" y="166" width="117" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_DokumentZurAenderung_di" bpmnElement="MF_DokumentZurAenderung">
+        <di:waypoint x="1670" y="480" />
+        <di:waypoint x="1670" y="140" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1595" y="269" width="69" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_Dokumentaenderung_di" bpmnElement="MF_Dokumentaenderung">
+        <di:waypoint x="1750" y="140" />
+        <di:waypoint x="1750" y="480" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1762" y="276" width="158" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Association_18olkik_di" bpmnElement="Association_18olkik">
         <di:waypoint x="1130" y="215" />
         <di:waypoint x="1190" y="208" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Association_17xy683_di" bpmnElement="Association_17xy683">
-        <di:waypoint x="1590" y="229" />
-        <di:waypoint x="1380" y="191" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Association_1qdnkcp_di" bpmnElement="Association_1qdnkcp">
         <di:waypoint x="358" y="340" />
         <di:waypoint x="352" y="257" />
       </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Annotation_Rechnungspruefergebnis_di" bpmnElement="Annotation_Rechnungspruefergebnis">
+        <dc:Bounds x="1400" y="190" width="230" height="57" />
+      </bpmndi:BPMNShape>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>
