@@ -50,7 +50,11 @@ public class PdfBoxDocumentPdfGenerator implements DocumentPdfGenerator {
     private static List<Line> createLines(
             DocumentType type, DocumentSnapshotRequest snapshot, PDFont regular, PDFont bold) {
         List<Line> lines = new ArrayList<>();
-        String title = type == DocumentType.INVOICE ? "Invoice" : "Order confirmation";
+        String title = switch (type) {
+            case OFFER -> "Offer";
+            case INVOICE -> "Invoice";
+            case ORDER_CONFIRMATION -> "Order confirmation";
+        };
         addWrapped(lines, title, bold, 20);
         addWrapped(lines, "Date: " + DATE_FORMAT.format(snapshot.documentDate()), bold, 11);
         addWrapped(lines, "", regular, 10);

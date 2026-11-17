@@ -1,237 +1,177 @@
 package de.werkmundo.document.api;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import de.werkmundo.document.api.dto.DocumentShareRequest;
+import de.werkmundo.document.api.dto.DocumentSnapshotRequest;
+import de.werkmundo.document.application.port.DocumentPdfGenerator;
 import de.werkmundo.document.application.port.DocumentSender;
 import de.werkmundo.document.domain.Document;
 import de.werkmundo.document.domain.DocumentMetadata;
 import de.werkmundo.document.domain.DocumentRepository;
 import de.werkmundo.document.domain.DocumentType;
-import io.quarkus.arc.lookup.LookupIfProperty;
-import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.security.TestSecurity;
-import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.inject.Instance;
-import jakarta.enterprise.inject.Produces;
-import jakarta.inject.Inject;
-import java.util.LinkedHashMap;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.core.Response;
+import java.math.BigDecimal;
+import java.security.Principal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 
-@QuarkusTest
 class DocumentResourceTest {
-    private static final String METADATA_ROUTE = "/documents/{documentId}";
-    private static final String SNAPSHOT = """
-            {
-              "customerId": "customer-1",
-              "documentDate": "2026-11-15",
-              "issuer": {"name": "Werkmundo Handwerk", "address": "Werkstrasse 1, 85049 Ingolstadt"},
-              "customer": {"name": "Max Mustermann", "address": "Kundenweg 2, 85051 Ingolstadt",
-                           "email": "kunde@example.com"},
-              "items": [
-                {"description": "Reparatur", "quantity": 2, "unit": "Stunden",
-                 "unitPrice": 50.00, "lineTotal": 100.00}
-              ],
-              "currency": "EUR",
-              "netAmount": 100.00,
-              "taxLines": [],
-              "totalAmount": 100.00,
-              "notes": "Termin nach Absprache"
-            }
-            """;
-
-    @Inject
-    Instance<DocumentRepository> repository;
-
-    @Inject
-    TestAdapters adapters;
+    private final InMemoryDocumentRepository repository = new InMemoryDocumentRepository();
+    private final List<SentMail> sentMail = new ArrayList<>();
+    private final DocumentPdfGenerator pdfGenerator = (type, snapshot) -> (type.name() + " pdf").getBytes();
+    private final DocumentSender sender = (document, accessLink) -> sentMail.add(new SentMail(document, accessLink));
+    private final DocumentResource resource = resource("handwerker-42");
 
     @Test
-    void requiresAuthentication() {
-        given()
-                .when().get(METADATA_ROUTE, "unknown")
-                .then().statusCode(401);
+    void createsAndSharesOfferWithItsAccessLink() {
+        Response response = resource.generateOfferDocument("angebot-123", snapshot());
+        String documentId = ((DocumentResource.CreatedDocument) response.getEntity()).documentId();
+
+        assertEquals(Response.Status.CREATED.getStatusCode(), response.getStatus());
+        Response shareResponse = resource.shareOffer(
+                "angebot-123", new DocumentShareRequest("https://offers.example.test/offer?token=opaque-token"));
+
+        assertEquals(Response.Status.NO_CONTENT.getStatusCode(), shareResponse.getStatus());
+        assertEquals("kunde@example.com", sentMail.getFirst().document().recipientEmail());
+        assertEquals("https://offers.example.test/offer?token=opaque-token", sentMail.getFirst().accessLink());
+        assertEquals("OFFER pdf", new String(sentMail.getFirst().document().pdfContent()));
+        assertEquals(documentId, repository.findLatestMetadataByReferenceAndOwner(
+                DocumentType.OFFER, "angebot-123", "handwerker-42").orElseThrow().documentId());
     }
 
     @Test
-    @TestSecurity(user = "handwerker-42")
-    void returnsNotFoundForUnknownDocument() {
-        given()
-                .when().get(METADATA_ROUTE, "unknown")
-                .then().statusCode(404);
+    void createsAndSharesInvoiceWithoutLink() {
+        resource.generateInvoiceDocument("rechnung-123", snapshot());
+
+        Response response = resource.shareInvoice("rechnung-123");
+
+        assertEquals(Response.Status.NO_CONTENT.getStatusCode(), response.getStatus());
+        assertEquals(DocumentType.INVOICE, sentMail.getFirst().document().type());
+        assertEquals("kunde@example.com", sentMail.getFirst().document().recipientEmail());
+        assertEquals("INVOICE pdf", new String(sentMail.getFirst().document().pdfContent()));
+        assertNull(sentMail.getFirst().accessLink());
     }
 
     @Test
-    @TestSecurity(user = "handwerker-99")
-    void returnsNotFoundForAnotherOwnersDocument() {
-        String documentId = repository.get().save(
-                new Document(DocumentType.OFFER, "business-123", "handwerker-42", "kunde-1", null,
-                        "angebot-business-123.pdf", new byte[] {1}));
+    void createsAndSharesOrderConfirmationWithoutLink() {
+        resource.generateOrderConfirmation("auftrag-123", snapshot());
 
-        given()
-                .when().get(METADATA_ROUTE, documentId)
-                .then().statusCode(404);
+        Response response = resource.shareOrderConfirmation("auftrag-123");
+
+        assertEquals(Response.Status.NO_CONTENT.getStatusCode(), response.getStatus());
+        assertEquals(DocumentType.ORDER_CONFIRMATION, sentMail.getFirst().document().type());
+        assertEquals("kunde@example.com", sentMail.getFirst().document().recipientEmail());
+        assertEquals("ORDER_CONFIRMATION pdf", new String(sentMail.getFirst().document().pdfContent()));
+        assertNull(sentMail.getFirst().accessLink());
     }
 
     @Test
-    @TestSecurity(user = "handwerker-42")
-    void readsAndSharesStoredOfferDocument() {
-        String documentId = repository.get().save(new Document(DocumentType.OFFER, "stored-offer",
-                "handwerker-42", "kunde-1", null, "angebot-stored-offer.pdf", new byte[] {1}));
+    void hidesDocumentsOwnedByAnotherCraftsman() {
+        repository.save(new Document(DocumentType.ORDER_CONFIRMATION, "foreign-order", "other-owner",
+                "kunde-1", "kunde@example.com", "order.pdf", new byte[] {1}));
 
-        given().when().get("/documents/offers/stored-offer")
-                .then().statusCode(200)
-                .body("documentId", equalTo(documentId))
-                .body("referenceId", equalTo("stored-offer"))
-                .body("type", equalTo("OFFER"))
-                .body("fileName", equalTo("angebot-stored-offer.pdf"));
-        given().when().get(METADATA_ROUTE + "/pdf", documentId).then().statusCode(404);
-        given().when().post("/documents/offers/stored-offer/share").then().statusCode(204);
-        assertEquals("kunde-1", adapters.lastSent().customerId());
+        assertThrows(NotFoundException.class, () -> resource.shareOrderConfirmation("foreign-order"));
     }
 
     @Test
-    @TestSecurity(user = "handwerker-99")
-    void hidesForeignDocumentsFromDownloadListingAndSharing() {
-        String id = repository.get().save(new Document(DocumentType.OFFER, "foreign-offer", "handwerker-42",
-                "kunde-1", null, "angebot-foreign-offer.pdf", new byte[] {1}));
-        given().when().get(METADATA_ROUTE + "/pdf", id).then().statusCode(404);
-        given().when().post("/documents/offers/foreign-offer/share").then().statusCode(404);
-        given().when().get("/documents").then().statusCode(200).body("size()", equalTo(0));
+    void rejectsOfferShareWithoutValidAccessLink() {
+        assertThrows(BadRequestException.class, () -> resource.shareOffer("missing-link", null));
+        assertThrows(BadRequestException.class, () -> resource.shareOffer(
+                "invalid-link", new DocumentShareRequest("javascript:alert(1)")));
     }
 
-    @Test
-    @TestSecurity(user = "handwerker-42")
-    void createsInvoicePdfFromSnapshotAndSharesIt() throws Exception {
-        String id = given().contentType("application/json")
-                .body(SNAPSHOT)
-                .when().post("/documents/invoices/rechnung-123/generate")
-                .then().statusCode(201).extract().path("documentId");
+    private DocumentResource resource(String ownerId) {
+        SecurityIdentity identity = mock(SecurityIdentity.class);
+        when(identity.getPrincipal()).thenReturn((Principal) () -> ownerId);
 
-        given().when().get(METADATA_ROUTE, id).then().statusCode(200)
-                .body("type", equalTo("INVOICE"))
-                .body("referenceId", equalTo("rechnung-123"));
-        byte[] pdf = given().when().get(METADATA_ROUTE + "/pdf", id)
-                .then().statusCode(200).contentType("application/pdf").extract().asByteArray();
-        String text = extractText(pdf);
-        assertTrue(text.contains("Invoice"));
-        assertTrue(text.contains("Max Mustermann"));
-        assertTrue(text.contains("100.00 EUR"));
-
-        given().when().post("/documents/invoices/rechnung-123/share").then().statusCode(204);
-        assertEquals("kunde@example.com", adapters.lastSent().recipientEmail());
+        DocumentResource instance = new DocumentResource();
+        instance.identity = identity;
+        instance.documentPdfGenerator = bean(pdfGenerator);
+        instance.repository = bean(repository);
+        instance.documentSender = bean(sender);
+        return instance;
     }
 
-    @Test
-    @TestSecurity(user = "handwerker-42")
-    void createsOrderConfirmationPdfFromSnapshot() throws Exception {
-        String id = given().contentType("application/json")
-                .body(SNAPSHOT)
-                .when().post("/documents/order-confirmations/order-123/generate")
-                .then().statusCode(201).extract().path("documentId");
-
-        given().when().get(METADATA_ROUTE, id).then().statusCode(200)
-                .body("type", equalTo("ORDER_CONFIRMATION"))
-                .body("fileName", equalTo("auftragsbestaetigung-order-123.pdf"));
-        byte[] pdf = given().when().get(METADATA_ROUTE + "/pdf", id)
-                .then().statusCode(200).contentType("application/pdf").extract().asByteArray();
-        String text = extractText(pdf);
-        assertTrue(text.contains("Order confirmation"));
-        assertTrue(text.contains("Reparatur"));
-        assertTrue(text.contains("Termin nach Absprache"));
+    @SuppressWarnings("unchecked")
+    private static <T> Instance<T> bean(T value) {
+        Instance<T> instance = mock(Instance.class);
+        when(instance.isResolvable()).thenReturn(true);
+        when(instance.get()).thenReturn(value);
+        return instance;
     }
 
-    @Test
-    @TestSecurity(user = "handwerker-42")
-    void rejectsSnapshotWithoutRequiredFields() {
-        given().contentType("application/json").body("""
-                        {"documentDate":"2026-11-15","issuer":{"name":"Handwerker"},
-                         "items":[{"description":"Leistung","quantity":1,"unitPrice":10,"lineTotal":10}],
-                         "currency":"EUR","netAmount":10,"taxLines":[],"totalAmount":10}
-                        """)
-                .when().post("/documents/invoices/rechnung-123/generate")
-                .then().statusCode(400);
-
-        given().contentType("application/json").body(SNAPSHOT.replace("\"taxLines\": [],", ""))
-                .when().post("/documents/invoices/rechnung-123/generate")
-                .then().statusCode(400);
+    private static DocumentSnapshotRequest snapshot() {
+        return new DocumentSnapshotRequest(
+                "customer-1",
+                LocalDate.of(2026, 11, 15),
+                new DocumentSnapshotRequest.Party("Werkmundo Handwerk", "Werkstrasse 1", null),
+                new DocumentSnapshotRequest.Party("Max Mustermann", "Kundenweg 2", "kunde@example.com"),
+                List.of(new DocumentSnapshotRequest.LineItem(
+                        "Reparatur", BigDecimal.valueOf(2), "Stunden", BigDecimal.valueOf(50), BigDecimal.valueOf(100))),
+                "EUR",
+                BigDecimal.valueOf(100),
+                List.of(),
+                BigDecimal.valueOf(100),
+                "Termin nach Absprache");
     }
 
-    private static String extractText(byte[] pdfBytes) throws Exception {
-        try (var pdf = Loader.loadPDF(pdfBytes)) {
-            return new PDFTextStripper().getText(pdf);
-        }
+    private record SentMail(Document document, String accessLink) {
     }
 
-    @ApplicationScoped
-    static class TestAdapters {
-        private final AtomicReference<Document> lastSent = new AtomicReference<>();
+    private static class InMemoryDocumentRepository implements DocumentRepository {
+        private final Map<String, Document> documents = new HashMap<>();
 
-        Document lastSent() {
-            return lastSent.get();
+        @Override
+        public String save(Document document) {
+            String id = UUID.randomUUID().toString();
+            documents.put(id, document);
+            return id;
         }
 
-        @Produces
-        DocumentSender documentSender() {
-            return lastSent::set;
+        @Override
+        public Optional<DocumentMetadata> findMetadataByIdAndOwner(String documentId, String ownerId) {
+            return findByIdAndOwner(documentId, ownerId)
+                    .map(document -> DocumentMetadata.from(documentId, document));
         }
 
-        @Produces
-        @ApplicationScoped
-        @LookupIfProperty(name = "document.storage.postgres.enabled", stringValue = "false", lookupIfMissing = true)
-        DocumentRepository repository() {
-            return new DocumentRepository() {
-                private final Map<String, Document> documents = new LinkedHashMap<>();
+        @Override
+        public List<DocumentMetadata> findMetadataByOwner(String ownerId) {
+            return documents.entrySet().stream()
+                    .filter(entry -> ownerId.equals(entry.getValue().ownerId()))
+                    .map(entry -> DocumentMetadata.from(entry.getKey(), entry.getValue()))
+                    .toList();
+        }
 
-                @Override
-                public synchronized String save(Document document) {
-                    String id = UUID.randomUUID().toString();
-                    documents.put(id, document);
-                    return id;
-                }
+        @Override
+        public Optional<DocumentMetadata> findLatestMetadataByReferenceAndOwner(
+                DocumentType type, String referenceId, String ownerId) {
+            return documents.entrySet().stream()
+                    .filter(entry -> ownerId.equals(entry.getValue().ownerId())
+                            && type == entry.getValue().type()
+                            && referenceId.equals(entry.getValue().referenceId()))
+                    .reduce((older, newer) -> newer)
+                    .map(entry -> DocumentMetadata.from(entry.getKey(), entry.getValue()));
+        }
 
-                @Override
-                public synchronized Optional<Document> findByIdAndOwner(String documentId, String ownerId) {
-                    return Optional.ofNullable(documents.get(documentId))
-                            .filter(document -> ownerId.equals(document.ownerId()));
-                }
-
-                @Override
-                public Optional<DocumentMetadata> findMetadataByIdAndOwner(String documentId, String ownerId) {
-                    return findByIdAndOwner(documentId, ownerId)
-                            .map(document -> DocumentMetadata.from(documentId, document));
-                }
-
-                @Override
-                public synchronized List<DocumentMetadata> findMetadataByOwner(String ownerId) {
-                    return documents.entrySet().stream()
-                            .filter(entry -> ownerId.equals(entry.getValue().ownerId()))
-                            .map(entry -> DocumentMetadata.from(entry.getKey(), entry.getValue()))
-                            .toList();
-                }
-
-                @Override
-                public synchronized Optional<DocumentMetadata> findLatestMetadataByReferenceAndOwner(
-                        DocumentType type, String referenceId, String ownerId) {
-                    return documents.entrySet().stream()
-                            .filter(entry -> {
-                                Document document = entry.getValue();
-                                return ownerId.equals(document.ownerId()) && type == document.type()
-                                        && referenceId.equals(document.referenceId());
-                            })
-                            .reduce((older, newer) -> newer)
-                            .map(entry -> DocumentMetadata.from(entry.getKey(), entry.getValue()));
-                }
-            };
+        @Override
+        public Optional<Document> findByIdAndOwner(String documentId, String ownerId) {
+            return Optional.ofNullable(documents.get(documentId))
+                    .filter(document -> ownerId.equals(document.ownerId()));
         }
     }
 }

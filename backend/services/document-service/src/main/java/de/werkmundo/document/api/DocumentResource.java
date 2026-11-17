@@ -3,6 +3,7 @@ package de.werkmundo.document.api;
 import de.werkmundo.document.application.port.DocumentSender;
 import de.werkmundo.document.application.port.DocumentPdfGenerator;
 import de.werkmundo.document.application.usecase.CreateDocumentFromSnapshotUseCase;
+import de.werkmundo.document.api.dto.DocumentShareRequest;
 import de.werkmundo.document.api.dto.DocumentSnapshotRequest;
 import de.werkmundo.document.domain.Document;
 import de.werkmundo.document.domain.DocumentMetadata;
@@ -24,6 +25,8 @@ import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 
 @Path("/documents")
@@ -43,6 +46,14 @@ public class DocumentResource {
 
     @Inject
     Instance<DocumentSender> documentSender;
+
+    @POST
+    @Path("/offers/{businessKey}/generate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response generateOfferDocument(
+            @PathParam("businessKey") String businessKey, DocumentSnapshotRequest request) {
+        return createDocument(DocumentType.OFFER, businessKey, request);
+    }
 
     @POST
     @Path("/invoices/{businessKey}/generate")
@@ -93,29 +104,53 @@ public class DocumentResource {
 
     @POST
     @Path("/offers/{businessKey}/share")
-    public Response shareOffer(@PathParam("businessKey") String businessKey) {
-        return share(DocumentType.OFFER, businessKey);
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response shareOffer(
+            @PathParam("businessKey") String businessKey, DocumentShareRequest request) {
+        return share(DocumentType.OFFER, businessKey, requireOfferAccessLink(request));
     }
 
     @POST
     @Path("/invoices/{businessKey}/share")
     public Response shareInvoice(@PathParam("businessKey") String businessKey) {
-        return share(DocumentType.INVOICE, businessKey);
+        return share(DocumentType.INVOICE, businessKey, null);
     }
 
-    private Response share(DocumentType type, String referenceId) {
+    @POST
+    @Path("/order-confirmations/{businessKey}/share")
+    public Response shareOrderConfirmation(@PathParam("businessKey") String businessKey) {
+        return share(DocumentType.ORDER_CONFIRMATION, businessKey, null);
+    }
+
+    private Response share(DocumentType type, String referenceId, String accessLink) {
         Document document = findDocument(findByReference(type, referenceId).documentId());
-        boolean hasCustomer = document.customerId() != null && !document.customerId().isBlank();
-        boolean hasEmail = document.recipientEmail() != null && !document.recipientEmail().isBlank();
-        if (!hasCustomer && !hasEmail) {
-            throw new WebApplicationException("Document has no recipient", Response.Status.CONFLICT);
+        if (document.recipientEmail() == null || document.recipientEmail().isBlank()) {
+            throw new WebApplicationException("Document has no recipient email", Response.Status.CONFLICT);
         }
         if (!documentSender.isResolvable()) {
             throw new ServiceUnavailableException("Document sending is not configured");
         }
 
-        documentSender.get().sendToCustomer(document);
+        documentSender.get().sendToCustomer(document, accessLink);
         return Response.noContent().build();
+    }
+
+    private static String requireOfferAccessLink(DocumentShareRequest request) {
+        if (request == null || request.accessLink() == null || request.accessLink().isBlank()) {
+            throw new BadRequestException("accessLink is required for offer sharing");
+        }
+        try {
+            URI link = new URI(request.accessLink());
+            if (!link.isAbsolute() || link.getHost() == null
+                    || !("https".equalsIgnoreCase(link.getScheme())
+                            || "http".equalsIgnoreCase(link.getScheme()))
+                    || link.getUserInfo() != null) {
+                throw new BadRequestException("accessLink must be an absolute HTTP(S) URL");
+            }
+        } catch (URISyntaxException exception) {
+            throw new BadRequestException("accessLink must be a valid HTTP(S) URL", exception);
+        }
+        return request.accessLink();
     }
 
     private Response createDocument(DocumentType type, String businessKey, DocumentSnapshotRequest request) {
