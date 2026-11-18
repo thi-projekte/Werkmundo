@@ -12,6 +12,7 @@ import de.winfprojekt.craftvoice.offerservice.offer.dto.StructuredOfferPositionD
 import de.winfprojekt.craftvoice.offerservice.offer.dto.OfferAcceptanceRequest;
 import de.winfprojekt.craftvoice.offerservice.offer.dto.SetArbeitsstundenRequest;
 import de.winfprojekt.craftvoice.offerservice.offer.dto.OfferAcceptanceResponse;
+import de.winfprojekt.craftvoice.offerservice.offer.dto.UpdateDraftPositionsRequest;
 import de.winfprojekt.craftvoice.offerservice.catalog.CatalogServiceClient;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import de.winfprojekt.craftvoice.offerservice.catalog.MaterialResponse;
@@ -134,6 +135,78 @@ public class OfferService {
         offer.persist();
         return OfferResponse.fromEntity(offer);
     }
+
+
+    @Transactional
+    public OfferResponse updateDraftPositions(
+            String businessKey,
+            String handwerkerId,
+            UpdateDraftPositionsRequest request) {
+
+        Offer offer = findOwnOfferOrThrow(businessKey, handwerkerId);
+
+        if (!Offer.STATUS_ENTWURF.equals(offer.status)) {
+            throw new jakarta.ws.rs.WebApplicationException(
+                    "Positionen können hier nur im Entwurfsstatus geändert werden",
+                    409);
+        }
+
+        boolean containsSpecialPositions = offer.positions.stream()
+                .anyMatch(position ->
+                        position.type != OfferPositionType.OTHER
+                        || position.katalogProduktId != null);
+
+        if (containsSpecialPositions) {
+            throw new jakarta.ws.rs.WebApplicationException(
+                    "Dieser Bearbeitungsweg unterstützt bisher "
+                            + "ausschließlich manuelle Positionen",
+                    409);
+        }
+
+        var updatedPositions = new java.util.ArrayList<OfferPosition>();
+        BigDecimal total = new BigDecimal("0.00");
+
+        for (int index = 0; index < request.positions().size(); index++) {
+            var input = request.positions().get(index);
+
+            BigDecimal unitPrice = input.einzelPreis().setScale(
+                    2, java.math.RoundingMode.UNNECESSARY);
+
+            BigDecimal positionPrice = input.menge()
+                    .multiply(unitPrice)
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+
+            if (positionPrice.precision() > 15) {
+                throw new jakarta.ws.rs.BadRequestException(
+                        "Der Betrag einer Position ist zu groß");
+            }
+
+            OfferPosition position = new OfferPosition();
+            position.offer = offer;
+            position.bezeichnung = input.bezeichnung().strip();
+            position.menge = input.menge();
+            position.einheit = input.einheit().strip();
+            position.einzelPreis = unitPrice;
+            position.positionsPreis = positionPrice;
+            position.reihenfolge = index + 1;
+            position.type = OfferPositionType.OTHER;
+
+            updatedPositions.add(position);
+            total = total.add(positionPrice);
+        }
+
+        if (total.precision() > 15) {
+            throw new jakarta.ws.rs.BadRequestException(
+                    "Die Nettogesamtsumme ist zu groß");
+        }
+
+        offer.positions.clear();
+        offer.positions.addAll(updatedPositions);
+        offer.gesamtPreis = total;
+
+        return OfferResponse.fromEntity(offer);
+    }
+
 
     @Transactional
     public OfferResponse assignCustomer(

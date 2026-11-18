@@ -101,3 +101,32 @@ export async function assignOfferCustomer(
 
   return (await response.json()) as OfferRecord;
 }
+
+export type DraftPositionInput = {
+  bezeichnung: string;
+  menge: number;
+  einheit: string;
+  einzelPreis: number;
+};
+
+export async function updateDraftPositions(
+  businessKey: string,
+  positions: DraftPositionInput[],
+): Promise<OfferRecord> {
+  const response = await authorizedFetch(
+    `${offerServiceUrl}/offers/${encodeURIComponent(businessKey)}/draft-positions`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ positions }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Angebotspositionen konnten nicht gespeichert werden (HTTP ${response.status})`,
+    );
+  }
+
+  return (await response.json()) as OfferRecord;
+}

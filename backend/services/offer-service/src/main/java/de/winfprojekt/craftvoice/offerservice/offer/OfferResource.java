@@ -287,6 +287,29 @@ public class OfferResource {
 
 
     @PUT
+    @Path("/offers/{businessKey}/draft-positions")
+    @RolesAllowed("OWNER")
+    public Response updateDraftPositions(
+            @PathParam("businessKey") String businessKey,
+            @Valid UpdateDraftPositionsRequest request) {
+
+        if (request == null) {
+            throw new BadRequestException(
+                    "Ein Anfrageinhalt ist erforderlich");
+        }
+
+        OfferResponse response = offerService.updateDraftPositions(
+                businessKey,
+                jwt.getSubject(),
+                request
+        );
+
+        return Response.ok(response).build();
+    }
+
+
+
+    @PUT
     @Path("/offers/{businessKey}/customer")
     @RolesAllowed("OWNER")
     public Response assignCustomer(
