@@ -1,4 +1,5 @@
 package de.werkmundo.invoice.infrastructure.offer;
+import de.werkmundo.invoice.infrastructure.RemoteServiceErrors;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -38,8 +39,10 @@ public class InvoiceOfferLoader {
             throw new NotAuthorizedException("Bearer");
         }
 
-        OfferResponse offer = offerClient.getOffer(
-                businessKey, authorization);
+        OfferResponse offer = RemoteServiceErrors.call(
+        "Offer-Service",
+        () -> offerClient.getOffer(businessKey, authorization)
+);
 
         if (offer == null || !businessKey.equals(offer.businessKey())) {
             throw new WebApplicationException(

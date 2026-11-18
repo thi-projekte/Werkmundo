@@ -6,6 +6,7 @@ import de.werkmundo.invoice.domain.InvoicePositionType;
 import de.werkmundo.invoice.infrastructure.offer.InvoiceOfferLoader;
 import de.werkmundo.invoice.infrastructure.offer.OfferPositionResponse;
 import de.werkmundo.invoice.infrastructure.user.UserServiceClient;
+import de.werkmundo.invoice.infrastructure.RemoteServiceErrors;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
@@ -40,7 +41,10 @@ public class CreateInvoiceFromOfferUseCase {
         var offer = offerLoader.load(businessKey, ownerId, authorization);
         Long customerId = parseCustomerId(offer.customerId());
 
-        var customer = userClient.getCustomer(customerId, authorization);
+        var customer = RemoteServiceErrors.call(
+        "User-Service",
+        () -> userClient.getCustomer(customerId, authorization));
+
 
         if (customer == null || !customerId.equals(customer.id())) {
             throw new WebApplicationException(
