@@ -111,6 +111,8 @@ services:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://document-db:5432/document_db
       QUARKUS_DATASOURCE_USERNAME: document_service
       QUARKUS_DATASOURCE_PASSWORD: ${DOCUMENT_DB_PASSWORD}
+      OFFER_SERVICE_URL: http://offer-service:8080
+      USER_SERVICE_URL: http://user-service:8080
       KEYCLOAK_AUTH_SERVER_URL: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
       QUARKUS_HTTP_CORS_ENABLED: 'true'
       QUARKUS_HTTP_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
