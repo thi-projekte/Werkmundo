@@ -1,3 +1,5 @@
+import { authorizedFetch } from "../http/apiClient";
+
 export type OfferPosition = {
   id?: number;
   hersteller?: string;
@@ -39,7 +41,7 @@ const offerServiceUrl =
   import.meta.env.VITE_OFFER_SERVICE_URL || "http://localhost:8082";
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${offerServiceUrl}${path}`, {
+  const response = await authorizedFetch(`${offerServiceUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -61,7 +63,7 @@ export function saveOfferDraft(
 }
 
 export async function getOffers(): Promise<OfferRecord[]> {
-  const response = await fetch(`${offerServiceUrl}/offers`);
+  const response = await authorizedFetch(`${offerServiceUrl}/offers`);
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
@@ -69,7 +71,7 @@ export async function getOffers(): Promise<OfferRecord[]> {
 }
 
 export async function getOffer(businessKey: string): Promise<OfferRecord> {
-  const response = await fetch(
+  const response = await authorizedFetch(
     `${offerServiceUrl}/offers/${encodeURIComponent(businessKey)}`,
   );
   if (!response.ok) {
