@@ -116,7 +116,7 @@ services:
       KEYCLOAK_AUTH_SERVER_URL: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
       QUARKUS_HTTP_CORS_ENABLED: 'true'
       QUARKUS_HTTP_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-      QUARKUS_HTTP_CORS_HEADERS: Authorization,Content-Type,Accept
+      QUARKUS_HTTP_CORS_HEADERS: Authorization,Content-Type,Accept,Idempotency-Key
     extra_hosts:
       - host.docker.internal:host-gateway
     volumes: !override []
