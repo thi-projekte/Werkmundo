@@ -3,17 +3,22 @@ package de.werkmundo.invoice.application;
 import de.werkmundo.invoice.domain.Invoice;
 import de.werkmundo.invoice.domain.InvoiceCustomerSnapshot;
 import de.werkmundo.invoice.domain.InvoicePositionType;
+import de.werkmundo.invoice.domain.InvoiceRepository;
+import de.werkmundo.invoice.infrastructure.RemoteServiceErrors;
 import de.werkmundo.invoice.infrastructure.offer.InvoiceOfferLoader;
 import de.werkmundo.invoice.infrastructure.offer.OfferPositionResponse;
 import de.werkmundo.invoice.infrastructure.user.UserServiceClient;
-import de.werkmundo.invoice.infrastructure.RemoteServiceErrors;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 @ApplicationScoped
 public class CreateInvoiceFromOfferUseCase {
@@ -21,30 +26,62 @@ public class CreateInvoiceFromOfferUseCase {
     private final InvoiceOfferLoader offerLoader;
     private final UserServiceClient userClient;
     private final CreateInvoiceDraftUseCase createDraft;
+    private final Instance<InvoiceRepository> repositories;
 
     @Inject
     public CreateInvoiceFromOfferUseCase(
             InvoiceOfferLoader offerLoader,
             @RestClient UserServiceClient userClient,
-            CreateInvoiceDraftUseCase createDraft) {
+            CreateInvoiceDraftUseCase createDraft,
+            Instance<InvoiceRepository> repositories) {
 
         this.offerLoader = offerLoader;
         this.userClient = userClient;
         this.createDraft = createDraft;
+        this.repositories = repositories;
     }
 
+    // Bestehende interne Aufrufe behandeln wir als neue Erstellungsaufträge.
     public Invoice create(
             String businessKey,
             String ownerId,
             String authorization) {
 
+        return create(
+                businessKey, ownerId, authorization, UUID.randomUUID());
+    }
+
+    public Invoice create(
+            String businessKey,
+            String ownerId,
+            String authorization,
+            UUID idempotencyKey) {
+
+        validateRequest(businessKey, ownerId, authorization, idempotencyKey);
+
+        var existing = repositories.get()
+                .findByIdempotencyKey(ownerId, idempotencyKey);
+
+        if (existing.isPresent()) {
+            Invoice invoice = existing.get();
+
+            if (!businessKey.equals(invoice.offerBusinessKey())) {
+                throw new WebApplicationException(
+                        "Der Idempotenzschlüssel wurde bereits "
+                                + "für ein anderes Angebot verwendet",
+                        409);
+            }
+
+            return invoice;
+        }
+
         var offer = offerLoader.load(businessKey, ownerId, authorization);
         Long customerId = parseCustomerId(offer.customerId());
 
         var customer = RemoteServiceErrors.call(
-        "User-Service",
-        () -> userClient.getCustomer(customerId, authorization));
-
+                "User-Service",
+                () -> userClient.getCustomer(customerId, authorization)
+        );
 
         if (customer == null || !customerId.equals(customer.id())) {
             throw new WebApplicationException(
@@ -74,8 +111,36 @@ public class CreateInvoiceFromOfferUseCase {
                 ownerId,
                 offer.businessKey(),
                 snapshot,
-                positions
+                positions,
+                idempotencyKey
         );
+    }
+
+    private void validateRequest(
+            String businessKey,
+            String ownerId,
+            String authorization,
+            UUID idempotencyKey) {
+
+        if (businessKey == null || businessKey.isBlank()) {
+            throw new BadRequestException(
+                    "Die Angebotsreferenz darf nicht fehlen");
+        }
+
+        if (idempotencyKey == null) {
+            throw new BadRequestException(
+                    "Der Idempotenzschlüssel darf nicht fehlen");
+        }
+
+        if (ownerId == null || ownerId.isBlank()) {
+            throw new NotAuthorizedException("Bearer");
+        }
+
+        if (authorization == null
+                || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)
+                || authorization.substring(7).isBlank()) {
+            throw new NotAuthorizedException("Bearer");
+        }
     }
 
     private Long parseCustomerId(String value) {

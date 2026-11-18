@@ -11,6 +11,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.WebApplicationException;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -19,6 +20,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,11 +42,47 @@ public class PostgresInvoiceRepository implements InvoiceRepository {
     @Transactional
     public void insert(Invoice invoice) {
         try (Connection connection = dataSource.get().getConnection()) {
-            insertInvoice(connection, invoice);
+            insertInvoice(connection, invoice, null);
             insertPositions(connection, invoice);
         } catch (SQLException exception) {
             throw new IllegalStateException(
                     "Rechnung konnte nicht gespeichert werden", exception);
+        }
+    }
+
+    @Override
+    @Transactional
+    public Invoice insertOrGet(Invoice invoice, UUID idempotencyKey) {
+        Objects.requireNonNull(invoice, "invoice darf nicht fehlen");
+        Objects.requireNonNull(
+                idempotencyKey, "idempotencyKey darf nicht fehlen");
+
+        try (Connection connection = dataSource.get().getConnection()) {
+            boolean inserted = insertInvoice(
+                    connection, invoice, idempotencyKey);
+
+            if (inserted) {
+                insertPositions(connection, invoice);
+                return invoice;
+            }
+
+            Invoice existing = findByIdempotencyKey(
+                    connection, invoice.ownerId(), idempotencyKey)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Die bereits erstellte Rechnung wurde nicht gefunden"));
+
+            if (!existing.offerBusinessKey().equals(invoice.offerBusinessKey())) {
+                throw new WebApplicationException(
+                        "Der Idempotenzschlüssel wurde bereits "
+                                + "für ein anderes Angebot verwendet",
+                        409);
+            }
+
+            return existing;
+        } catch (SQLException exception) {
+            throw new IllegalStateException(
+                    "Rechnung konnte nicht gespeichert oder geladen werden",
+                    exception);
         }
     }
 
@@ -72,6 +110,25 @@ public class PostgresInvoiceRepository implements InvoiceRepository {
         } catch (SQLException exception) {
             throw new IllegalStateException(
                     "Rechnung konnte nicht geladen werden", exception);
+        }
+    }
+
+    @Override
+    public Optional<Invoice> findByIdempotencyKey(
+            String ownerId, UUID idempotencyKey) {
+
+        Objects.requireNonNull(ownerId, "ownerId darf nicht fehlen");
+        Objects.requireNonNull(
+                idempotencyKey, "idempotencyKey darf nicht fehlen");
+
+        try (Connection connection = dataSource.get().getConnection()) {
+            return findByIdempotencyKey(
+                    connection, ownerId, idempotencyKey);
+        } catch (SQLException exception) {
+            throw new IllegalStateException(
+                    "Rechnung konnte nicht anhand des "
+                            + "Idempotenzschlüssels geladen werden",
+                    exception);
         }
     }
 
@@ -104,17 +161,46 @@ public class PostgresInvoiceRepository implements InvoiceRepository {
         }
     }
 
-    private void insertInvoice(Connection connection, Invoice invoice)
-            throws SQLException {
+    private Optional<Invoice> findByIdempotencyKey(
+            Connection connection,
+            String ownerId,
+            UUID idempotencyKey) throws SQLException {
+
+        String sql = """
+                SELECT *
+                FROM invoices
+                WHERE owner_id = ? AND idempotency_key = ?
+                """;
+
+        try (var statement = connection.prepareStatement(sql)) {
+            statement.setString(1, ownerId);
+            statement.setObject(2, idempotencyKey);
+
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    return Optional.empty();
+                }
+
+                return Optional.of(readInvoice(connection, result));
+            }
+        }
+    }
+
+    private boolean insertInvoice(
+            Connection connection,
+            Invoice invoice,
+            UUID idempotencyKey) throws SQLException {
 
         String sql = """
                 INSERT INTO invoices (
                     id, owner_id, offer_business_key, rechnungsnummer,
                     kunde_vorname, kunde_nachname, kunde_email,
                     kunde_strasse, kunde_hausnummer, kunde_plz, kunde_ort,
-                    gesamt_preis, created_at, updated_at
+                    gesamt_preis, created_at, updated_at, idempotency_key
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT ON CONSTRAINT invoices_owner_idempotency_unique
+                DO NOTHING
                 """;
 
         try (var statement = connection.prepareStatement(sql)) {
@@ -136,8 +222,9 @@ public class PostgresInvoiceRepository implements InvoiceRepository {
                     13, invoice.createdAt().atOffset(ZoneOffset.UTC));
             statement.setObject(
                     14, invoice.updatedAt().atOffset(ZoneOffset.UTC));
+            statement.setObject(15, idempotencyKey);
 
-            statement.executeUpdate();
+            return statement.executeUpdate() == 1;
         }
     }
 

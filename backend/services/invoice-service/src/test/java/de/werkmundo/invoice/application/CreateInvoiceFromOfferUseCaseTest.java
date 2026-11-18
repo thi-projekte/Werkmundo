@@ -122,16 +122,51 @@ class CreateInvoiceFromOfferUseCaseTest {
         assertTrue(repositories.get().findByOwner(owner).isEmpty());
     }
 
-    private CreateInvoiceFromOfferUseCase useCase(
-            OfferServiceClient offerClient,
-            UserServiceClient userClient) {
+    @Test
+    void repeatedRequestReturnsSavedInvoiceWithoutCallingRemoteServices() {
+        UUID key = UUID.randomUUID();
 
-        return new CreateInvoiceFromOfferUseCase(
-                new InvoiceOfferLoader(offerClient),
-                userClient,
-                createDraft
+        var initialUseCase = useCase(
+                (requestedKey, authorization) -> offer(owner),
+                (customerId, authorization) -> customer(42L)
+        );
+
+        var first = initialUseCase.create(
+                businessKey, owner, AUTHORIZATION, key);
+
+        OfferServiceClient unavailableOfferClient = (requestedKey, authorization) -> {
+            fail("Bei Wiederholung darf kein Angebotsabruf erfolgen");
+            return null;
+        };
+
+        UserServiceClient unavailableUserClient = (customerId, authorization) -> {
+            fail("Bei Wiederholung darf kein Kundenabruf erfolgen");
+            return null;
+        };
+
+        var repeatedUseCase = useCase(
+                unavailableOfferClient, unavailableUserClient);
+
+        var repeated = repeatedUseCase.create(
+                businessKey, owner, AUTHORIZATION, key);
+
+        assertEquals(first.id(), repeated.id());
+        assertEquals(first.positions(), repeated.positions());
+        assertEquals(1, repositories.get().findByOwner(owner).size());
+    }
+
+    private CreateInvoiceFromOfferUseCase useCase(
+        OfferServiceClient offerClient,
+        UserServiceClient userClient) {
+
+    return new CreateInvoiceFromOfferUseCase(
+            new InvoiceOfferLoader(offerClient),
+            userClient,
+            createDraft,
+            repositories
         );
     }
+
 
     private OfferResponse offer(String offerOwner) {
         return new OfferResponse(

@@ -11,4 +11,14 @@ public interface InvoiceRepository {
     Optional<Invoice> findById(UUID id, String ownerId);
 
     List<Invoice> findByOwner(String ownerId);
+
+    Optional<Invoice> findByIdempotencyKey(
+            String ownerId,
+            UUID idempotencyKey
+    );
+
+    Invoice insertOrGet(
+            Invoice invoice,
+            UUID idempotencyKey
+    );
 }

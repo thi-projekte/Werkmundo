@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -23,6 +24,36 @@ public class CreateInvoiceDraftUseCase {
     }
 
     public Invoice create(
+            String ownerId,
+            String offerBusinessKey,
+            InvoiceCustomerSnapshot customer,
+            List<InvoicePositionInput> inputs) {
+
+        Invoice invoice = buildDraft(
+                ownerId, offerBusinessKey, customer, inputs);
+
+        repositories.get().insert(invoice);
+
+        return invoice;
+    }
+
+    public Invoice create(
+            String ownerId,
+            String offerBusinessKey,
+            InvoiceCustomerSnapshot customer,
+            List<InvoicePositionInput> inputs,
+            UUID idempotencyKey) {
+
+        Objects.requireNonNull(
+                idempotencyKey, "idempotencyKey darf nicht fehlen");
+
+        Invoice invoice = buildDraft(
+                ownerId, offerBusinessKey, customer, inputs);
+
+        return repositories.get().insertOrGet(invoice, idempotencyKey);
+    }
+
+    private Invoice buildDraft(
             String ownerId,
             String offerBusinessKey,
             InvoiceCustomerSnapshot customer,
@@ -47,7 +78,7 @@ public class CreateInvoiceDraftUseCase {
         var netTotal = InvoiceCalculator.calculateNetTotal(positions);
         Instant now = Instant.now();
 
-        Invoice invoice = new Invoice(
+        return new Invoice(
                 UUID.randomUUID(),
                 ownerId,
                 offerBusinessKey,
@@ -58,9 +89,5 @@ public class CreateInvoiceDraftUseCase {
                 now,
                 positions
         );
-
-        repositories.get().insert(invoice);
-
-        return invoice;
     }
 }
