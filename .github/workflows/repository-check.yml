@@ -31,7 +31,7 @@ jobs:
             backend/services/user-service
             backend/services/ai-service
             backend/services/offer-service
-            backend/services/document-service
+            backend/services/invoice-service
             backend/services/catalog-service
             gateway
             processengine

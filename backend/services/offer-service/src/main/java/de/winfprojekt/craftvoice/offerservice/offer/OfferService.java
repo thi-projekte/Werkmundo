@@ -603,7 +603,7 @@ public class OfferService {
 
     /**
      * Setzt den Status eines Angebots auf VERSANDBEREIT.
-     * Wird vom document-service aufgerufen, nachdem das PDF-Angebot erfolgreich
+     * Wird vom invoice-service aufgerufen, nachdem das PDF-Angebot erfolgreich
      * erstellt wurde.
      *
      * @param businessKey Business-Key des Angebots
@@ -633,7 +633,7 @@ public class OfferService {
 
     /**
      * Setzt den Status eines Angebots auf VERSENDET.
-     * Wird vom document-service aufgerufen, nachdem das Angebot erfolgreich versendet wurde.
+     * Wird vom invoice-service aufgerufen, nachdem das Angebot erfolgreich versendet wurde.
      *
      * @param businessKey Business-Key des Angebots
      */

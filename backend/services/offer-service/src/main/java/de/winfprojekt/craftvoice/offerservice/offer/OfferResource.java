@@ -229,7 +229,7 @@ public class OfferResource {
 
     /**
      * Setzt den Status eines Angebots auf VERSANDBEREIT.
-     * Wird vom document-service aufgerufen, nachdem das PDF-Angebot erfolgreich erstellt wurde.
+     * Wird vom invoice-service aufgerufen, nachdem das PDF-Angebot erfolgreich erstellt wurde.
      *
      * @param businessKey Business-Key des Angebots
      * @return HTTP-Response mit Statuscode 200 bei Erfolg
@@ -244,7 +244,7 @@ public class OfferResource {
 
     /**
      * Setzt den Status eines Angebots auf VERSENDET.
-     * Wird vom document-service aufgerufen, nachdem das Angebot erfolgreich versendet wurde.
+     * Wird vom invoice-service aufgerufen, nachdem das Angebot erfolgreich versendet wurde.
      *
      * @param businessKey Business-Key des Angebots
      * @return HTTP-Response mit Statuscode 200 bei Erfolg

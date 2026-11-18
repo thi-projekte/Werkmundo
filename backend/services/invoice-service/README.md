@@ -1,4 +1,4 @@
-# Document-Service
+# Invoice-Service
 
 Java 25 / Quarkus 3.40.1.1. Der aktuelle Stand enthält REST-Endpunkte,
 Besitzerprüfungen, ein PostgreSQL-Repository und eine Flyway-Migration für
@@ -62,7 +62,7 @@ die unten genannten konkreten Adapter.
   `sub` abgeleitet. Der gemeinsame Test mit echten Keycloak-Tokens steht aus.
 - Maven Wrapper und ein Java-25-Runtime-Dockerfile unter `src/main/docker/`
   sind vorhanden. Das Runtime-Image wird nach `./mvnw package` gebaut:
-  `docker build -f src/main/docker/Dockerfile.jvm -t werkmundo/document-service:local .`.
+  `docker build -f src/main/docker/Dockerfile.jvm -t werkmundo/invoice-service:local .`.
   Die Integration in den gemeinsamen Startstack steht noch aus.
 
 ## Tests

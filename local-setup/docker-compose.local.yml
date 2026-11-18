@@ -2,7 +2,7 @@
 # CraftVoice – Lokales Gesamt-Setup (unabhängig vom winfprojekt.de-Server)
 # =============================================================================
 # Startet: PostgreSQL, Keycloak, die lokal aus dem Repository baubaren
-# User-, Offer- und Document-Services sowie das lokal gebaute Frontend.
+# User-, Offer- und Invoice-Services sowie das lokal gebaute Frontend.
 #
 # Nicht enthalten: Process Engine, ai-service und catalog-service.
 # Für catalog existiert im Repository noch kein ausführbares Build-Projekt;
@@ -151,14 +151,14 @@ services:
         condition: service_healthy
 
   # ---------------------------------------------------------------------------
-  # Document-Service (lokal gebaut, OIDC aktiv, Flyway legt Tabellen an)
+  # Invoice-Service (lokal gebaut, OIDC aktiv, Flyway legt Tabellen an)
   # ---------------------------------------------------------------------------
-  document-service:
+  invoice-service:
     build:
-      context: ../backend/services/document-service
+      context: ../backend/services/invoice-service
       dockerfile: Dockerfile.build
-    image: werkmundo/document-service:local
-    container_name: cv-document-service
+    image: werkmundo/invoice-service:local
+    container_name: cv-invoice-service
     restart: unless-stopped
     environment:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/document-db
@@ -192,7 +192,7 @@ services:
     depends_on:
       - user-service
       - offer-service
-      - document-service
+      - invoice-service
 
 volumes:
   postgres_data:

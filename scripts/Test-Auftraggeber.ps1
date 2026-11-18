@@ -100,13 +100,13 @@ try {
     $env:QUARKUS_DATASOURCE_PASSWORD = $env:OFFER_DB_PASSWORD
     Test-Service -Service 'offer-service' -RequiredSuite 'OfferJpaRepositoryIntegrationTest'
 
-    Set-Location (Join-Path $repositoryRoot 'backend/services/document-service')
+    Set-Location (Join-Path $repositoryRoot 'backend/services/invoice-service')
     Invoke-Checked -Executable 'docker' -Arguments @('compose', '-f', 'docker-compose.db.yml', 'up', '-d', '--wait', '--wait-timeout', '90')
     $env:DOCUMENT_DB_TESTS = 'true'
     $env:QUARKUS_DATASOURCE_JDBC_URL = 'jdbc:postgresql://127.0.0.1:55433/document_db'
     $env:QUARKUS_DATASOURCE_USERNAME = 'document_user'
     $env:QUARKUS_DATASOURCE_PASSWORD = $env:DOCUMENT_DB_PASSWORD
-    Test-Service -Service 'document-service' -RequiredSuite 'PostgresDocumentRepositoryTest'
+    Test-Service -Service 'invoice-service' -RequiredSuite 'PostgresDocumentRepositoryTest'
 
     Write-Host 'Both services passed their build and PostgreSQL tests. UI, OIDC and BPMN still need integration checks.'
 } finally {

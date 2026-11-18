@@ -25,7 +25,7 @@ import java.util.List;
  * REST-Ressource zur Verwaltung von Rechnungen.
  *
  * <p>Stellt Endpunkte zum Erstellen und Abrufen von Rechnungen bereit.
- * PDF-Rendering übernimmt der document-service — dieser Endpunkt erzeugt nur den Datensatz.
+ * PDF-Rendering übernimmt der invoice-service — dieser Endpunkt erzeugt nur den Datensatz.
  */
 @Path("/rechnungen")
 @Consumes(MediaType.APPLICATION_JSON)

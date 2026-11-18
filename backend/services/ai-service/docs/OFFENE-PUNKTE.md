@@ -1,7 +1,7 @@
 # Offene Punkte und Abhängigkeiten zu anderen Squads
 
 Squads laut `Beispiel/docs/team-ownership.md`:
-**Team 1 Handwerker** (ai-service, wir) · **Team 2 Kunde/Auftrag** (offer-, catalog-, document-service) · **Team 3 Prozesse** (Process Engine, BPMN, `contracts/workflow`).
+**Team 1 Handwerker** (ai-service, wir) · **Team 2 Kunde/Auftrag** (offer-, catalog-, invoice-service) · **Team 3 Prozesse** (Process Engine, BPMN, `contracts/workflow`).
 
 ## Mit Team 3 (Prozesse) abstimmen
 
