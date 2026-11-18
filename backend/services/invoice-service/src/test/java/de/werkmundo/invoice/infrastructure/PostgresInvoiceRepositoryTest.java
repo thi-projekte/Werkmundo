@@ -1,6 +1,8 @@
 package de.werkmundo.invoice.infrastructure;
 
 import de.werkmundo.document.infrastructure.PostgresDocumentTestProfile;
+import de.werkmundo.invoice.application.CreateInvoiceDraftUseCase;
+import de.werkmundo.invoice.application.InvoicePositionInput;
 import de.werkmundo.invoice.domain.Invoice;
 import de.werkmundo.invoice.domain.InvoiceCustomerSnapshot;
 import de.werkmundo.invoice.domain.InvoicePosition;
@@ -34,6 +36,9 @@ class PostgresInvoiceRepositoryTest {
 
     @Inject
     AgroalDataSource dataSource;
+
+    @Inject
+    CreateInvoiceDraftUseCase createInvoiceDraft;
 
     private InvoiceRepository repository() {
         InvoiceRepository repository = repositories.get();
@@ -122,6 +127,73 @@ class PostgresInvoiceRepositoryTest {
         assertTrue(repository().findByOwner(owner).isEmpty());
     }
 
+    @Test
+    void createsAndPersistsDraftWithCalculatedNetTotal() {
+        var customer = customer();
+
+        Invoice created = createInvoiceDraft.create(
+                owner,
+                "offer-" + UUID.randomUUID(),
+                customer,
+                List.of(
+                        new InvoicePositionInput(
+                                null,
+                                "Material",
+                                new BigDecimal("2"),
+                                "Stk.",
+                                null,
+                                new BigDecimal("12.50"),
+                                InvoicePositionType.MATERIAL
+                        ),
+                        new InvoicePositionInput(
+                                null,
+                                "Arbeitsleistung",
+                                new BigDecimal("1.5"),
+                                "Std.",
+                                null,
+                                new BigDecimal("60.00"),
+                                InvoicePositionType.ARBEITSZEIT
+                        )
+                )
+        );
+
+        Invoice loaded = repository()
+                .findById(created.id(), owner)
+                .orElseThrow();
+
+        assertEquals(owner, loaded.ownerId());
+        assertNull(loaded.rechnungsnummer());
+        assertEquals(customer, loaded.kundendaten());
+        assertEquals(created.offerBusinessKey(), loaded.offerBusinessKey());
+        assertEquals(new BigDecimal("115.00"), loaded.gesamtPreis());
+        assertEquals(created.positions(), loaded.positions());
+        assertEquals(2, loaded.positions().size());
+        assertEquals(1, repository().findByOwner(owner).size());
+    }
+
+    @Test
+    void rejectsInvalidDraftWithoutPersistingAnything() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> createInvoiceDraft.create(
+                        owner,
+                        "offer-" + UUID.randomUUID(),
+                        customer(),
+                        List.of(new InvoicePositionInput(
+                                null,
+                                "Material",
+                                new BigDecimal("-1"),
+                                "Stk.",
+                                null,
+                                new BigDecimal("12.50"),
+                                InvoicePositionType.MATERIAL
+                        ))
+                )
+        );
+
+        assertTrue(repository().findByOwner(owner).isEmpty());
+    }
+
     private Invoice invoice(List<InvoicePosition> positions) {
         Instant timestamp = Instant.parse("2026-11-18T12:00:00Z");
 
@@ -134,19 +206,23 @@ class PostgresInvoiceRepositoryTest {
                 owner,
                 "offer-" + UUID.randomUUID(),
                 null,
-                new InvoiceCustomerSnapshot(
-                        "Max",
-                        "Mustermann",
-                        "max@example.com",
-                        "Musterstrasse",
-                        "12",
-                        "85049",
-                        "Ingolstadt"
-                ),
+                customer(),
                 total,
                 timestamp,
                 timestamp,
                 positions
+        );
+    }
+
+    private InvoiceCustomerSnapshot customer() {
+        return new InvoiceCustomerSnapshot(
+                "Max",
+                "Mustermann",
+                "max@example.com",
+                "Musterstrasse",
+                "12",
+                "85049",
+                "Ingolstadt"
         );
     }
 
