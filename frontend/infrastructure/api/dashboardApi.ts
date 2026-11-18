@@ -1,3 +1,5 @@
+import { authorizedJson } from "../http/apiClient";
+
 export type DashboardStatsResponse = {
   nichtFertiggestellt: number;
   ohneRueckmeldung: number;
@@ -19,10 +21,6 @@ export type DashboardStatsResponse = {
 const offerServiceUrl =
   import.meta.env.VITE_OFFER_SERVICE_URL || "http://localhost:8082";
 
-export async function getDashboardStats(): Promise<DashboardStatsResponse> {
-  const response = await fetch(`${offerServiceUrl}/dashboard/stats`);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return (await response.json()) as DashboardStatsResponse;
+export function getDashboardStats(): Promise<DashboardStatsResponse> {
+  return authorizedJson<DashboardStatsResponse>(`${offerServiceUrl}/dashboard/stats`);
 }

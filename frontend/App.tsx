@@ -17,6 +17,7 @@ import { ProfileView } from "./View/user/ProfileView";
 import { OfferReviewView } from "./View/offer/OfferReviewView";
 import { OfferShareView } from "./View/offer/OfferShareView";
 import { LogoutView } from "./View/user/LogoutView";
+import { RequireAuth } from "./View/user/RequireAuth";
 
 function HomeView() {
   return (
@@ -54,15 +55,35 @@ export default function App() {
       <Route path="/" element={<HomeView />} />
       <Route path="/login" element={<LoginView />} />
       <Route path="/registrieren" element={<RegistrationView />} />
-      <Route path="/einrichtung/unternehmen" element={<CompanySetupView />} />
-      <Route path="/einrichtung/rechnungen" element={<InvoiceSetupView />} />
+      <Route
+        path="/einrichtung/unternehmen"
+        element={
+          <RequireAuth>
+            <CompanySetupView />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/einrichtung/rechnungen"
+        element={
+          <RequireAuth>
+            <InvoiceSetupView />
+          </RequireAuth>
+        }
+      />
       <Route path="/kontakt" element={<ContactView />} />
       <Route path="/impressum" element={<ImprintView />} />
       <Route path="/datenschutz" element={<PrivacyView />} />
       <Route path="/angebot/versendet" element={<OfferShareView />} />
       <Route path="/abmelden" element={<LogoutView />} />
       <Route path="/logout" element={<LogoutView />} />
-      <Route element={<AppLayout />}>
+      <Route
+        element={
+          <RequireAuth>
+            <AppLayout />
+          </RequireAuth>
+        }
+      >
         <Route path="/dashboard" element={<DashboardView />} />
         <Route path="/home" element={<VoiceHomeView />} />
         <Route path="/dokumente" element={<DocumentListView />} />

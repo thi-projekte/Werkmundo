@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AuthLayout } from "../shared/WerkmundoShell";
+import { useAuthViewModel } from "../../ViewModel/user/useAuthViewModel";
 
 export function LoginView() {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const { error, isLoading, isSubmitting, login } = useAuthViewModel();
 
   return (
     <AuthLayout title="Login">
@@ -12,36 +11,28 @@ export function LoginView() {
         Willkommen
         <span>zurück.</span>
       </h1>
-      <form
-        className="wm-auth-actions"
-        onSubmit={(event) => {
-          event.preventDefault();
-          navigate("/dashboard");
-        }}
-      >
-        <label>
-          E-Mail-Adresse
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="du@deinefirma.de"
-          />
-        </label>
-        <label>
-          Passwort
-          <input type="password" required minLength={4} placeholder="Passwort" />
-        </label>
-        <div className="wm-button-row">
-          <button className="wm-button wm-button-primary" type="submit">
-            Anmelden
-          </button>
-          <Link className="wm-button wm-button-secondary" to="/registrieren">
-            Konto erstellen
-          </Link>
-        </div>
-      </form>
+      {isLoading ? (
+        <p className="wm-dashboard-feedback">Anmeldung wird geprüft …</p>
+      ) : (
+        <form
+          className="wm-auth-actions"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void login();
+          }}
+        >
+          <p>Die Anmeldung erfolgt über Keycloak.</p>
+          {error && <p className="wm-error" role="alert">{error}</p>}
+          <div className="wm-button-row">
+            <button className="wm-button wm-button-primary" type="submit" disabled={isSubmitting}>
+              Anmelden
+            </button>
+            <Link className="wm-button wm-button-secondary" to="/registrieren">
+              Konto erstellen
+            </Link>
+          </div>
+        </form>
+      )}
     </AuthLayout>
   );
 }

@@ -1,18 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import keycloak from "@/core/keycloak";
-import { getCurrentUser } from "@/services/userService";
-import { initKeycloak, loginWithKeycloak } from "@/services/authService";
+import keycloak, { initKeycloak, isKeycloakConfigured } from "../../infrastructure/auth/keycloakClient";
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Ein unbekannter Fehler ist aufgetreten.";
-
-const isKeycloakConfigured = () =>
-  Boolean(
-    import.meta.env.VITE_KEYCLOAK_URL &&
-      import.meta.env.VITE_KEYCLOAK_REALM &&
-      import.meta.env.VITE_KEYCLOAK_CLIENT_ID,
-  );
 
 export function useAuthViewModel() {
   const navigate = useNavigate();
@@ -22,6 +13,7 @@ export function useAuthViewModel() {
 
   useEffect(() => {
     if (!isKeycloakConfigured()) {
+      setError("SSO ist derzeit nicht konfiguriert. Bitte wende dich an den Support.");
       setIsLoading(false);
       return;
     }
@@ -34,8 +26,7 @@ export function useAuthViewModel() {
         if (!active) return;
 
         if (authenticated) {
-          await getCurrentUser();
-          if (active) navigate("/dashboard", { replace: true });
+          navigate("/dashboard", { replace: true });
         } else {
           setIsLoading(false);
         }
@@ -62,7 +53,10 @@ export function useAuthViewModel() {
     setError("");
     setIsSubmitting(true);
     try {
-      await loginWithKeycloak();
+      await initKeycloak();
+      await keycloak.login({
+        redirectUri: `${window.location.origin}/dashboard`,
+      });
     } catch (authError) {
       console.error("Keycloak-Anmeldung konnte nicht gestartet werden:", authError);
       setError(`Anmeldung fehlgeschlagen: ${errorMessage(authError)}`);
