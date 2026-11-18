@@ -22,5 +22,5 @@ const offerServiceUrl =
   import.meta.env.VITE_OFFER_SERVICE_URL || "http://localhost:8082";
 
 export function getDashboardStats(): Promise<DashboardStatsResponse> {
-  return authorizedJson<DashboardStatsResponse>(`${offerServiceUrl}/dashboard/stats`);
+  return authorizedJson<DashboardStatsResponse>(`${offerServiceUrl}/dashboard`);
 }

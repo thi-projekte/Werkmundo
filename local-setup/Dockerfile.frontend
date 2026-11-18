@@ -28,7 +28,7 @@ ENV VITE_KEYCLOAK_REALM=werkmundo
 ENV VITE_KEYCLOAK_CLIENT_ID=werkmundo-frontend
 ENV VITE_USER_SERVICE_URL=http://localhost:8081/api/users
 ENV VITE_OFFER_SERVICE_URL=http://localhost:8082
-ENV VITE_DOCUMENT_SERVICE_URL=http://localhost:8084
+ENV VITE_INVOICE_SERVICE_URL=http://localhost:8084
 ENV VITE_CATALOG_SERVICE_URL=http://localhost:8083
 ENV VITE_PE_URL=http://localhost:8085/engine-rest
 

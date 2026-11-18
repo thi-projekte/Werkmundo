@@ -229,7 +229,7 @@ public class OfferResource {
 
     /**
      * Setzt den Status eines Angebots auf VERSANDBEREIT.
-     * Wird vom document-service aufgerufen, nachdem das PDF-Angebot erfolgreich erstellt wurde.
+     * Wird vom invoice-service aufgerufen, nachdem das PDF-Angebot erfolgreich erstellt wurde.
      *
      * @param businessKey Business-Key des Angebots
      * @return HTTP-Response mit Statuscode 200 bei Erfolg
@@ -244,7 +244,7 @@ public class OfferResource {
 
     /**
      * Setzt den Status eines Angebots auf VERSENDET.
-     * Wird vom document-service aufgerufen, nachdem das Angebot erfolgreich versendet wurde.
+     * Wird vom invoice-service aufgerufen, nachdem das Angebot erfolgreich versendet wurde.
      *
      * @param businessKey Business-Key des Angebots
      * @return HTTP-Response mit Statuscode 200 bei Erfolg
@@ -284,6 +284,52 @@ public class OfferResource {
                 "userId", userId
         )).build();
     }
+
+
+    @PUT
+    @Path("/offers/{businessKey}/draft-positions")
+    @RolesAllowed("OWNER")
+    public Response updateDraftPositions(
+            @PathParam("businessKey") String businessKey,
+            @Valid UpdateDraftPositionsRequest request) {
+
+        if (request == null) {
+            throw new BadRequestException(
+                    "Ein Anfrageinhalt ist erforderlich");
+        }
+
+        OfferResponse response = offerService.updateDraftPositions(
+                businessKey,
+                jwt.getSubject(),
+                request
+        );
+
+        return Response.ok(response).build();
+    }
+
+
+
+    @PUT
+    @Path("/offers/{businessKey}/customer")
+    @RolesAllowed("OWNER")
+    public Response assignCustomer(
+            @PathParam("businessKey") String businessKey,
+            @Valid AssignOfferCustomerRequest request) {
+
+        if (request == null) {
+            throw new BadRequestException(
+                    "Ein Anfrageinhalt ist erforderlich");
+        }
+
+        OfferResponse response = offerService.assignCustomer(
+                businessKey,
+                jwt.getSubject(),
+                request.customerId()
+        );
+
+        return Response.ok(response).build();
+    }
+
 
     /**
      * Liefert die Handwerker-ID (= ownerId des Angebots).
