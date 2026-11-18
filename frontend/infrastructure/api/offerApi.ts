@@ -79,3 +79,25 @@ export async function getOffer(businessKey: string): Promise<OfferRecord> {
   }
   return (await response.json()) as OfferRecord;
 }
+
+export async function assignOfferCustomer(
+  businessKey: string,
+  customerId: number,
+): Promise<OfferRecord> {
+  const response = await authorizedFetch(
+    `${offerServiceUrl}/offers/${encodeURIComponent(businessKey)}/customer`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Kundenzuordnung fehlgeschlagen (HTTP ${response.status})`,
+    );
+  }
+
+  return (await response.json()) as OfferRecord;
+}

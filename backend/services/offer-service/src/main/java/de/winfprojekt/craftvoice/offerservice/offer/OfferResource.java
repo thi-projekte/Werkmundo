@@ -285,6 +285,29 @@ public class OfferResource {
         )).build();
     }
 
+
+    @PUT
+    @Path("/offers/{businessKey}/customer")
+    @RolesAllowed("OWNER")
+    public Response assignCustomer(
+            @PathParam("businessKey") String businessKey,
+            @Valid AssignOfferCustomerRequest request) {
+
+        if (request == null) {
+            throw new BadRequestException(
+                    "Ein Anfrageinhalt ist erforderlich");
+        }
+
+        OfferResponse response = offerService.assignCustomer(
+                businessKey,
+                jwt.getSubject(),
+                request.customerId()
+        );
+
+        return Response.ok(response).build();
+    }
+
+
     /**
      * Liefert die Handwerker-ID (= ownerId des Angebots).
      *

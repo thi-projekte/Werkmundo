@@ -135,6 +135,40 @@ public class OfferService {
         return OfferResponse.fromEntity(offer);
     }
 
+    @Transactional
+    public OfferResponse assignCustomer(
+            String businessKey,
+            String handwerkerId,
+            Long customerId) {
+
+        if (customerId == null || customerId <= 0) {
+            throw new jakarta.ws.rs.BadRequestException(
+                    "Eine gültige Kunden-ID ist erforderlich");
+        }
+
+        Offer offer = findOwnOfferOrThrow(businessKey, handwerkerId);
+
+        if (!Offer.STATUS_ENTWURF.equals(offer.status)) {
+            throw new jakarta.ws.rs.WebApplicationException(
+                    "Der Kunde kann nur bei einem Angebotsentwurf geändert werden",
+                    409);
+        }
+
+        var customer = userServiceClient.getCustomer(customerId);
+
+        if (customer == null || !customerId.equals(customer.id)) {
+            throw new jakarta.ws.rs.WebApplicationException(
+                    "Der User-Service hat keine passenden Kundendaten geliefert",
+                    502);
+        }
+
+        offer.customerId = customerId.toString();
+
+        return OfferResponse.fromEntity(offer);
+    }
+
+
+
     /**
      * Ruft alle Angebote sortiert nach Erstellungsdatum ab (neueste zuerst).
      * Wird in einer Transaktion ausgeführt, um LazyInitializationExceptions zu
