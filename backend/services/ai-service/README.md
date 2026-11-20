@@ -79,7 +79,7 @@ Ai_Service/
 ├── contracts/                 Schnittstellen (JSON-Schema) → gehören nach Beispiel/contracts/
 ├── beispiele/                 Beispiel-Payloads + test-lokal.sh
 ├── docs/                      Umsetzung Issue #29, offene Punkte, Referenzdokumente
-└── src/main/java/de/winfprojekt/werkmundo/aiservice/
+└── src/main/java/de/werkmundo/ai/
     ├── api/                   REST: AiAnalysisResource, Exception-Mapper
     │   └── dto/               AiAnalysisRequest, AcceptedResponse, ErrorResponse
     ├── application/           AnalyzeVoiceInputUseCase (Call 1 → Call 2 → Engine)

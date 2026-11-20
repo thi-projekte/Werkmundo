@@ -33,7 +33,7 @@ Die Übernahme von `main` erzeugt dagegen drei Konflikte im Offer-Service:
 wurde abgebrochen. Seine Änderungen sind nicht Teil dieses Prüfbranchs.
 
 Das eigentliche Problem geht über diese Textkonflikte hinaus: `main` enthält
-eine andere Implementierung unter `de.winfprojekt.craftvoice.offerservice`.
+eine andere Implementierung unter `de.werkmundo.offer`.
 Arnes neue Implementierung liegt unter `de.werkmundo.offer`. Mehrere REST-Routen
 und Datenbanktabellen würden sich überschneiden. Die alte Implementierung
 kann deshalb nicht durch bloßes Zusammenführen der POM-Dateien integriert werden.

@@ -1,6 +1,6 @@
 package de.werkmundo.invoice.application;
 
-import de.werkmundo.document.infrastructure.PostgresDocumentTestProfile;
+import de.werkmundo.invoice.document.infrastructure.PostgresDocumentTestProfile;
 import de.werkmundo.invoice.domain.InvoiceRepository;
 import de.werkmundo.invoice.infrastructure.offer.InvoiceOfferLoader;
 import de.werkmundo.invoice.infrastructure.offer.OfferPositionResponse;

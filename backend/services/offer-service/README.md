@@ -38,7 +38,7 @@ Entwurf. Anfahrtspositionen werden als `TRAVEL` abgebildet.
 ## Persistenz und Migration
 
 `OfferJpaRepository` verwendet die bestehenden Entity-Klassen unter
-`de.winfprojekt.craftvoice.offerservice`. Die vorherigen separaten
+`de.werkmundo.offer`. Die vorherigen separaten
 Squad-Entity-Klassen sind entfernt. Maßgebliche Tabellen sind `offer`,
 `offer_position`, `offer_status_history` und ihre ergänzenden Tabellen.
 Rechnungen liegen weiterhin in derselben fachlichen Offer-Datenbank.

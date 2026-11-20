@@ -32,7 +32,7 @@ class OfferEntityRepositoryTest {
         entityManager.clear();
 
         var row = entityManager.createQuery("from Offer where businessKey = :key",
-                de.winfprojekt.craftvoice.offerservice.offer.Offer.class)
+                de.werkmundo.offer.offer.Offer.class)
                 .setParameter("key", key).getSingleResult();
         assertEquals("shared-test-owner", row.handwerkerId);
         assertEquals("ENTWURF", row.status);
@@ -43,11 +43,11 @@ class OfferEntityRepositoryTest {
     @TestTransaction
     void existingProcessOfferIsVisibleWithoutLosingItsPreciseStatusOrHistoryNote() {
         String key = "process-" + UUID.randomUUID();
-        var row = new de.winfprojekt.craftvoice.offerservice.offer.Offer();
+        var row = new de.werkmundo.offer.offer.Offer();
         row.businessKey = key;
         row.handwerkerId = "process-test-owner";
         row.status = "IN_BEARBEITUNG";
-        var history = new de.winfprojekt.craftvoice.offerservice.offer.OfferStatusHistory();
+        var history = new de.werkmundo.offer.offer.OfferStatusHistory();
         history.offer = row;
         history.status = "IN_BEARBEITUNG";
         history.notiz = "Original process note";
@@ -60,7 +60,7 @@ class OfferEntityRepositoryTest {
         assertEquals(OfferStatus.PROCESSING, loaded.getStatus());
         repository.save(loaded);
         entityManager.clear();
-        var reloaded = entityManager.find(de.winfprojekt.craftvoice.offerservice.offer.Offer.class, row.id);
+        var reloaded = entityManager.find(de.werkmundo.offer.offer.Offer.class, row.id);
         assertEquals("IN_BEARBEITUNG", reloaded.status);
         assertEquals("Original process note", reloaded.statusHistory.getFirst().notiz);
     }
