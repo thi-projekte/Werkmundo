@@ -33,9 +33,9 @@ jobs:
           - name: offer-service
             context: .
             dockerfile: local-setup/Dockerfile.offer-service
-          - name: document-service
-            context: backend/services/document-service
-            dockerfile: backend/services/document-service/Dockerfile.build
+          - name: invoice-service
+            context: backend/services/invoice-service
+            dockerfile: backend/services/invoice-service/Dockerfile.build
 
     steps:
       - uses: actions/checkout@v4
