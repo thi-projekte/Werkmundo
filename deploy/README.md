@@ -35,7 +35,7 @@ Weil alles unter einer Domain läuft, braucht es kein CORS und nur ein Zertifika
    - Valid post logout redirect URIs: wie Redirect URIs
 3. **Portainer** → *Stacks* → *Add stack* → Name `werkmundo` → *Repository*:
    - URL `https://github.com/thi-projekte/Werkmundo`, Reference `refs/heads/main`, Compose path `deploy/docker-compose.yml`
-   - Environment variables: `USER_DB_PASSWORD`, `OFFER_DB_PASSWORD`, `DOCUMENT_DB_PASSWORD`,
+   - Environment variables: `USER_DB_PASSWORD`, `OFFER_DB_PASSWORD`, `INVOICE_DB_PASSWORD`,
      `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD` (Werte nur hier, nie ins Git)
    - Optional *GitOps updates* aktivieren, damit Änderungen an der Compose-Datei automatisch kommen.
 4. **Nginx Proxy Manager** → *Add Proxy Host*:

@@ -8,12 +8,11 @@
 # Nginx Proxy Manager: <domain> -> http://werkmundo-frontend:80
 # Nur das Frontend hängt am Netzwerk nginx-proxy-manager; Services und Datenbanken
 # sind von außen nicht erreichbar. API-Aufrufe laufen über /svc/... im Frontend.
-# Die Datenbank heißt weiter document_db (Variable DOCUMENT_DB_PASSWORD), sie gehört zum invoice-service.
 #
 # Variablen in Portainer (Geheimnisse nie in diese Datei schreiben):
 #   USER_DB_PASSWORD          Pflicht
 #   OFFER_DB_PASSWORD         Pflicht
-#   DOCUMENT_DB_PASSWORD      Pflicht
+#   INVOICE_DB_PASSWORD       Pflicht
 #   KEYCLOAK_ADMIN_USER       Pflicht, Admin der Keycloak-Instanz terramax-keycloak (Registrierung, Passwort-Reset)
 #   KEYCLOAK_ADMIN_PASSWORD   Pflicht
 #   IMAGE_TAG                 optional, Standard main, z. B. sha-abc1234
@@ -119,30 +118,30 @@ services:
     image: ghcr.io/thi-projekte/werkmundo-invoice-service:${IMAGE_TAG:-main}
     restart: unless-stopped
     environment:
-      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://werkmundo-document-db:5432/document_db
-      QUARKUS_DATASOURCE_USERNAME: document_service
-      QUARKUS_DATASOURCE_PASSWORD: ${DOCUMENT_DB_PASSWORD:?DOCUMENT_DB_PASSWORD in Portainer setzen}
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://werkmundo-invoice-db:5432/invoice_db
+      QUARKUS_DATASOURCE_USERNAME: invoice_service
+      QUARKUS_DATASOURCE_PASSWORD: ${INVOICE_DB_PASSWORD:?INVOICE_DB_PASSWORD in Portainer setzen}
       KEYCLOAK_AUTH_SERVER_URL: *keycloak-issuer
       QUARKUS_OIDC_CONNECTION_DELAY: 3M
       OFFER_SERVICE_URL: http://werkmundo-offer:8080
       USER_SERVICE_URL: http://werkmundo-user:8080
     depends_on:
-      werkmundo-document-db:
+      werkmundo-invoice-db:
         condition: service_healthy
     networks:
       - intern
 
-  werkmundo-document-db:
+  werkmundo-invoice-db:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: document_db
-      POSTGRES_USER: document_service
-      POSTGRES_PASSWORD: ${DOCUMENT_DB_PASSWORD}
+      POSTGRES_DB: invoice_db
+      POSTGRES_USER: invoice_service
+      POSTGRES_PASSWORD: ${INVOICE_DB_PASSWORD}
     volumes:
-      - document_db:/var/lib/postgresql/data
+      - invoice_db:/var/lib/postgresql/data
     healthcheck:
-      test: [CMD-SHELL, 'pg_isready -U document_service -d document_db']
+      test: [CMD-SHELL, 'pg_isready -U invoice_service -d invoice_db']
       interval: 5s
       timeout: 5s
       retries: 30
@@ -161,7 +160,7 @@ volumes:
     name: werkmundo-user-db
   offer_db:
     name: werkmundo-offer-db
-  document_db:
-    name: werkmundo-document-db
+  invoice_db:
+    name: werkmundo-invoice-db
   user_files:
     name: werkmundo-user-files
