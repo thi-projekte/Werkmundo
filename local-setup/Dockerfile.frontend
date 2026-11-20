@@ -15,6 +15,7 @@ COPY frontend/ViewModel ./ViewModel
 COPY frontend/Model ./Model
 COPY frontend/infrastructure ./infrastructure
 COPY frontend/app ./app
+COPY frontend/public ./public
 COPY frontend/index.html ./
 COPY frontend/tsconfig.json ./
 COPY frontend/tsconfig.app.json ./

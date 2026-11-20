@@ -23,6 +23,11 @@ export function initKeycloak(): Promise<boolean> {
   if (!initPromise) {
     initPromise = keycloak.init({
       onLoad: "check-sso",
+      // Prüft die Anmeldung in einem unsichtbaren iframe statt die ganze Seite
+      // zu Keycloak umzuleiten. Die Startseite erscheint dadurch immer sofort,
+      // auch wenn Keycloak die Redirect-URI ablehnt.
+      silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+      messageReceiveTimeout: 5000,
       pkceMethod: "S256",
       checkLoginIframe: false,
       scope: "openid email profile",
