@@ -1,0 +1,36 @@
+# Frontend-Image für den Server (Portainer-Stack deploy/docker-compose.yml).
+# Build-Kontext: Repository-Wurzel.
+#   docker build -f deploy/Dockerfile.frontend -t werkmundo-frontend .
+#
+# Die Service-URLs sind relativ: Der Browser ruft dieselbe Domain auf,
+# und deploy/nginx.conf leitet intern an die Services weiter.
+
+# ---------- Build Stage ----------
+FROM node:20-alpine AS build
+WORKDIR /app
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ ./
+# Lokale .env-Dateien dürfen den Produktions-Build nicht beeinflussen
+RUN rm -f .env .env.local .env.production .env.production.local
+
+ARG VITE_KEYCLOAK_URL=https://terramax-keycloak.winfprojekt.de
+ARG VITE_KEYCLOAK_REALM=werkmundo
+ARG VITE_KEYCLOAK_CLIENT_ID=werkmundo-frontend
+ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL \
+    VITE_KEYCLOAK_REALM=$VITE_KEYCLOAK_REALM \
+    VITE_KEYCLOAK_CLIENT_ID=$VITE_KEYCLOAK_CLIENT_ID \
+    VITE_USER_SERVICE_URL=/svc/user/api/users \
+    VITE_OFFER_SERVICE_URL=/svc/offer \
+    VITE_DOCUMENT_SERVICE_URL=/svc/document
+
+RUN npm run build
+
+# ---------- Production Stage ----------
+FROM nginx:1.27-alpine
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

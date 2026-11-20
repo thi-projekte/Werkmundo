@@ -1,0 +1,164 @@
+# Portainer-Stack "werkmundo" für den Server winfprojekt.de.
+# In Portainer: Stacks -> Add stack -> Repository
+#   Repository URL:  https://github.com/thi-projekte/Werkmundo
+#   Reference:       refs/heads/main
+#   Compose path:    deploy/docker-compose.yml
+#
+# Images baut .github/workflows/deploy-images.yml nach ghcr.io.
+# Nginx Proxy Manager: <domain> -> http://werkmundo-frontend:80
+# Nur das Frontend hängt am Netzwerk nginx-proxy-manager; Services und Datenbanken
+# sind von außen nicht erreichbar. API-Aufrufe laufen über /svc/... im Frontend.
+#
+# Variablen in Portainer (Geheimnisse nie in diese Datei schreiben):
+#   USER_DB_PASSWORD          Pflicht
+#   OFFER_DB_PASSWORD         Pflicht
+#   DOCUMENT_DB_PASSWORD      Pflicht
+#   KEYCLOAK_ADMIN_USER       Pflicht, Admin der Keycloak-Instanz terramax-keycloak (Registrierung, Passwort-Reset)
+#   KEYCLOAK_ADMIN_PASSWORD   Pflicht
+#   IMAGE_TAG                 optional, Standard main, z. B. sha-abc1234
+#   PE_URL                    optional, Process Engine (Camunda REST), sonst schlägt "Angebot erstellen" fehl
+#   CATALOG_SERVICE_URL       optional, Katalog-Service
+
+x-keycloak: &keycloak-issuer https://terramax-keycloak.winfprojekt.de/realms/werkmundo
+
+services:
+  # --- Frontend (React + Nginx, leitet /svc/* an die Services weiter) ---
+  werkmundo-frontend:
+    image: ghcr.io/thi-projekte/werkmundo-frontend:${IMAGE_TAG:-main}
+    container_name: werkmundo-frontend
+    restart: unless-stopped
+    depends_on:
+      - werkmundo-user
+      - werkmundo-offer
+      - werkmundo-document
+    networks:
+      - nginx-proxy-manager   # erreichbar für den Nginx Proxy Manager
+      - intern                # erreicht die Services
+
+  # --- User-Service ---
+  werkmundo-user:
+    image: ghcr.io/thi-projekte/werkmundo-user-service:${IMAGE_TAG:-main}
+    restart: unless-stopped
+    environment:
+      DB_HOST: werkmundo-user-db
+      DB_NAME: user_db
+      DB_USER: user_service
+      DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD in Portainer setzen}
+      KEYCLOAK_URL: https://terramax-keycloak.winfprojekt.de
+      KEYCLOAK_USER_REALM: werkmundo
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:?KEYCLOAK_ADMIN_USER in Portainer setzen}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD in Portainer setzen}
+      QUARKUS_OIDC_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+      DOCUMENT_STORAGE_PATH: /data/profile-pictures
+    volumes:
+      - user_files:/data
+    depends_on:
+      werkmundo-user-db:
+        condition: service_healthy
+    networks:
+      - intern
+
+  werkmundo-user-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: user_service
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
+    volumes:
+      - user_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U user_service -d user_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
+  # --- Offer-Service ---
+  werkmundo-offer:
+    image: ghcr.io/thi-projekte/werkmundo-offer-service:${IMAGE_TAG:-main}
+    restart: unless-stopped
+    environment:
+      OFFER_DB_JDBC_URL: jdbc:postgresql://werkmundo-offer-db:5432/offer_db
+      OFFER_DB_USER: offer_service
+      OFFER_DB_PASSWORD: ${OFFER_DB_PASSWORD:?OFFER_DB_PASSWORD in Portainer setzen}
+      OFFER_PERSISTENCE: postgres
+      KEYCLOAK_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+      USER_SERVICE_URL: http://werkmundo-user:8080
+      PE_URL: ${PE_URL:-http://werkmundo-process-engine:8080/engine-rest}
+      CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://werkmundo-catalog:8080}
+    depends_on:
+      werkmundo-offer-db:
+        condition: service_healthy
+    networks:
+      - intern
+
+  werkmundo-offer-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: offer_db
+      POSTGRES_USER: offer_service
+      POSTGRES_PASSWORD: ${OFFER_DB_PASSWORD}
+    volumes:
+      - offer_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U offer_service -d offer_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
+  # --- Document-Service ---
+  werkmundo-document:
+    image: ghcr.io/thi-projekte/werkmundo-document-service:${IMAGE_TAG:-main}
+    restart: unless-stopped
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://werkmundo-document-db:5432/document_db
+      QUARKUS_DATASOURCE_USERNAME: document_service
+      QUARKUS_DATASOURCE_PASSWORD: ${DOCUMENT_DB_PASSWORD:?DOCUMENT_DB_PASSWORD in Portainer setzen}
+      KEYCLOAK_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+    depends_on:
+      werkmundo-document-db:
+        condition: service_healthy
+    networks:
+      - intern
+
+  werkmundo-document-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: document_db
+      POSTGRES_USER: document_service
+      POSTGRES_PASSWORD: ${DOCUMENT_DB_PASSWORD}
+    volumes:
+      - document_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U document_service -d document_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
+networks:
+  nginx-proxy-manager:
+    external: true            # existiert bereits auf dem Host
+  intern:
+    name: werkmundo-intern
+    driver: bridge            # vom Stack verwaltet, nicht von außen erreichbar
+
+volumes:
+  user_db:
+    name: werkmundo-user-db
+  offer_db:
+    name: werkmundo-offer-db
+  document_db:
+    name: werkmundo-document-db
+  user_files:
+    name: werkmundo-user-files

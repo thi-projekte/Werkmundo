@@ -1,0 +1,9 @@
+# Gilt nur für deploy/Dockerfile.frontend (BuildKit)
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+.git
+backend
+graphify-out
+documents
