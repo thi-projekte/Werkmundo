@@ -8,7 +8,7 @@ import de.werkmundo.offer.domain.OfferPositionType;
 import de.werkmundo.offer.domain.OfferRepository;
 import de.werkmundo.offer.domain.OfferStatus;
 import de.werkmundo.offer.domain.OfferStatusHistory;
-import de.winfprojekt.craftvoice.offerservice.offer.OfferStatusPeEvents;
+import de.werkmundo.offer.offer.OfferStatusPeEvents;
 import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -30,9 +30,9 @@ public class OfferJpaRepository implements OfferRepository {
     @Inject Event<OfferStatusPeEvents.AngebotAngenommen> accepted;
     @Inject Event<OfferStatusPeEvents.AngebotAbgelehnt> rejected;
 
-    private Optional<de.winfprojekt.craftvoice.offerservice.offer.Offer> entity(String key) {
+    private Optional<de.werkmundo.offer.offer.Offer> entity(String key) {
         return entityManager.createQuery("from Offer where businessKey = :key",
-                de.winfprojekt.craftvoice.offerservice.offer.Offer.class)
+                de.werkmundo.offer.offer.Offer.class)
                 .setParameter("key", key).getResultStream().findFirst();
     }
 
@@ -41,7 +41,7 @@ public class OfferJpaRepository implements OfferRepository {
     public Offer create(Offer offer) {
         Objects.requireNonNull(offer);
         if (entity(offer.getBusinessKey()).isPresent()) throw new OfferAlreadyExistsException();
-        return write(new de.winfprojekt.craftvoice.offerservice.offer.Offer(), offer);
+        return write(new de.werkmundo.offer.offer.Offer(), offer);
     }
 
     @Override
@@ -49,10 +49,10 @@ public class OfferJpaRepository implements OfferRepository {
     public Offer save(Offer offer) {
         Objects.requireNonNull(offer);
         return write(entity(offer.getBusinessKey())
-                .orElseGet(de.winfprojekt.craftvoice.offerservice.offer.Offer::new), offer);
+                .orElseGet(de.werkmundo.offer.offer.Offer::new), offer);
     }
 
-    private Offer write(de.winfprojekt.craftvoice.offerservice.offer.Offer row, Offer offer) {
+    private Offer write(de.werkmundo.offer.offer.Offer row, Offer offer) {
         boolean isNew = row.id == null;
         String oldStatus = isNew ? null : row.status;
         if (!isNew && !Objects.equals(row.handwerkerId, offer.getCraftsmanId())) {
@@ -88,7 +88,7 @@ public class OfferJpaRepository implements OfferRepository {
             row.korrekturvorschlaege.addAll(offer.getCorrectionSuggestions());
             row.positions.clear();
             for (OfferPosition position : offer.getPositions()) {
-                var item = new de.winfprojekt.craftvoice.offerservice.offer.OfferPosition();
+                var item = new de.werkmundo.offer.offer.OfferPosition();
                 item.offer = row;
                 item.type = toProcessType(position.getType());
                 item.bezeichnung = position.getName();
@@ -109,7 +109,7 @@ public class OfferJpaRepository implements OfferRepository {
         // Existing process history, including notes and precise process states, is preserved.
         for (int index = row.statusHistory.size(); index < offer.getStatusHistory().size(); index++) {
             OfferStatusHistory event = offer.getStatusHistory().get(index);
-            var history = new de.winfprojekt.craftvoice.offerservice.offer.OfferStatusHistory();
+            var history = new de.werkmundo.offer.offer.OfferStatusHistory();
             history.offer = row;
             history.status = OfferStatusMapper.toProcess(event.getStatus(), null);
             history.zeitpunkt = event.getChangedAt();
@@ -137,7 +137,7 @@ public class OfferJpaRepository implements OfferRepository {
     @Transactional
     public List<Offer> findAllByCraftsmanId(String owner) {
         return entityManager.createQuery("from Offer where handwerkerId = :owner",
-                de.winfprojekt.craftvoice.offerservice.offer.Offer.class)
+                de.werkmundo.offer.offer.Offer.class)
                 .setParameter("owner", Objects.requireNonNull(owner)).getResultStream().map(this::toDomain).toList();
     }
 
@@ -151,7 +151,7 @@ public class OfferJpaRepository implements OfferRepository {
         return true;
     }
 
-    private Offer toDomain(de.winfprojekt.craftvoice.offerservice.offer.Offer row) {
+    private Offer toDomain(de.werkmundo.offer.offer.Offer row) {
         OfferStatus status = OfferStatusMapper.toDomain(row.status);
         List<OfferPosition> positions = status == OfferStatus.PROCESSING ? List.of() : row.positions.stream()
                 .sorted(Comparator.comparingInt(item -> item.reihenfolge == null ? 0 : item.reihenfolge))
@@ -174,17 +174,17 @@ public class OfferJpaRepository implements OfferRepository {
                 positions, history, row.createdAt, row.updatedAt);
     }
 
-    private static de.winfprojekt.craftvoice.offerservice.common.OfferPositionType toProcessType(OfferPositionType type) {
+    private static de.werkmundo.offer.common.OfferPositionType toProcessType(OfferPositionType type) {
         if (type == null) return null;
         return switch (type) {
-            case MATERIAL -> de.winfprojekt.craftvoice.offerservice.common.OfferPositionType.MATERIAL;
-            case LABOR -> de.winfprojekt.craftvoice.offerservice.common.OfferPositionType.ARBEITSZEIT;
-            case TRAVEL -> de.winfprojekt.craftvoice.offerservice.common.OfferPositionType.ANFAHRT;
-            case OTHER -> de.winfprojekt.craftvoice.offerservice.common.OfferPositionType.OTHER;
+            case MATERIAL -> de.werkmundo.offer.common.OfferPositionType.MATERIAL;
+            case LABOR -> de.werkmundo.offer.common.OfferPositionType.ARBEITSZEIT;
+            case TRAVEL -> de.werkmundo.offer.common.OfferPositionType.ANFAHRT;
+            case OTHER -> de.werkmundo.offer.common.OfferPositionType.OTHER;
         };
     }
 
-    private static OfferPositionType toDomainType(de.winfprojekt.craftvoice.offerservice.common.OfferPositionType type) {
+    private static OfferPositionType toDomainType(de.werkmundo.offer.common.OfferPositionType type) {
         if (type == null) return null;
         return switch (type) {
             case MATERIAL -> OfferPositionType.MATERIAL;

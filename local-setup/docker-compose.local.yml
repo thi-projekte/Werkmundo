@@ -1,5 +1,5 @@
 # =============================================================================
-# CraftVoice – Lokales Gesamt-Setup (unabhängig vom winfprojekt.de-Server)
+# Werkmundo – Lokales Gesamt-Setup (unabhängig vom winfprojekt.de-Server)
 # =============================================================================
 # Startet: PostgreSQL, Keycloak, die lokal aus dem Repository baubaren
 # User-, Offer- und Invoice-Services sowie das lokal gebaute Frontend.
