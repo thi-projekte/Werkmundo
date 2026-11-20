@@ -6,20 +6,24 @@
 #
 # Images baut .github/workflows/deploy-images.yml nach ghcr.io.
 # Nginx Proxy Manager: <domain> -> http://werkmundo-frontend:80
-# Nur das Frontend hängt am Netzwerk nginx-proxy-manager; Services und Datenbanken
+#                      werkmundo-keycloak.winfprojekt.de -> http://werkmundo-keycloak:8080
+# Nur Frontend und Keycloak hängen am Netzwerk nginx-proxy-manager; Services und Datenbanken
 # sind von außen nicht erreichbar. API-Aufrufe laufen über /svc/... im Frontend.
 #
 # Variablen in Portainer (Geheimnisse nie in diese Datei schreiben):
 #   USER_DB_PASSWORD          Pflicht
 #   OFFER_DB_PASSWORD         Pflicht
 #   INVOICE_DB_PASSWORD       Pflicht
-#   KEYCLOAK_ADMIN_USER       Pflicht, Admin der Keycloak-Instanz terramax-keycloak (Registrierung, Passwort-Reset)
+#   KEYCLOAK_ADMIN_USER       Pflicht, Admin des eigenen Keycloak (wird beim ersten Start angelegt;
+#                             der User-Service vergibt damit die Rolle OWNER)
 #   KEYCLOAK_ADMIN_PASSWORD   Pflicht
+#   KEYCLOAK_DB_PASSWORD      Pflicht
 #   IMAGE_TAG                 optional, Standard main, z. B. sha-abc1234
 #   PE_URL                    optional, Process Engine (Camunda REST), sonst schlägt "Angebot erstellen" fehl
 #   CATALOG_SERVICE_URL       optional, Katalog-Service
 
-x-keycloak: &keycloak-issuer https://terramax-keycloak.winfprojekt.de/realms/werkmundo
+# Öffentliche Adresse, weil sie als Aussteller (iss) in den Tokens steht
+x-keycloak: &keycloak-issuer https://werkmundo-keycloak.winfprojekt.de/realms/werkmundo
 
 services:
   # --- Frontend (React + Nginx, leitet /svc/* an die Services weiter) ---
@@ -35,6 +39,48 @@ services:
       - nginx-proxy-manager   # erreichbar für den Nginx Proxy Manager
       - intern                # erreicht die Services
 
+  # --- Keycloak (eigener Login für Werkmundo, Realm "werkmundo") ---
+  werkmundo-keycloak:
+    # Image mit eingebautem Realm aus deploy/keycloak
+    image: ghcr.io/thi-projekte/werkmundo-keycloak:${IMAGE_TAG:-main}
+    container_name: werkmundo-keycloak
+    restart: unless-stopped
+    environment:
+      KC_DB_URL: jdbc:postgresql://werkmundo-keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD in Portainer setzen}
+      # Öffentliche Adresse (muss zum Proxy Host im Nginx Proxy Manager passen)
+      KC_HOSTNAME: https://werkmundo-keycloak.winfprojekt.de
+      # TLS endet am Nginx Proxy Manager, intern läuft Keycloak per HTTP
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      # Admin-Account, wird nur beim allerersten Start angelegt
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?KEYCLOAK_ADMIN_USER in Portainer setzen}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD in Portainer setzen}
+    depends_on:
+      werkmundo-keycloak-db:
+        condition: service_healthy
+    networks:
+      - nginx-proxy-manager   # erreichbar für den Nginx Proxy Manager
+      - intern                # erreicht die DB, User-Service nutzt die Admin-API
+
+  werkmundo-keycloak-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U keycloak -d keycloak']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
   # --- User-Service ---
   werkmundo-user:
     image: ghcr.io/thi-projekte/werkmundo-user-service:${IMAGE_TAG:-main}
@@ -44,7 +90,8 @@ services:
       DB_NAME: user_db
       DB_USER: user_service
       DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD in Portainer setzen}
-      KEYCLOAK_URL: https://terramax-keycloak.winfprojekt.de
+      # Admin-API intern, Token-Prüfung über die öffentliche Adresse (QUARKUS_OIDC_AUTH_SERVER_URL)
+      KEYCLOAK_URL: http://werkmundo-keycloak:8080
       KEYCLOAK_USER_REALM: werkmundo
       KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:?KEYCLOAK_ADMIN_USER in Portainer setzen}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD in Portainer setzen}
@@ -56,6 +103,8 @@ services:
     depends_on:
       werkmundo-user-db:
         condition: service_healthy
+      werkmundo-keycloak:
+        condition: service_started
     networks:
       - intern
 
@@ -164,3 +213,5 @@ volumes:
     name: werkmundo-invoice-db
   user_files:
     name: werkmundo-user-files
+  keycloak_db:
+    name: werkmundo-keycloak-db

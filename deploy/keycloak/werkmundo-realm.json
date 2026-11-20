@@ -1,0 +1,54 @@
+{
+  "realm": "werkmundo",
+  "displayName": "Werkmundo",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["de", "en"],
+  "defaultLocale": "de",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      { "name": "OWNER", "description": "Inhaber eines Handwerksbetriebs" },
+      { "name": "EMPLOYEE", "description": "Mitarbeiter eines Handwerksbetriebs" },
+      { "name": "ACCOUNTANT", "description": "Buchhaltung" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "werkmundo-frontend",
+      "name": "Werkmundo Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "https://werkmundo.winfprojekt.de",
+      "baseUrl": "/",
+      "redirectUris": [
+        "https://werkmundo.winfprojekt.de/*",
+        "https://werkmundo.de/*",
+        "https://www.werkmundo.de/*",
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*"
+      ],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://werkmundo.winfprojekt.de/*##https://werkmundo.de/*##https://www.werkmundo.de/*##http://localhost:5173/*##http://127.0.0.1:5173/*"
+      }
+    }
+  ]
+}
