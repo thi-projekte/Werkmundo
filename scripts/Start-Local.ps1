@@ -48,7 +48,7 @@ try {
     $values['USER_SERVICE_OIDC_SECRET'] = [string]$originalClient[0].secret
 
     foreach ($key in @('USER_DB_PASSWORD','OFFER_DB_PASSWORD','DOCUMENT_DB_PASSWORD',
-        'KEYCLOAK_ADMIN_PASSWORD','USER_SERVICE_OIDC_SECRET')) {
+    'CATALOG_DB_PASSWORD','KEYCLOAK_ADMIN_PASSWORD','USER_SERVICE_OIDC_SECRET')) {
         if ([string]::IsNullOrWhiteSpace($values[$key]) -or $values[$key] -eq 'GENERATE') {
             throw "Missing local setting: $key"
         }

@@ -27,10 +27,10 @@ COPY frontend/vite.config.ts ./
 ENV VITE_KEYCLOAK_URL=https://terramax-keycloak.winfprojekt.de
 ENV VITE_KEYCLOAK_REALM=werkmundo
 ENV VITE_KEYCLOAK_CLIENT_ID=werkmundo-frontend
-ENV VITE_USER_SERVICE_URL=http://localhost:8081/api/users
-ENV VITE_OFFER_SERVICE_URL=http://localhost:8082
-ENV VITE_INVOICE_SERVICE_URL=http://localhost:8084
-ENV VITE_CATALOG_SERVICE_URL=http://localhost:8083
+ENV VITE_USER_SERVICE_URL=/svc/user/api/users
+ENV VITE_OFFER_SERVICE_URL=/svc/offer
+ENV VITE_INVOICE_SERVICE_URL=/svc/invoice
+ENV VITE_CATALOG_SERVICE_URL=/svc/catalog
 ENV VITE_PE_URL=http://localhost:8085/engine-rest
 
 RUN npm run build
@@ -39,7 +39,7 @@ RUN npm run build
 # ---------- Production Stage ----------
 FROM nginx:alpine
 
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY local-setup/nginx.frontend.conf /etc/nginx/conf.d/default.conf
 
 COPY --from=build /app/dist /usr/share/nginx/html
 
