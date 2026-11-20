@@ -27,6 +27,7 @@ import java.util.UUID;
 @IfBuildProperty(name = "offer.persistence", stringValue = "postgres")
 public class OfferJpaRepository implements OfferRepository {
     @Inject EntityManager entityManager;
+    @Inject OfferNumberGenerator offerNumberGenerator;
     @Inject Event<OfferStatusPeEvents.AngebotAngenommen> accepted;
     @Inject Event<OfferStatusPeEvents.AngebotAbgelehnt> rejected;
 
@@ -48,7 +49,7 @@ public class OfferJpaRepository implements OfferRepository {
     @Transactional
     public Offer save(Offer offer) {
         Objects.requireNonNull(offer);
-        return write(entity(offer.getBusinessKey())
+        return write(entityManager.createQuery("from Offer where businessKey = :key", de.winfprojekt.craftvoice.offerservice.offer.Offer.class).setParameter("key", offer.getBusinessKey()).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultStream().findFirst()
                 .orElseGet(de.winfprojekt.craftvoice.offerservice.offer.Offer::new), offer);
     }
 
@@ -68,7 +69,17 @@ public class OfferJpaRepository implements OfferRepository {
                 throw new IllegalStateException("Offer state changed since it was loaded");
             }
         }
+        if (offer.getStatus() == OfferStatus.READY_TO_SEND
+                && offer.getOfferNumber() == null
+                && row.angebotsnummer == null) {
+            offer.assignOfferNumber(offerNumberGenerator.nextNumber());
+        }
+
         row.businessKey = offer.getBusinessKey();
+        if (row.angebotsnummer != null && !row.angebotsnummer.equals(offer.getOfferNumber())) {
+            throw new IllegalStateException("Offer number cannot be changed or cleared");
+        }
+        row.angebotsnummer = offer.getOfferNumber();
         row.customerId = offer.getCustomerId();
         row.handwerkerId = offer.getCraftsmanId();
         row.customerAccessTokenHash = offer.customerAccessTokenHash();
@@ -144,8 +155,11 @@ public class OfferJpaRepository implements OfferRepository {
     @Override
     @Transactional
     public boolean deleteByBusinessKey(String key) {
-        var found = entity(Objects.requireNonNull(key));
+        var found = entityManager.createQuery("from Offer where businessKey = :key", de.winfprojekt.craftvoice.offerservice.offer.Offer.class).setParameter("key", Objects.requireNonNull(key)).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultStream().findFirst();
         if (found.isEmpty()) return false;
+        if (found.get().angebotsnummer != null) {
+            throw new IllegalStateException("Numbered offers cannot be deleted");
+        }
         entityManager.remove(found.get());
         entityManager.flush();
         return true;
@@ -168,10 +182,14 @@ public class OfferJpaRepository implements OfferRepository {
         List<OfferStatusHistory> history = row.statusHistory.stream()
                 .sorted(Comparator.comparing(item -> item.zeitpunkt))
                 .map(item -> new OfferStatusHistory(OfferStatusMapper.toDomain(item.status), item.zeitpunkt)).toList();
-        return Offer.restore(row.businessKey, row.customerId, row.handwerkerId,
+        Offer restored = Offer.restore(row.businessKey, row.customerId, row.handwerkerId,
                 row.customerAccessTokenHash, row.customerAccessTokenExpiresAt, row.geschaetzteArbeitsdauerStunden,
                 List.copyOf(row.korrekturvorschlaege), List.copyOf(row.customerChangeRequests), status,
                 positions, history, row.createdAt, row.updatedAt);
+        if (row.angebotsnummer != null) {
+            restored.assignOfferNumber(row.angebotsnummer);
+        }
+        return restored;
     }
 
     private static de.winfprojekt.craftvoice.offerservice.common.OfferPositionType toProcessType(OfferPositionType type) {

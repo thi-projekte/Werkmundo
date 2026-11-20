@@ -66,8 +66,56 @@ class OfferJpaRepositoryIntegrationTest {
         repository.save(loaded);
         Offer reloaded = repository.findByBusinessKey(key).orElseThrow();
         assertEquals(OfferStatus.READY_TO_SEND, reloaded.getStatus());
+        assertNotNull(reloaded.getOfferNumber());
+        assertTrue(reloaded.getOfferNumber().matches("^ANG-[0-9]{6}-[0-9]{4}$"));
         assertEquals(createdAt, reloaded.getCreatedAt());
         assertEquals(2, reloaded.getStatusHistory().size());
+    }
+
+    @Test
+    @TestTransaction
+    void assignsDistinctNumbersToOffers() {
+        Offer first = new Offer("issue18-first-" + UUID.randomUUID());
+        first.setCraftsmanId("issue18-test-owner");
+        first.markReadyToSend();
+        Offer savedFirst = repository.save(first);
+
+        Offer second = new Offer("issue18-second-" + UUID.randomUUID());
+        second.setCraftsmanId("issue18-test-owner");
+        second.markReadyToSend();
+        Offer savedSecond = repository.save(second);
+
+        assertNotNull(savedFirst.getOfferNumber());
+        assertNotNull(savedSecond.getOfferNumber());
+        assertNotEquals(savedFirst.getOfferNumber(), savedSecond.getOfferNumber());
+    }
+
+    @Test
+    void offerNumberPersistsAcrossTransactions() {
+        String key = "issue18-committed-" + UUID.randomUUID();
+        Offer offer = new Offer(key);
+        offer.setCraftsmanId("issue18-test-owner");
+        offer.markReadyToSend();
+        Offer saved = repository.save(offer);
+        assertNotNull(saved.getOfferNumber());
+
+        Offer reloaded = repository.findByBusinessKey(key).orElseThrow();
+        assertEquals(saved.getOfferNumber(), reloaded.getOfferNumber());
+    }
+
+    @Test
+    @TestTransaction
+    void cannotDeleteNumberedOffer() {
+        String key = "issue18-protected-" + UUID.randomUUID();
+        Offer offer = new Offer(key);
+        offer.setCraftsmanId("issue18-test-owner");
+        offer.markReadyToSend();
+        Offer saved = repository.save(offer);
+        assertNotNull(saved.getOfferNumber());
+
+        assertThrows(IllegalStateException.class, () -> repository.deleteByBusinessKey(key));
+        assertEquals(saved.getOfferNumber(),
+                repository.findByBusinessKey(key).orElseThrow().getOfferNumber());
     }
 
     @Test

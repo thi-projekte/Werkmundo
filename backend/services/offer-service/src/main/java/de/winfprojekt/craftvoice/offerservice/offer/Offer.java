@@ -23,6 +23,9 @@ public class Offer extends BaseEntity {
     @Column(unique = true, nullable = false)
     public String businessKey;
 
+    @Column(name = "angebotsnummer", length = 32)
+    public String angebotsnummer;
+
     @Column(name = "offer_title")
     public String title;
 
