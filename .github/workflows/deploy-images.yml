@@ -4,8 +4,8 @@ name: Deploy-Images
 # und legt sie unter ghcr.io/thi-projekte/werkmundo-<name> ab.
 #   :main          aktueller Stand von main
 #   :sha-<commit>  fester Stand zum Pinnen (IMAGE_TAG in Portainer)
-# Manuell (Actions -> Deploy-Images -> Run workflow) auch von anderen Branches;
-# das Tag ist dann der Branch-Name.
+# API-Aufrufe werden über das Gateway weitergeleitet:
+# /svc/... -> werkmundo-gateway:8080 -> zuständiger Service
 
 on:
   push:
@@ -39,6 +39,12 @@ jobs:
           - name: invoice-service
             context: backend/services/invoice-service
             dockerfile: backend/services/invoice-service/Dockerfile.build
+          - name: api-gateway
+            context: gateway
+            dockerfile: gateway/Dockerfile
+          - name: catalog-service
+            context: backend/services/catalog-service
+            dockerfile: backend/services/catalog-service/Dockerfile.build
 
     steps:
       - uses: actions/checkout@v4
