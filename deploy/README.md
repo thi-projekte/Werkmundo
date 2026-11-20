@@ -9,7 +9,7 @@ Browser ──https──> Nginx Proxy Manager ──> werkmundo-frontend:80 (Ng
                                              ├─ /               React-App
                                              ├─ /svc/user/      -> werkmundo-user:8080
                                              ├─ /svc/offer/     -> werkmundo-offer:8080
-                                             └─ /svc/document/  -> werkmundo-document:8080
+                                             └─ /svc/invoice/   -> werkmundo-invoice:8080
 Login: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
 ```
 
