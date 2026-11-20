@@ -11,6 +11,7 @@
 # sind von außen nicht erreichbar. API-Aufrufe laufen über /svc/... im Frontend.
 #
 # Variablen in Portainer (Geheimnisse nie in diese Datei schreiben):
+#   CATALOG_DB_PASSWORD       Pflicht, Passwort der neuen Catalog-Datenbank
 #   USER_DB_PASSWORD          Pflicht
 #   OFFER_DB_PASSWORD         Pflicht
 #   INVOICE_DB_PASSWORD       Pflicht
@@ -33,12 +34,84 @@ services:
     container_name: werkmundo-frontend
     restart: unless-stopped
     depends_on:
-      - werkmundo-user
-      - werkmundo-offer
-      - werkmundo-invoice
+      werkmundo-gateway:
+        condition: service_healthy
     networks:
       - nginx-proxy-manager   # erreichbar für den Nginx Proxy Manager
       - intern                # erreicht die Services
+
+  werkmundo-gateway:
+    image: ghcr.io/thi-projekte/werkmundo-api-gateway:${IMAGE_TAG:-main}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      PORT: '8080'
+      GATEWAY_OIDC_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+      GATEWAY_USER_HOST: werkmundo-user
+      GATEWAY_USER_PORT: '8080'
+      GATEWAY_OFFER_HOST: werkmundo-offer
+      GATEWAY_OFFER_PORT: '8080'
+      GATEWAY_INVOICE_HOST: werkmundo-invoice
+      GATEWAY_INVOICE_PORT: '8080'
+      GATEWAY_CATALOG_HOST: werkmundo-catalog
+      GATEWAY_CATALOG_PORT: '8080'
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/q/health/ready']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 180s
+    depends_on:
+      werkmundo-keycloak:
+        condition: service_started
+      werkmundo-user:
+        condition: service_started
+      werkmundo-offer:
+        condition: service_started
+      werkmundo-invoice:
+        condition: service_started
+      werkmundo-catalog:
+        condition: service_started
+    networks:
+      - intern
+
+  werkmundo-catalog:
+    image: ghcr.io/thi-projekte/werkmundo-catalog-service:${IMAGE_TAG:-main}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      HTTP_PORT: '8080'
+      QUARKUS_HTTP_HOST: 0.0.0.0
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://werkmundo-catalog-db:5432/catalog_db
+      QUARKUS_DATASOURCE_USERNAME: catalog_service
+      QUARKUS_DATASOURCE_PASSWORD: ${CATALOG_DB_PASSWORD:?CATALOG_DB_PASSWORD in Portainer setzen}
+      KEYCLOAK_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+    depends_on:
+      werkmundo-catalog-db:
+        condition: service_healthy
+      werkmundo-keycloak:
+        condition: service_started
+    networks:
+      - intern
+
+  werkmundo-catalog-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: catalog_db
+      POSTGRES_USER: catalog_service
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD}
+    volumes:
+      - catalog_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U catalog_service -d catalog_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
 
   # --- Keycloak (eigener Login für Werkmundo, Realm "werkmundo") ---
   werkmundo-keycloak:
@@ -220,3 +293,5 @@ volumes:
     name: werkmundo-user-files
   keycloak_db:
     name: werkmundo-keycloak-db
+  catalog_db:
+    name: werkmundo-catalog-db
