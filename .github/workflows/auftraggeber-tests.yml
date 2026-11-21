@@ -59,18 +59,58 @@ jobs:
           cache: maven
       - name: Build and test against PostgreSQL
         run: sh ./mvnw -B '-Dquarkus.http.test-port=18082' clean verify
-      - name: Reject silently skipped database tests
+      - name: Verify test reports and required PostgreSQL suites
+        env:
+          TESTED_SERVICE: ${{ matrix.service }}
         shell: bash
         run: |
           python3 - <<'PY'
-          import glob
+          import os
+          from pathlib import Path
           import xml.etree.ElementTree as ET
-          reports = glob.glob('target/surefire-reports/TEST-*.xml')
-          assert reports, 'No test reports found'
+
+          reports = list(Path('target/surefire-reports').glob('TEST-*.xml'))
+          if not reports:
+              raise SystemExit('No test reports found')
+
           suites = [ET.parse(path).getroot() for path in reports]
-          assert all(int(s.get('skipped', '0')) == 0 for s in suites), 'Tests were skipped'
-          required = ('OfferJpaRepositoryIntegrationTest' if '${{ matrix.service }}' == 'offer-service'
-                      else 'PostgresDocumentRepositoryTest')
-          assert any(s.get('name', '').endswith(required) and int(s.get('tests', '0')) > 0
-                     for s in suites), f'Missing database test suite: {required}'
+
+          for suite in suites:
+              for attribute in ('failures', 'errors', 'skipped'):
+                  if int(suite.get(attribute, '0')) > 0:
+                      raise SystemExit(
+                          f"{suite.get('name')}: {attribute} > 0"
+                      )
+
+          required = {
+              'offer-service': [
+                  'OfferJpaRepositoryIntegrationTest',
+              ],
+              'invoice-service': [
+                  'PostgresDocumentRepositoryTest',
+                  'PostgresInvoiceRepositoryTest',
+                  'InvoiceIdempotencyTest',
+              ],
+          }[os.environ['TESTED_SERVICE']]
+
+          for name in required:
+              if not any(
+                  suite.get('name', '').endswith('.' + name)
+                  and int(suite.get('tests', '0')) > 0
+                  for suite in suites
+              ):
+                  raise SystemExit(f'Missing database test suite: {name}')
+
+          total = sum(int(suite.get('tests', '0')) for suite in suites)
+          print(f'{total} tests passed; required PostgreSQL suites executed.')
           PY
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.service }}
+          path: |
+            backend/services/${{ matrix.service }}/target/surefire-reports/
+            backend/services/${{ matrix.service }}/target/failsafe-reports/
+          if-no-files-found: warn
