@@ -1,0 +1,151 @@
+name: Additional service tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - SquadAuftraggeber
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: '${{ matrix.name }} / Tests'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: user-service
+            directory: backend/services/user-service
+            java: '17'
+            required-suite: UserResourceTest
+          - name: ai-service
+            directory: backend/services/ai-service
+            java: '21'
+            required-suite: AiAnalysisResourceTest
+          - name: catalog-service
+            directory: backend/services/catalog-service
+            java: '25'
+            required-suite: CatalogImportTest
+          - name: api-gateway
+            directory: gateway
+            java: '25'
+            required-suite: GatewayRoutingTest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: catalog_test
+          POSTGRES_USER: catalog_test
+          POSTGRES_PASSWORD: ci-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U catalog_test -d catalog_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Configure Catalog database tests
+        if: matrix.name == 'catalog-service'
+        shell: bash
+        run: |
+          echo "CATALOG_TEST_DATABASE=true" >> "$GITHUB_ENV"
+          echo "QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/catalog_test" >> "$GITHUB_ENV"
+          echo "QUARKUS_DATASOURCE_USERNAME=catalog_test" >> "$GITHUB_ENV"
+          echo "QUARKUS_DATASOURCE_PASSWORD=ci-test-only" >> "$GITHUB_ENV"
+          echo "KEYCLOAK_AUTH_SERVER_URL=http://127.0.0.1:1/realms/test" >> "$GITHUB_ENV"
+          test -s documents/Hager_Artikelstamm_2026-11.csv
+
+      - name: Build and test
+        working-directory: ${{ matrix.directory }}
+        shell: bash
+        run: mvn -B -ntp '-Dquarkus.http.test-port=0' clean verify
+
+      - name: Verify executed tests
+        working-directory: ${{ matrix.directory }}
+        env:
+          REQUIRED_SUITE: ${{ matrix.required-suite }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          reports = list(Path('target/surefire-reports').glob('TEST-*.xml'))
+          if not reports:
+              raise SystemExit('No test reports found')
+
+          suites = [ET.parse(path).getroot() for path in reports]
+
+          for suite in suites:
+              for attribute in ('failures', 'errors', 'skipped'):
+                  if int(suite.get(attribute, '0')) > 0:
+                      raise SystemExit(
+                          f"{suite.get('name')}: {attribute} > 0"
+                      )
+
+          required = os.environ['REQUIRED_SUITE']
+          if not any(
+              suite.get('name', '').endswith('.' + required)
+              and int(suite.get('tests', '0')) > 0
+              for suite in suites
+          ):
+              raise SystemExit(f'Missing test suite: {required}')
+
+          total = sum(int(suite.get('tests', '0')) for suite in suites)
+          print(f'{total} tests passed without skipped tests.')
+          PY
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.name }}
+          path: |
+            ${{ matrix.directory }}/target/surefire-reports/
+            ${{ matrix.directory }}/target/failsafe-reports/
+          if-no-files-found: warn
+
+  frontend-build:
+    name: Frontend / Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check TypeScript and build
+        run: npm run build
