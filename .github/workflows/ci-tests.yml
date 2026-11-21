@@ -1,4 +1,4 @@
-name: Additional service tests
+name: CI - Tests and build
 
 on:
   pull_request:
@@ -36,18 +36,26 @@ jobs:
             directory: gateway
             java: '25'
             required-suite: GatewayRoutingTest
+          - name: offer-service
+            directory: backend/services/offer-service
+            java: '25'
+            required-suite: OfferJpaRepositoryIntegrationTest
+          - name: invoice-service
+            directory: backend/services/invoice-service
+            java: '25'
+            required-suite: PostgresInvoiceRepositoryTest
 
     services:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_DB: catalog_test
-          POSTGRES_USER: catalog_test
+          POSTGRES_DB: service_test
+          POSTGRES_USER: service_test
           POSTGRES_PASSWORD: ci-test-only
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U catalog_test -d catalog_test"
+          --health-cmd "pg_isready -U service_test -d service_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -63,14 +71,35 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: maven
 
-      - name: Configure Catalog database tests
+      - name: Configure PostgreSQL tests
+        if: matrix.name == 'offer-service' || matrix.name == 'invoice-service' || matrix.name == 'catalog-service'
+        shell: bash
+        run: |
+          echo "QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/service_test" >> "$GITHUB_ENV"
+          echo "QUARKUS_DATASOURCE_USERNAME=service_test" >> "$GITHUB_ENV"
+          echo "QUARKUS_DATASOURCE_PASSWORD=ci-test-only" >> "$GITHUB_ENV"
+
+      - name: Configure Offer tests
+        if: matrix.name == 'offer-service'
+        shell: bash
+        run: |
+          echo "OFFER_PERSISTENCE=postgres" >> "$GITHUB_ENV"
+          echo "OFFER_DB_ENABLED=true" >> "$GITHUB_ENV"
+          echo "OFFER_DB_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/service_test" >> "$GITHUB_ENV"
+          echo "OFFER_DB_USER=service_test" >> "$GITHUB_ENV"
+          echo "OFFER_DB_PASSWORD=ci-test-only" >> "$GITHUB_ENV"
+
+      - name: Configure Invoice tests
+        if: matrix.name == 'invoice-service'
+        shell: bash
+        run: |
+          echo "DOCUMENT_DB_TESTS=true" >> "$GITHUB_ENV"
+
+      - name: Configure Catalog tests
         if: matrix.name == 'catalog-service'
         shell: bash
         run: |
           echo "CATALOG_TEST_DATABASE=true" >> "$GITHUB_ENV"
-          echo "QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://127.0.0.1:5432/catalog_test" >> "$GITHUB_ENV"
-          echo "QUARKUS_DATASOURCE_USERNAME=catalog_test" >> "$GITHUB_ENV"
-          echo "QUARKUS_DATASOURCE_PASSWORD=ci-test-only" >> "$GITHUB_ENV"
           echo "KEYCLOAK_AUTH_SERVER_URL=http://127.0.0.1:1/realms/test" >> "$GITHUB_ENV"
           test -s documents/Hager_Artikelstamm_2026-11.csv
 
@@ -83,6 +112,7 @@ jobs:
         working-directory: ${{ matrix.directory }}
         env:
           REQUIRED_SUITE: ${{ matrix.required-suite }}
+          TESTED_SERVICE: ${{ matrix.name }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -103,13 +133,21 @@ jobs:
                           f"{suite.get('name')}: {attribute} > 0"
                       )
 
-          required = os.environ['REQUIRED_SUITE']
-          if not any(
-              suite.get('name', '').endswith('.' + required)
-              and int(suite.get('tests', '0')) > 0
-              for suite in suites
-          ):
-              raise SystemExit(f'Missing test suite: {required}')
+          required = [os.environ['REQUIRED_SUITE']]
+
+          if os.environ['TESTED_SERVICE'] == 'invoice-service':
+              required.extend([
+                  'PostgresDocumentRepositoryTest',
+                  'InvoiceIdempotencyTest',
+              ])
+
+          for name in required:
+              if not any(
+                  suite.get('name', '').endswith('.' + name)
+                  and int(suite.get('tests', '0')) > 0
+                  for suite in suites
+              ):
+                  raise SystemExit(f'Missing test suite: {name}')
 
           total = sum(int(suite.get('tests', '0')) for suite in suites)
           print(f'{total} tests passed without skipped tests.')
