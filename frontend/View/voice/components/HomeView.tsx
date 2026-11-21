@@ -2,13 +2,25 @@ import { useState, useEffect } from "react";
 import "./HomeView.css";
 import { Mic } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useVoiceInput } from "../../../ViewModel/voice/legacy/useVoiceInput";
+import {
+  useVoiceInput,
+  WARNING_REMAINING_MS,
+} from "../../../ViewModel/voice/legacy/useVoiceInput";
 import { createOffer, saveOfferDraft } from "../../../infrastructure/api/offerApi";
 import { getCustomers, type CustomerProfile } from "../../../infrastructure/api/userApi";
 import {
   ArrowRight,
+  Pause,
   RotateCcw,
 } from "lucide-react";
+
+/** Formatiert Millisekunden als mm:ss. */
+const formatTime = (ms: number) => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
 
 export const HomeView = () => {
   const location = useLocation();
@@ -57,14 +69,24 @@ export const HomeView = () => {
   const {
     volume,
     toggle,
-    audioSegments,
+    resume,
+    canResume,
+    elapsedMs,
+    maxMs,
+    remainingMs,
+    error: micError,
+    audioUrl,
     transcript,
     setTranscript,
     state,
     reset,
-    finalizeRecording,
     transcribeAudio,
   } = useVoiceInput();
+
+  // Pausiert oder beendet -> Prüfansicht mit EINEM Player
+  const isReview = state === "paused" || state === "finished";
+  const reachedMax = elapsedMs >= maxMs;
+  const showTimeWarning = state === "recording" && remainingMs <= WARNING_REMAINING_MS;
 
   const navigate = useNavigate();
   useEffect(() => {
@@ -134,11 +156,12 @@ export const HomeView = () => {
     setTitleError(saveAsDraft && !hasTitle);
     if (!hasDestination || (saveAsDraft && !hasTitle)) return;
 
-    finalizeRecording();
     setTranscribeError(null);
     setIsTranscribing(true);
 
     try {
+      // transcribeAudio() beendet eine laufende/pausierte Aufnahme selbst
+      // und schickt sie als EINE Datei.
       const speechSnippet = await transcribeAudio();
       if (saveAsDraft) {
         await speichereEntwurf(speechSnippet);
@@ -268,31 +291,70 @@ export const HomeView = () => {
           </button>
         </div>
 
-        {mode === "voice" && state !== "review" && (
+        {mode === "voice" && !isReview && (
           <div className={`wm-mic-stage ${state === "recording" ? "is-recording" : ""}`}>
             <button
               className="wm-mic-trigger"
               type="button"
               onClick={toggle}
-              aria-label={state === "recording" ? "Aufnahme beenden" : "Aufnahme starten"}
+              disabled={state === "starting"}
+              aria-label={state === "recording" ? "Aufnahme pausieren" : "Aufnahme starten"}
+              title={state === "recording" ? "Aufnahme pausieren" : "Aufnahme starten"}
               style={{ transform: `scale(${1 + volume / 500})` }}
             >
-              <Mic size={48} strokeWidth={1.6} aria-hidden="true" />
+              {/* Während der Aufnahme: Pausenzeichen "||" – signalisiert, dass man pausieren kann */}
+              {state === "recording" ? (
+                <Pause
+                  className="wm-mic-pause-icon"
+                  size={48}
+                  strokeWidth={1.6}
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+              ) : (
+                <Mic size={48} strokeWidth={1.6} aria-hidden="true" />
+              )}
             </button>
             <p>
               {state === "recording"
-                ? "Ich höre zu … Sprich jetzt deinen Auftrag."
-                : "Tippe auf das Mikrofon, um deine Aufnahme zu starten."}
+                ? "Ich höre zu … Sprich jetzt deinen Auftrag. Tippe auf ‖, um zu pausieren."
+                : state === "starting"
+                  ? "Mikrofon wird gestartet …"
+                  : "Tippe auf das Mikrofon, um deine Aufnahme zu starten (max. 20 Minuten)."}
             </p>
             {state === "recording" && (
-              <button className="wm-stop-recording" type="button" onClick={toggle}>
-                Aufnahme beenden
-              </button>
+              <>
+                {/* Aufnahmeleiste wie bei WhatsApp */}
+                <div className="wm-rec-bar" aria-live="off">
+                  <span className="wm-rec-dot" aria-hidden="true" />
+                  <span className="wm-rec-time">
+                    {formatTime(elapsedMs)}
+                    <small> / {formatTime(maxMs)}</small>
+                  </span>
+                  <div className="wm-rec-progress" aria-hidden="true">
+                    <div
+                      className="wm-rec-progress-fill"
+                      style={{ width: `${Math.min(100, (elapsedMs / maxMs) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+                {showTimeWarning && (
+                  <p className="wm-rec-warning" role="status">
+                    Noch {formatTime(remainingMs)} – die Aufnahme endet automatisch
+                    nach 20 Minuten.
+                  </p>
+                )}
+              </>
+            )}
+            {micError && (
+              <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">
+                {micError}
+              </p>
             )}
           </div>
         )}
 
-        {mode === "voice" && state === "review" && (
+        {mode === "voice" && isReview && (
           <div className="wm-recording-review">
             <input
               className="wm-draft-title"
@@ -310,20 +372,18 @@ export const HomeView = () => {
             <div className="wm-review-mic" aria-hidden="true">
               <Mic size={48} strokeWidth={1.6} />
             </div>
+            {/* EIN Player mit der kompletten bisherigen Aufnahme */}
             <div className="wm-audio-player">
-              {audioSegments.length > 0 ? (
-                audioSegments.map((url, index) => (
-                  <audio
-                    controls
-                    src={url}
-                    key={`${url}-${index}`}
-                    aria-label={`Aufnahme ${index + 1} abspielen`}
-                  />
-                ))
+              {audioUrl ? (
+                <audio controls src={audioUrl} aria-label="Aufnahme abspielen" />
               ) : (
-                <p>Keine Aufnahme vorhanden.</p>
+                <p>Aufnahme wird vorbereitet …</p>
               )}
             </div>
+            <p className="wm-rec-summary">
+              Aufnahme: {formatTime(elapsedMs)} / {formatTime(maxMs)}
+              {reachedMax && " – maximale Dauer von 20 Minuten erreicht"}
+            </p>
             {transcribeError && (
               <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">
                 {transcribeError}
@@ -342,8 +402,9 @@ export const HomeView = () => {
               <button
                 className="wm-capture-resume"
                 type="button"
-                onClick={toggle}
-                disabled={isTranscribing}
+                onClick={resume}
+                disabled={isTranscribing || !canResume}
+                title={canResume ? "Weitersprechen – wird an dieselbe Aufnahme angehängt" : "Maximale Dauer erreicht"}
               >
                 <Mic size={16} aria-hidden="true" />
                 Aufnahme fortsetzen

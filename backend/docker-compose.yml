@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: craftvoice-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    networks:
+      - internal
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - postgres
+      - user-service
+      - offer-service
+      - catalog-service
+      - document-service
+    networks:
+      - internal
+
+  catalog-service:
+    build:
+      context: ./services/catalog-service
+      dockerfile: docker/Dockerfile.jvm
+    container_name: catalog-service
+    environment:
+      DB_HOST: postgres
+      DB_NAME: catalog-db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      QUARKUS_OIDC_TENANT_ENABLED: "false"
+    networks:
+      - internal
+    depends_on:
+      - postgres
+
+  document-service:
+    build:
+      context: ./services/document-service
+      dockerfile: docker/Dockerfile.jvm
+    container_name: document-service
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_NAME: document-db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      OFFER_SERVICE_URL: http://offer-service:8080
+      USER_SERVICE_URL: http://user-service:8080
+      DOCUMENT_STORAGE_PATH: /data/documents
+    volumes:
+      - document_files:/data/documents
+    depends_on:
+      - postgres
+    networks:
+      - internal
+
+  offer-service:
+    build:
+      context: ./services/offer-service
+      dockerfile: docker/Dockerfile.jvm
+    container_name: offer-service
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_NAME: offer-db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DOCUMENT_STORAGE_PATH: /data/documents
+      PE_URL: http://host.docker.internal:8081/engine-rest
+    volumes:
+      - document_files:/data/documents
+    depends_on:
+      - postgres
+    networks:
+      - internal
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: user-service
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_NAME: user-db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      QUARKUS_OIDC_TENANT_ENABLED: "false"
+    volumes:
+      - document_files:/data/documents
+    depends_on:
+      - postgres
+    networks:
+      - internal
+
+volumes:
+  postgres_data:
+  document_files:
+
+networks:
+  internal:
+    driver: bridge
+
+
+
+

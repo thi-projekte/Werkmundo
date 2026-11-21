@@ -1,0 +1,318 @@
+/* =========================
+   OfferSharePage — Responsive
+   ========================= */
+
+.offer-share-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (min-width: 1024px) {
+  .offer-share-page {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .offer-share-header,
+  .offer-share-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+.offer-share-header {
+  text-align: left;
+}
+
+.offer-share-header h1 {
+  margin: 0 0 8px;
+  font-size: clamp(20px, 3vw, 30px);
+}
+
+.offer-share-eyebrow {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.offer-preview-card {
+  text-align: left;
+}
+
+.offer-preview-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.offer-preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.offer-preview-row span {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+.offer-preview-row strong {
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.offer-preview-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.offer-preview-total span {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+.offer-preview-total strong {
+  color: var(--color-accent);
+  font-size: 20px;
+}
+
+.share-options-card {
+  text-align: left;
+}
+
+.share-options-card h2 {
+  margin-top: 0;
+  text-align: left;
+}
+
+.share-button-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .share-button-list {
+    flex-direction: row;
+  }
+
+  .share-button {
+    flex: 1;
+  }
+}
+
+.share-button {
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--color-divider);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.whatsapp-button {
+  background: linear-gradient(135deg, #25d366, #128c7e);
+}
+.email-button {
+  background: var(--color-accent-gradient);
+}
+.other-button {
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+.share-hint {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.offer-share-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .offer-share-actions {
+    flex-direction: row;
+  }
+
+  .offer-share-actions .button-primary,
+  .offer-share-secondary-button {
+    flex: 1;
+  }
+}
+
+.offer-share-actions .button-primary {
+  width: 100%;
+}
+
+.offer-share-secondary-button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-divider);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.offer-share-secondary-button:hover {
+  border-color: var(--color-accent);
+}
+
+/* =========================
+   OfferSharePage – Ergänzungen für document-service Integration
+   ========================= */
+
+/* ── PDF-Vorschau ── */
+.offer-pdf-preview {
+  margin: 16px 0;
+  border-radius: 14px;
+  border: 1px solid var(--color-divider);
+  overflow: hidden;
+}
+
+.offer-pdf-viewer {
+  display: flex;
+  flex-direction: column;
+}
+
+.offer-pdf-frame {
+  width: 100%;
+  height: 460px;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+@media (min-width: 1024px) {
+  .offer-pdf-frame {
+    height: 560px;
+  }
+}
+
+.offer-pdf-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.offer-pdf-info strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.offer-pdf-info span {
+  font-size: 12px;
+}
+
+.offer-pdf-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.offer-pdf-open-btn {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border-radius: 10px;
+  background: var(--color-accent-gradient);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.offer-pdf-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
+}
+
+.offer-pdf-missing {
+  padding: 16px;
+  text-align: center;
+}
+
+.offer-pdf-retry {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+/* ── Versand-Erfolg ── */
+.share-success {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(37, 211, 102, 0.1);
+  border: 1px solid rgba(37, 211, 102, 0.3);
+}
+
+.share-success-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.share-success p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+/* ── Loader (inline) ── */
+.loader {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.loader span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: bounce 0.6s infinite alternate;
+}
+
+.loader span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.loader span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes bounce {
+  to {
+    transform: translateY(-8px);
+    opacity: 0.6;
+  }
+}

@@ -119,6 +119,8 @@ services:
       CATALOG_SERVICE_URL: http://host.docker.internal:8083
       # Process Engine ist lokal nicht vorhanden – Angebotserstellung schlägt daher fehl.
       PE_URL: http://localhost:8085/engine-rest
+      # Speech-to-Text (Spracheingabe). Eigenen Schlüssel in local-setup/.env eintragen.
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-changeme}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

@@ -327,3 +327,87 @@
     animation: none;
   }
 }
+
+/* =========================================================
+   Aufnahme wie bei WhatsApp: Timer, Fortschritt (max. 20 Min.)
+   ========================================================= */
+
+.wm-recording-dashboard .wm-stop-recording {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wm-recording-dashboard .wm-mic-trigger:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.wm-rec-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(100%, 420px);
+  padding: 10px 16px;
+  border: 1px solid #d5d4d8;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.wm-rec-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d93838;
+  animation: wm-rec-blink 1s ease-in-out infinite;
+}
+
+@keyframes wm-rec-blink {
+  50% { opacity: .25; }
+}
+
+.wm-rec-time {
+  color: #291741;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.wm-rec-time small {
+  color: #77777a;
+  font-weight: 400;
+}
+
+.wm-rec-progress {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ececee;
+}
+
+.wm-rec-progress-fill {
+  height: 100%;
+  background: #8bd344;
+  transition: width .2s linear;
+}
+
+.wm-rec-warning {
+  margin: 0;
+  color: #b7791f;
+  font-size: 12px;
+  text-align: center;
+}
+
+.wm-recording-dashboard .wm-rec-summary {
+  margin: 0;
+  color: #77777a;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wm-rec-dot { animation: none; }
+}

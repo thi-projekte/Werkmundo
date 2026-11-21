@@ -38,7 +38,7 @@ public class DeepgramClient {
                     .header("Authorization", "Token " + apiKey)
                     .header("Content-Type", requestContentType)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(audioData))
-                    .timeout(Duration.ofSeconds(30))
+                    .timeout(Duration.ofSeconds(150)) // lange Aufnahmen (bis 20 Min.) brauchen mehr Zeit
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

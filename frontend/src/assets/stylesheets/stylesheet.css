@@ -1,0 +1,250 @@
+﻿/* =========================
+   🎨 Design Tokens
+   ========================= */
+:root {
+  --color-bg: #0f0f10;
+  --color-surface: rgba(26, 26, 28, 0.8);
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a1a1aa;
+  --color-divider: #2a2e44;
+  --color-accent: #ff6a00;
+  --color-accent-gradient: linear-gradient(135deg, #ff7a18, #ff4d00);
+  --blur: 22px;
+  --radius: 26px;
+  --shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+}
+
+/* =========================
+   ☀️ Light Mode
+   ========================= */
+[data-theme="light"] {
+  --color-bg: #f4f4f5;
+  --color-surface: rgba(255, 255, 255, 0.95);
+  --color-text-primary: #111111;
+  --color-text-secondary: #6b7280;
+  --color-divider: #e5e7eb;
+  --shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+/* =========================
+   Base
+   ========================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  overflow-x: hidden;
+  font-size: 15px;
+}
+
+/* ── Responsive Typografie ── */
+@media (min-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+h1 {
+  font-size: clamp(20px, 3vw, 32px);
+  margin: 0 0 6px 0;
+}
+
+h2 {
+  font-size: clamp(16px, 2vw, 22px);
+  margin-bottom: 12px;
+}
+
+p {
+  margin: 0;
+}
+
+/* =========================
+   .app
+   ========================= */
+.app {
+  /* Shell übernimmt Layout */
+}
+
+/* =========================
+   Cards
+   ========================= */
+.card {
+  background: var(--color-surface);
+  backdrop-filter: blur(var(--blur));
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--color-divider);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 768px) {
+  .card {
+    padding: 20px 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .card {
+    padding: 24px 28px;
+    border-radius: 20px;
+  }
+}
+
+/* =========================
+   Buttons
+   ========================= */
+.button-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-radius: 16px;
+  border: none;
+  background: var(--color-accent-gradient);
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(255, 106, 0, 0.4);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px rgba(255, 106, 0, 0.5);
+}
+
+@media (min-width: 768px) {
+  .button-primary {
+    font-size: 16px;
+    padding: 16px 28px;
+  }
+}
+
+.button-secondary {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-divider);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.button-secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* =========================
+   Status Tags
+   ========================= */
+.tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-notes {
+  background: rgba(255, 200, 0, 0.15);
+  color: #ffc800;
+}
+
+.tag-planned {
+  background: rgba(100, 200, 120, 0.15);
+  color: #64c878;
+}
+
+/* =========================
+   Text
+   ========================= */
+.text-secondary {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+/* =========================
+   Divider
+   ========================= */
+.divider {
+  height: 1px;
+  background: var(--color-divider);
+  margin: 12px 0;
+  border: none;
+}
+
+/* =========================
+   Inputs
+   ========================= */
+.input-field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--color-divider);
+  background: transparent;
+  color: var(--color-text-primary);
+  outline: none;
+  font-size: 15px;
+  font-family: inherit;
+  transition:
+    border 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.input-field:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(255, 106, 0, 0.2);
+}
+
+@media (min-width: 768px) {
+  .input-field {
+    font-size: 16px;
+  }
+}
+
+
+
+/* =========================
+   Auth-Seiten zentriert (Login, Register, etc.)
+   ========================= */
+.app.auth-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 24px;
+}
+
+@media (min-width: 768px) {
+  .login-card,
+  .reset-card,
+  .register-card {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
