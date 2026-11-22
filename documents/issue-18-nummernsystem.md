@@ -35,7 +35,7 @@ Status: lokal implementiert und getestet.
 - Getestet: Schutz vor physischer Löschung nummerierter Angebote.
 - Der erfolgreiche Parallelitätstest ersetzt keine umfassenden Last- und Wiederholungstests.
 
-## Rechnungsnummer: Generator implementiert (Integration offen)
+## Rechnungsnummer: Generator und API implementiert
 - Service: `backend/services/invoice-service`.
 - Format: `RE-YYYYMM-NNNN`, mit eigenem monatlichem Zaehler.
 - Flyway-Migration: `V4__add_invoice_number_counter.sql`.
@@ -44,7 +44,11 @@ Status: lokal implementiert und getestet.
 - Die bestehenden Rechnungsentwuerfe erhalten weiterhin keine Rechnungsnummer.
 - Getestet: Format, fortlaufende Nummern und zwei parallele Anforderungen.
 - Letzter vollstaendiger Testlauf im invoice-service: 52 Tests, 0 Fehler, 0 uebersprungen.
-- Noch offen: Anbindung an die endgueltige Rechnungsausstellung und den PDF-Prozess.
+- API: `POST /invoices/{invoiceId}/issue` vergibt eine Nummer fuer eine vorhandene Rechnung.
+- `InvoiceNumberIssuer` speichert die Nummer transaktional und gibt bei Wiederholung dieselbe Nummer zurueck.
+- Der Zugriff ist auf den jeweiligen Rechnungseigentuemer beschraenkt.
+- Letzter vollstaendiger Testlauf: 53 Tests, 0 Fehler, 0 uebersprungen.
+- Noch offen: Integration des Issue-Endpunkts in den PDF- und Versandablauf sowie ein HTTP-Endpunkttest.
 
 
 ## Offene Prüfungen
