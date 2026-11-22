@@ -35,18 +35,23 @@ Status: lokal implementiert und getestet.
 - Getestet: Schutz vor physischer Löschung nummerierter Angebote.
 - Der erfolgreiche Parallelitätstest ersetzt keine umfassenden Last- und Wiederholungstests.
 
-## Rechnungsnummer: noch offen
-- Für Rechnungen ist ein unabhängiger Nummernkreis `RE-YYYYMM-NNNN` vorgesehen.
-- Die Implementierung soll mit dem neuen `invoice-service` abgestimmt werden.
-- Der bisherige `document-service` wird dafür nicht vorsorglich verändert.
-- Benötigt werden Generator, Persistenz, Migration, API-Anbindung und Integrationstests.
-- Die Vergabe muss zur fachlichen Erstellung und zum PDF-/Versandprozess passen.
+## Rechnungsnummer: Generator implementiert (Integration offen)
+- Service: `backend/services/invoice-service`.
+- Format: `RE-YYYYMM-NNNN`, mit eigenem monatlichem Zaehler.
+- Flyway-Migration: `V4__add_invoice_number_counter.sql`.
+- `InvoiceNumberGenerator` verwendet PostgreSQL und `Europe/Berlin`.
+- Die Vergabe kann innerhalb derselben Datenbanktransaktion wie die Rechnungsausstellung erfolgen.
+- Die bestehenden Rechnungsentwuerfe erhalten weiterhin keine Rechnungsnummer.
+- Getestet: Format, fortlaufende Nummern und zwei parallele Anforderungen.
+- Letzter vollstaendiger Testlauf im invoice-service: 52 Tests, 0 Fehler, 0 uebersprungen.
+- Noch offen: Anbindung an die endgueltige Rechnungsausstellung und den PDF-Prozess.
+
 
 ## Offene Prüfungen
 - Monatswechsel und Verhalten bei mehr als 9999 Nummern in einem Monat prüfen.
 - Verhalten bei Wiederholungsanfragen und zusätzlichen Parallelitätsfällen prüfen.
 - Integrationsablauf zur PDF-Erstellung und Anzeige im Frontend abstimmen.
-- Umsetzung und Tests der Rechnungsnummer nach Verfügbarkeit des neuen Service ergänzen.
+- Integration der Rechnungsnummer in den finalen Ausstellungsprozess und zugehoerige Tests ergaenzen.
 
 ## Git und Zusammenarbeit
 - Entwicklung in Worktree `Werkmundo-nummernsystem`.
