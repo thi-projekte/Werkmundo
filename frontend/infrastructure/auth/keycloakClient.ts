@@ -16,6 +16,20 @@ export function isKeycloakConfigured(): boolean {
   );
 }
 
+const logoutRedirectUri = () => `${window.location.origin}/abmelden`;
+
+export async function logoutFromKeycloak(): Promise<void> {
+  if (!isKeycloakConfigured()) {
+    window.location.assign(logoutRedirectUri());
+    return;
+  }
+
+  await initKeycloak();
+  await keycloak.logout({
+    redirectUri: logoutRedirectUri(),
+  });
+}
+
 export function initKeycloak(): Promise<boolean> {
   if (!isKeycloakConfigured()) {
     return Promise.resolve(false);

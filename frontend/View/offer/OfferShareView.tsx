@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { logoutFromKeycloak } from "../../infrastructure/auth/keycloakClient";
 import { AuthLayout } from "../shared/WerkmundoShell";
 
 export function OfferShareView() {
@@ -12,7 +13,17 @@ export function OfferShareView() {
       <div className="wm-auth-actions">
         <div className="wm-button-row">
           <Link className="wm-button wm-button-primary" to="/dashboard">Zurück zur Startseite</Link>
-          <Link className="wm-button wm-button-secondary" to="/abmelden">Abmelden</Link>
+          <button
+            className="wm-button wm-button-secondary"
+            type="button"
+            onClick={() => {
+              void logoutFromKeycloak().catch((error: unknown) => {
+                console.error("Keycloak-Abmeldung konnte nicht gestartet werden:", error);
+              });
+            }}
+          >
+            Abmelden
+          </button>
         </div>
       </div>
     </AuthLayout>

@@ -196,6 +196,13 @@
   text-decoration: none;
 }
 
+.wm-logout-link {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .wm-create-link {
   position: relative;
   justify-content: center;
