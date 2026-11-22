@@ -28,6 +28,7 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.nio.file.Path;
 
 @Path("/api/users")
 @Produces(MediaType.APPLICATION_JSON)
@@ -146,6 +147,17 @@ public class UserResource {
         String url = profileService.uploadProfilePicture(getUserId(), file);
 
         return Response.ok(Map.of("url", url)).build();
+    }
+
+    @GET
+    @Path("/profile-picture/{fileName}")
+    @Authenticated
+    @Produces({"image/jpeg", "image/png", "image/webp"})
+    public Response getProfilePicture(@PathParam("fileName") String fileName) {
+        Path image = profileService.getProfilePicture(getUserId(), fileName);
+        String contentType = fileName.endsWith(".png") ? "image/png"
+                : fileName.endsWith(".webp") ? "image/webp" : "image/jpeg";
+        return Response.ok(image.toFile(), contentType).build();
     }
 
     @PUT

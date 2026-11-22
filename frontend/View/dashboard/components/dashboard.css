@@ -527,6 +527,11 @@
   padding: clamp(20px, 2.5vw, 36px);
 }
 
+.wm-app-shell > .wm-navbar {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .wm-page-action {
   display: inline-flex;
   align-items: center;
@@ -1078,6 +1083,13 @@
   border-radius: 50%;
   color: #291741;
   background: #fff;
+  overflow: hidden;
+}
+
+.wm-profile-company-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .wm-inline-action {
