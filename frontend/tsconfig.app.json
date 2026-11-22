@@ -16,5 +16,11 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["main.tsx", "App.tsx", "vite-env.d.ts"]
+  "include": [
+  "main.tsx",
+  "App.tsx",
+  "vite-env.d.ts",
+  "infrastructure/**/*.ts",
+  "ViewModel/voice/legacy/useVoiceInput.ts"
+]
 }

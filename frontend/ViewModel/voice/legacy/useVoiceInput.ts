@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { startMicrophone } from "../../../infrastructure/audio/microphoneService";
+import { authorizedFetch } from "../../../infrastructure/http/apiClient";
 
 const OFFER_SERVICE_URL =
   import.meta.env.VITE_OFFER_SERVICE_URL || "http://localhost:8082";
@@ -186,7 +187,7 @@ export const useVoiceInput = () => {
     const formData = new FormData();
     formData.append("audio", mergedBlob, "aufnahme.webm");
 
-    const response = await fetch(
+    const response = await authorizedFetch(
       `${OFFER_SERVICE_URL}/speech-capture/transcribe`,
       {
         method: "POST",

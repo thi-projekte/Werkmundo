@@ -1,0 +1,76 @@
+name: Deploy-Images
+
+# Baut die Images für den Portainer-Stack deploy/docker-compose.yml
+# und legt sie unter ghcr.io/thi-projekte/werkmundo-<name> ab.
+#   :main          aktueller Stand von main
+#   :sha-<commit>  fester Stand zum Pinnen (IMAGE_TAG in Portainer)
+# API-Aufrufe werden über das Gateway weitergeleitet:
+# /svc/... -> werkmundo-gateway:8080 -> zuständiger Service
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: frontend
+            context: .
+            dockerfile: deploy/Dockerfile.frontend
+          - name: user-service
+            context: backend/services/user-service
+            dockerfile: backend/services/user-service/Dockerfile.build
+          - name: offer-service
+            context: .
+            dockerfile: local-setup/Dockerfile.offer-service
+          - name: keycloak
+            context: deploy/keycloak
+            dockerfile: deploy/keycloak/Dockerfile
+          - name: invoice-service
+            context: backend/services/invoice-service
+            dockerfile: backend/services/invoice-service/Dockerfile.build
+          - name: api-gateway
+            context: gateway
+            dockerfile: gateway/Dockerfile
+          - name: catalog-service
+            context: backend/services/catalog-service
+            dockerfile: backend/services/catalog-service/Dockerfile.build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/thi-projekte/werkmundo-${{ matrix.name }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

@@ -1,47 +1,97 @@
-# Gemeinsamer lokaler Start
+# Lokales Gesamt-Setup
 
-Docker Desktop starten, danach im Repository-Root:
+## Voraussetzungen und Start
+
+Docker Desktop mit Linux-Containern und Docker Compose ab Version 2.24.4.
+
+Im Repository-Hauptordner:
 
 ```powershell
 .\Start-Local.cmd
 ```
 
-Erster Start: Images werden gebaut, lokale Passwörter automatisch erzeugt.
-Die Datei `.env.local` ist privat und wird ignoriert. Alte generierte Dateien unter `.runtime/` werden nicht mehr verwendet und bleiben ebenfalls ignoriert.
-Die Kennwörter für weitere Starts beibehalten. Keine Serverzugangsdaten verwenden.
+Das Skript baut die Images und startet Frontend, API-Gateway, User-, Offer-,
+Invoice- und Catalog-Service sowie den optionalen AI-Service.
 
-Nur Konfiguration prüfen: `.\Start-Local.cmd -ValidateOnly`.
-Ohne optionalen AI-Service: `.\Start-Local.cmd -WithoutAi`.
+Beim ersten Start wird `local-setup/.env.local` mit lokalen Passwörtern erzeugt.
+Diese Datei wird nicht versioniert. Bestehende Passwörter für weitere Starts
+beibehalten. Bei älteren Konfigurationen muss `CATALOG_DB_PASSWORD` ergänzt sein.
 
-Die zusätzliche Compose-Datei erweitert Patricks ursprüngliche Datei.
-Seine Compose-Datei, sein Realm-Import und sein Offer-Dockerfile bleiben unverändert.
-Für Offer wird ein eigener Java-25-Dockerfile verwendet.
+Weitere Startoptionen:
 
-Frontend: http://localhost:5173; Keycloak: http://localhost:8090.
-User: Port 8081; Offer: Port 8082; Document: Port 8084; AI: Port 8086.
-Die Datenbanken für User, Offer und Document sind getrennte Container und Volumes.
-Sie haben keine veröffentlichten Host-Ports. Die Testdatenbanken auf 55432 und
-55433 bleiben davon unabhängig und ihre Daten werden nicht übernommen.
+```powershell
+.\Start-Local.cmd -ValidateOnly
+.\Start-Local.cmd -WithoutAi
+```
 
-Keycloak verwendet Patricks unveraenderten Realm-Import und ein eigenes lokales Volume. Das Startskript erstellt keine zusaetzlichen Benutzer, Clients oder Rollen und aendert den Realm nicht.
-Lokale Konten und Dienste haben keine bestätigte vollständige Browserintegration.
-Containerstart allein ist kein Nachweis eines funktionierenden Geschäftsablaufs.
+## Zugriff
 
-AI startet standardmäßig ohne Provider-Key mit seinem dokumentierten Ersatzbetrieb
-und Mock-Katalog. Process Engine und Katalogimplementierung werden nicht mitgeliefert.
-PDF-Erzeugung und Versand fehlen weiterhin. Die bestehende Angebotserstellung,
-die eine Process Engine erwartet, ist damit noch kein vollständiger lokaler Ablauf.
+Frontend: http://localhost:5173
 
-Zum Stoppen ohne Datenverlust im Repository-Root:
+Backend-Aufrufe des Docker-Frontends laufen über Nginx und das API-Gateway:
+
+| Präfix | Ziel |
+|---|---|
+| `/svc/user/` | User-Service |
+| `/svc/offer/` | Offer-Service |
+| `/svc/invoice/` | Invoice-Service |
+| `/svc/catalog/` | Catalog-Service |
+
+Das Gateway prüft Login-Tokens und leitet sie weiter.
+Die Services behalten ihre fachlichen Berechtigungsprüfungen.
+
+Registrierung, Passwort-Zurücksetzung und definierte Kundenlink-Endpunkte
+sind ohne Benutzerlogin erreichbar. Angebotstokens werden im Offer-Service geprüft.
+
+Der lokale Browserlogin verwendet den gemeinsamen Realm:
+https://terramax-keycloak.winfprojekt.de/realms/werkmundo
+
+Der zusätzlich gestartete lokale Keycloak auf Port 8090 wird für die
+bestehende Admin-Anbindung des User-Service verwendet.
+
+## Lokale Diagnoseports
+
+Gateway: 8087; User: 8081; Offer: 8082; Catalog: 8083;
+Invoice: 8084; optionaler AI-Service: 8086.
+
+Die Backend-Ports sind weiterhin direkt über localhost erreichbar.
+User, Offer, Invoice und Catalog verwenden eigene Datenbankcontainer und Volumes.
+Die separaten Testdatenbanken auf 55432 und 55433 bleiben davon unabhängig.
+
+## Gateway-Tests
+
+Mit lokal installiertem JDK 25:
+
+```powershell
+.\backend\services\offer-service\mvnw.cmd -B -f .\gateway\pom.xml clean test
+```
+
+Die Tests verwenden eigene HTTP-Testserver und simulierte Benutzeridentitäten.
+Docker und ein erreichbarer Keycloak sind dafür nicht erforderlich.
+Die kryptografische JWT-Prüfung wird durch diese Tests nicht abgedeckt.
+
+## Grenzen des aktuellen Setups
+
+Die Process Engine wird nicht mitgestartet. Vollständige Prozessabläufe benötigen
+eine erreichbare Engine mit passenden Prozessen und Delegates.
+
+Der AI-Service verwendet ohne Provider-Key seinen Ersatzbetrieb.
+Katalogdaten werden nicht automatisch importiert.
+
+Die Profilseite speichert ihre Einstellungen derzeit im Browser-sessionStorage.
+Gültige Kundenlinks, Uploads, PDF-Downloads und die vollständige Rechnungserstellung
+sind noch gesondert über das Gateway zu prüfen.
+
+Die Produktionskonfiguration wurde durch die lokale Gateway-Anbindung
+noch nicht umgestellt.
+
+## Stoppen
+
+Ohne Löschen der gespeicherten Daten:
 
 ```powershell
 docker compose --env-file local-setup/.env.local -f local-setup/docker-compose.local.yml -f local-setup/docker-compose.integrated.yml --profile ai stop
 ```
 
-Die Startdateien löschen keine Volumes. Kein `down -v` verwenden, wenn Daten
-behalten werden sollen. Änderungen am Realm-Import aktualisieren einen bereits
-importierten Realm nicht automatisch.
-
-## Bereinigung der lokalen Authentifizierungskonfiguration
-
-Die zusaetzlichen Testkonten und Client-Aenderungen sind aus dem Startskript entfernt. Das neue Volume local_keycloak_original_data wird mit dem unveraenderten urspruenglichen Realm initialisiert. Das zuvor verwendete lokale Testvolume wird nicht geloescht, aber nicht mehr eingebunden. Vollstaendige Keycloak-/OIDC-Integration und Token-Tests bleiben Aufgabe des zustaendigen Teams.
+`down -v` löscht die zugehörigen Volumes und darf nicht verwendet werden,
+wenn die Daten erhalten bleiben sollen.

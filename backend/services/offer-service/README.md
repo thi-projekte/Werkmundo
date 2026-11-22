@@ -38,11 +38,11 @@ Entwurf. Anfahrtspositionen werden als `TRAVEL` abgebildet.
 ## Persistenz und Migration
 
 `OfferJpaRepository` verwendet die bestehenden Entity-Klassen unter
-`de.winfprojekt.craftvoice.offerservice`. Die vorherigen separaten
+`de.werkmundo.offer`. Die vorherigen separaten
 Squad-Entity-Klassen sind entfernt. Maßgebliche Tabellen sind `offer`,
 `offer_position`, `offer_status_history` und ihre ergänzenden Tabellen.
 Rechnungen liegen weiterhin in derselben fachlichen Offer-Datenbank.
-Dokumente besitzen eine eigene Datenbank im Document-Service.
+Dokumente besitzen eine eigene Datenbank im Invoice-Service.
 
 V1 bleibt unverändert. V2 ersetzt ausschließlich leere Squad-Ausgangstabellen
 durch das gemeinsame Schema. Enthält eine dieser Tabellen Datensätze, bricht
@@ -81,7 +81,7 @@ eines Ablaufs mit Browser, echten Keycloak-Tokens und Process Engine.
 - Absicherung paralleler Angebotsänderungen gegen verlorene Aktualisierungen.
 - Angebotsnummern und fachliche Dokumentversionen.
 - Auftragsbestätigung und vollständiger bearbeitbarer Rechnungsablauf.
-- Produktive PDF-Erzeugung und Versand im Document-Service.
+- Produktive PDF-Erzeugung und Versand im Invoice-Service.
 
 Der In-Memory-Adapter ist nur eine Entwicklungs-/Testalternative und kein
 Nachweis für gemeinsame persistente Speicherung mit den bisherigen Funktionen.

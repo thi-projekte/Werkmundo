@@ -27,7 +27,7 @@ export type DocumentMetadata = {
 const offerServiceUrl =
   import.meta.env.VITE_OFFER_SERVICE_URL || "http://localhost:8082";
 const documentServiceUrl =
-  import.meta.env.VITE_DOCUMENT_SERVICE_URL || "http://localhost:8084";
+  import.meta.env.VITE_INVOICE_SERVICE_URL || import.meta.env.VITE_DOCUMENT_SERVICE_URL || "http://localhost:8084";
 
 export function listDocuments(): Promise<DocumentMetadata[]> {
   return authorizedJson<DocumentMetadata[]>(`${documentServiceUrl}/documents`);

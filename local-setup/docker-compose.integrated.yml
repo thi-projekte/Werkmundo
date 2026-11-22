@@ -100,21 +100,23 @@ services:
       keycloak:
         condition: service_started
 
-  document-service:
+  invoice-service:
     profiles: !override []
-    container_name: wm-local-document-service
+    container_name: wm-local-invoice-service
     build:
-      context: ../backend/services/document-service
+      context: ../backend/services/invoice-service
       dockerfile: Dockerfile.build
-    image: werkmundo/document-service:integrated-local
+    image: werkmundo/invoice-service:integrated-local
     environment: !override
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://document-db:5432/document_db
       QUARKUS_DATASOURCE_USERNAME: document_service
       QUARKUS_DATASOURCE_PASSWORD: ${DOCUMENT_DB_PASSWORD}
+      OFFER_SERVICE_URL: http://offer-service:8080
+      USER_SERVICE_URL: http://user-service:8080
       KEYCLOAK_AUTH_SERVER_URL: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
       QUARKUS_HTTP_CORS_ENABLED: 'true'
       QUARKUS_HTTP_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-      QUARKUS_HTTP_CORS_HEADERS: Authorization,Content-Type,Accept
+      QUARKUS_HTTP_CORS_HEADERS: Authorization,Content-Type,Accept,Idempotency-Key
     extra_hosts:
       - host.docker.internal:host-gateway
     volumes: !override []
@@ -144,12 +146,84 @@ services:
     image: werkmundo/frontend:integrated-local
     ports: !override ['127.0.0.1:5173:80']
     depends_on: !override
-      - user-service
-      - offer-service
-      - document-service
+      api-gateway:
+        condition: service_healthy
+
+  catalog-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: catalog_db
+      POSTGRES_USER: catalog_service
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD:?Catalog database password required}
+    volumes:
+      - local_catalog_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U catalog_service -d catalog_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  catalog-service:
+    profiles: !override []
+    build:
+      context: ../backend/services/catalog-service
+      dockerfile: Dockerfile.build
+    image: werkmundo/catalog-service:integrated-local
+    container_name: wm-local-catalog-service
+    restart: unless-stopped
+    environment: !override
+      HTTP_PORT: '8080'
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://catalog-db:5432/catalog_db
+      QUARKUS_DATASOURCE_USERNAME: catalog_service
+      QUARKUS_DATASOURCE_PASSWORD: ${CATALOG_DB_PASSWORD}
+      KEYCLOAK_AUTH_SERVER_URL: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
+    ports: !override ['127.0.0.1:8083:8080']
+    depends_on: !override
+      catalog-db:
+        condition: service_healthy
+
+
+  api-gateway:
+    build:
+      context: ../gateway
+      dockerfile: Dockerfile
+    image: werkmundo/api-gateway:integrated-local
+    container_name: wm-local-api-gateway
+    restart: unless-stopped
+    environment:
+      PORT: '8080'
+      GATEWAY_OIDC_AUTH_SERVER_URL: https://terramax-keycloak.winfprojekt.de/realms/werkmundo
+      GATEWAY_USER_HOST: user-service
+      GATEWAY_USER_PORT: '8080'
+      GATEWAY_OFFER_HOST: offer-service
+      GATEWAY_OFFER_PORT: '8080'
+      GATEWAY_INVOICE_HOST: invoice-service
+      GATEWAY_INVOICE_PORT: '8080'
+      GATEWAY_CATALOG_HOST: catalog-service
+      GATEWAY_CATALOG_PORT: '8080'
+    ports:
+      - '127.0.0.1:8087:8080'
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/q/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    depends_on:
+      user-service:
+        condition: service_started
+      offer-service:
+        condition: service_started
+      invoice-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+
 
 volumes:
   local_user_db:
   local_offer_db:
   local_document_db:
   local_keycloak_original_data:
+  local_catalog_db:

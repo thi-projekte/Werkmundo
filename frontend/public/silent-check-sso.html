@@ -1,0 +1,9 @@
+<!doctype html>
+<html>
+  <body>
+    <!-- Keycloak check-sso läuft in einem unsichtbaren iframe und meldet das Ergebnis an die App -->
+    <script>
+      parent.postMessage(location.href, location.origin);
+    </script>
+  </body>
+</html>

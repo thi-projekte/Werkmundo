@@ -1,0 +1,297 @@
+# Portainer-Stack "werkmundo" für den Server winfprojekt.de.
+# In Portainer: Stacks -> Add stack -> Repository
+#   Repository URL:  https://github.com/thi-projekte/Werkmundo
+#   Reference:       refs/heads/main
+#   Compose path:    deploy/docker-compose.yml
+#
+# Images baut .github/workflows/deploy-images.yml nach ghcr.io.
+# Nginx Proxy Manager: <domain> -> http://werkmundo-frontend:80
+#                      werkmundo-keycloak.winfprojekt.de -> http://werkmundo-keycloak:8080
+# Nur Frontend und Keycloak hängen am Netzwerk nginx-proxy-manager; Services und Datenbanken
+# sind von außen nicht erreichbar. API-Aufrufe laufen über /svc/... im Frontend.
+#
+# Variablen in Portainer (Geheimnisse nie in diese Datei schreiben):
+#   CATALOG_DB_PASSWORD       Pflicht, Passwort der neuen Catalog-Datenbank
+#   USER_DB_PASSWORD          Pflicht
+#   OFFER_DB_PASSWORD         Pflicht
+#   INVOICE_DB_PASSWORD       Pflicht
+#   KEYCLOAK_ADMIN_USER       Pflicht, Admin des eigenen Keycloak (wird beim ersten Start angelegt;
+#                             der User-Service vergibt damit die Rolle OWNER)
+#   KEYCLOAK_ADMIN_PASSWORD   Pflicht
+#   KEYCLOAK_DB_PASSWORD      Pflicht
+#   IMAGE_TAG                 optional, Standard main, z. B. sha-abc1234
+#   PE_URL                    optional, Process Engine (Camunda REST), sonst schlägt "Angebot erstellen" fehl
+#   CATALOG_SERVICE_URL       optional, Katalog-Service
+
+# Öffentliche Adresse, weil sie als Aussteller (iss) in den Tokens steht
+x-keycloak: &keycloak-issuer https://werkmundo-keycloak.winfprojekt.de/realms/werkmundo
+
+services:
+  # --- Frontend (React + Nginx, leitet /svc/* an die Services weiter) ---
+  werkmundo-frontend:
+    image: ghcr.io/thi-projekte/werkmundo-frontend:${IMAGE_TAG:-main}
+    pull_policy: always     # bei jedem Deploy das aktuelle :main holen
+    container_name: werkmundo-frontend
+    restart: unless-stopped
+    depends_on:
+      werkmundo-gateway:
+        condition: service_healthy
+    networks:
+      - nginx-proxy-manager   # erreichbar für den Nginx Proxy Manager
+      - intern                # erreicht die Services
+
+  werkmundo-gateway:
+    image: ghcr.io/thi-projekte/werkmundo-api-gateway:${IMAGE_TAG:-main}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      PORT: '8080'
+      GATEWAY_OIDC_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+      GATEWAY_USER_HOST: werkmundo-user
+      GATEWAY_USER_PORT: '8080'
+      GATEWAY_OFFER_HOST: werkmundo-offer
+      GATEWAY_OFFER_PORT: '8080'
+      GATEWAY_INVOICE_HOST: werkmundo-invoice
+      GATEWAY_INVOICE_PORT: '8080'
+      GATEWAY_CATALOG_HOST: werkmundo-catalog
+      GATEWAY_CATALOG_PORT: '8080'
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/q/health/ready']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 180s
+    depends_on:
+      werkmundo-keycloak:
+        condition: service_started
+      werkmundo-user:
+        condition: service_started
+      werkmundo-offer:
+        condition: service_started
+      werkmundo-invoice:
+        condition: service_started
+      werkmundo-catalog:
+        condition: service_started
+    networks:
+      - intern
+
+  werkmundo-catalog:
+    image: ghcr.io/thi-projekte/werkmundo-catalog-service:${IMAGE_TAG:-main}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      HTTP_PORT: '8080'
+      QUARKUS_HTTP_HOST: 0.0.0.0
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://werkmundo-catalog-db:5432/catalog_db
+      QUARKUS_DATASOURCE_USERNAME: catalog_service
+      QUARKUS_DATASOURCE_PASSWORD: ${CATALOG_DB_PASSWORD:?CATALOG_DB_PASSWORD in Portainer setzen}
+      KEYCLOAK_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+    depends_on:
+      werkmundo-catalog-db:
+        condition: service_healthy
+      werkmundo-keycloak:
+        condition: service_started
+    networks:
+      - intern
+
+  werkmundo-catalog-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: catalog_db
+      POSTGRES_USER: catalog_service
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD}
+    volumes:
+      - catalog_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U catalog_service -d catalog_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
+  # --- Keycloak (eigener Login für Werkmundo, Realm "werkmundo") ---
+  werkmundo-keycloak:
+    # Image mit eingebautem Realm aus deploy/keycloak
+    image: ghcr.io/thi-projekte/werkmundo-keycloak:${IMAGE_TAG:-main}
+    pull_policy: always     # bei jedem Deploy das aktuelle :main holen
+    container_name: werkmundo-keycloak
+    restart: unless-stopped
+    environment:
+      KC_DB_URL: jdbc:postgresql://werkmundo-keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD in Portainer setzen}
+      # Öffentliche Adresse (muss zum Proxy Host im Nginx Proxy Manager passen)
+      KC_HOSTNAME: https://werkmundo-keycloak.winfprojekt.de
+      # TLS endet am Nginx Proxy Manager, intern läuft Keycloak per HTTP
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      # Admin-Account, wird nur beim allerersten Start angelegt
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?KEYCLOAK_ADMIN_USER in Portainer setzen}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD in Portainer setzen}
+    depends_on:
+      werkmundo-keycloak-db:
+        condition: service_healthy
+    networks:
+      - nginx-proxy-manager   # erreichbar für den Nginx Proxy Manager
+      - intern                # erreicht die DB, User-Service nutzt die Admin-API
+
+  werkmundo-keycloak-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U keycloak -d keycloak']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
+  # --- User-Service ---
+  werkmundo-user:
+    image: ghcr.io/thi-projekte/werkmundo-user-service:${IMAGE_TAG:-main}
+    pull_policy: always     # bei jedem Deploy das aktuelle :main holen
+    restart: unless-stopped
+    environment:
+      DB_HOST: werkmundo-user-db
+      DB_NAME: user_db
+      DB_USER: user_service
+      DB_PASSWORD: ${USER_DB_PASSWORD:?USER_DB_PASSWORD in Portainer setzen}
+      # Admin-API intern, Token-Prüfung über die öffentliche Adresse (QUARKUS_OIDC_AUTH_SERVER_URL)
+      KEYCLOAK_URL: http://werkmundo-keycloak:8080
+      KEYCLOAK_USER_REALM: werkmundo
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:?KEYCLOAK_ADMIN_USER in Portainer setzen}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD in Portainer setzen}
+      QUARKUS_OIDC_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+      DOCUMENT_STORAGE_PATH: /data/profile-pictures
+    volumes:
+      - user_files:/data
+    depends_on:
+      werkmundo-user-db:
+        condition: service_healthy
+      werkmundo-keycloak:
+        condition: service_started
+    networks:
+      - intern
+
+  werkmundo-user-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: user_service
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
+    volumes:
+      - user_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U user_service -d user_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
+  # --- Offer-Service ---
+  werkmundo-offer:
+    image: ghcr.io/thi-projekte/werkmundo-offer-service:${IMAGE_TAG:-main}
+    pull_policy: always     # bei jedem Deploy das aktuelle :main holen
+    restart: unless-stopped
+    environment:
+      OFFER_DB_JDBC_URL: jdbc:postgresql://werkmundo-offer-db:5432/offer_db
+      OFFER_DB_USER: offer_service
+      OFFER_DB_PASSWORD: ${OFFER_DB_PASSWORD:?OFFER_DB_PASSWORD in Portainer setzen}
+      OFFER_PERSISTENCE: postgres
+      KEYCLOAK_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+      USER_SERVICE_URL: http://werkmundo-user:8080
+      PE_URL: ${PE_URL:-http://werkmundo-process-engine:8080/engine-rest}
+      CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://werkmundo-catalog:8080}
+    depends_on:
+      werkmundo-offer-db:
+        condition: service_healthy
+    networks:
+      - intern
+
+  werkmundo-offer-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: offer_db
+      POSTGRES_USER: offer_service
+      POSTGRES_PASSWORD: ${OFFER_DB_PASSWORD}
+    volumes:
+      - offer_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U offer_service -d offer_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
+  # --- Invoice-Service (früher document-service; Rechnungen und PDFs) ---
+  werkmundo-invoice:
+    image: ghcr.io/thi-projekte/werkmundo-invoice-service:${IMAGE_TAG:-main}
+    pull_policy: always     # bei jedem Deploy das aktuelle :main holen
+    restart: unless-stopped
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://werkmundo-invoice-db:5432/invoice_db
+      QUARKUS_DATASOURCE_USERNAME: invoice_service
+      QUARKUS_DATASOURCE_PASSWORD: ${INVOICE_DB_PASSWORD:?INVOICE_DB_PASSWORD in Portainer setzen}
+      KEYCLOAK_AUTH_SERVER_URL: *keycloak-issuer
+      QUARKUS_OIDC_CONNECTION_DELAY: 3M
+      OFFER_SERVICE_URL: http://werkmundo-offer:8080
+      USER_SERVICE_URL: http://werkmundo-user:8080
+    depends_on:
+      werkmundo-invoice-db:
+        condition: service_healthy
+    networks:
+      - intern
+
+  werkmundo-invoice-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: invoice_db
+      POSTGRES_USER: invoice_service
+      POSTGRES_PASSWORD: ${INVOICE_DB_PASSWORD}
+    volumes:
+      - invoice_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U invoice_service -d invoice_db']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - intern
+
+networks:
+  nginx-proxy-manager:
+    external: true            # existiert bereits auf dem Host
+  intern:
+    name: werkmundo-intern
+    driver: bridge            # vom Stack verwaltet, nicht von außen erreichbar
+
+volumes:
+  user_db:
+    name: werkmundo-user-db
+  offer_db:
+    name: werkmundo-offer-db
+  invoice_db:
+    name: werkmundo-invoice-db
+  user_files:
+    name: werkmundo-user-files
+  keycloak_db:
+    name: werkmundo-keycloak-db
+  catalog_db:
+    name: werkmundo-catalog-db
