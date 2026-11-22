@@ -34,6 +34,19 @@ try {
         }
         [IO.File]::WriteAllLines($environmentFile, [string[]]$lines, (New-Object Text.UTF8Encoding($false)))
         Write-Host 'Created local-setup/.env.local with local passwords. Keep this file for subsequent starts.'
+    } else {
+        # Older files may lack passwords added to the template later; append them, keep existing values.
+        $existingKeys = @(Get-Content -LiteralPath $environmentFile |
+            Where-Object { $_ -match '^([A-Z_]+)=' } | ForEach-Object { ($_ -split '=', 2)[0] })
+        $missing = foreach ($line in (Get-Content -LiteralPath (Join-Path $setup '.env.local.example'))) {
+            if ($line -match '^([A-Z_]+)=GENERATE$' -and $existingKeys -notcontains $Matches[1]) {
+                "$($Matches[1])=$([guid]::NewGuid().ToString('N'))"
+            }
+        }
+        if ($missing) {
+            [IO.File]::AppendAllLines($environmentFile, [string[]]$missing, (New-Object Text.UTF8Encoding($false)))
+            Write-Host "Added missing local settings to local-setup/.env.local: $((@($missing) | ForEach-Object { ($_ -split '=', 2)[0] }) -join ', ')"
+        }
     }
     $values = @{}
     foreach ($line in (Get-Content -LiteralPath $environmentFile)) {
@@ -68,7 +81,7 @@ try {
     if ($ValidateOnly) { Write-Host 'Combined Compose configuration is valid.'; return }
 
     Invoke-Docker -Arguments @('info','--format','{{.ServerVersion}}') | Out-Host
-    Invoke-Docker -Arguments @($compose + @('up','-d','--build')) | Out-Host
+    Invoke-Docker -Arguments @($compose + @('up','-d','--build','--remove-orphans')) | Out-Host
     Invoke-Docker -Arguments @($compose + @('ps')) | Out-Host
     # Authentication integration remains with the responsible team.
     Write-Host 'Frontend: http://localhost:5173 (services may still be initializing).'
