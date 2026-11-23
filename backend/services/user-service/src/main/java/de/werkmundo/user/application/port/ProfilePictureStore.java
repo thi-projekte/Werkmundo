@@ -5,4 +5,6 @@ import java.nio.file.Path;
 public interface ProfilePictureStore {
 
     String store(Long userId, Path uploadedFile);
+
+    Path load(Long userId, String fileName);
 }

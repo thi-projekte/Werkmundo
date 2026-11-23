@@ -947,3 +947,82 @@ body:has(.werkmundo) {
     padding-inline: 8px;
   }
 }
+
+/* Ergänzungen für die Kundenfilter; das bisherige Dashboard-CSS bleibt bestehen. */
+.wm-customer-filter-trigger {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #d7d7dd;
+  border-radius: 9px;
+  padding: 12px 18px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.wm-customer-filter-trigger[aria-expanded="true"] {
+  border-color: #8ed34f;
+  box-shadow: 0 0 0 2px rgb(142 211 79 / 15%);
+}
+.wm-customer-filter-trigger:focus-visible,
+.wm-customer-filter-reset:focus-visible,
+.wm-customer-filter-panel select:focus-visible {
+  outline: 2px solid #6aa82b;
+  outline-offset: 2px;
+}
+.wm-customer-filter-panel {
+  margin: 15px 0 18px;
+  padding: 18px;
+  background: #fafafc;
+  border: 1px solid #d7d7dd;
+  border-radius: 12px;
+}
+.wm-customer-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.wm-customer-filter-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  color: #2b1a43;
+  font-size: 14px;
+  font-weight: 600;
+}
+.wm-customer-filter-grid select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid #d7d7dd;
+  border-radius: 8px;
+  background: white;
+  color: #2b1a43;
+  font: inherit;
+  font-weight: 400;
+}
+.wm-customer-filter-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  color: #6f6c75;
+  font-size: 14px;
+}
+.wm-customer-filter-reset {
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid #d7d7dd;
+  border-radius: 8px;
+  color: #2b1a43;
+  font: inherit;
+  cursor: pointer;
+}
+.wm-customer-filter-reset:disabled { cursor: default; opacity: 0.5; }
+@media (max-width: 740px) {
+  .wm-customer-filter-grid { grid-template-columns: 1fr; }
+}

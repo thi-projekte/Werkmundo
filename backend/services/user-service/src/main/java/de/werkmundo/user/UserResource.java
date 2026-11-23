@@ -148,6 +148,17 @@ public class UserResource {
         return Response.ok(Map.of("url", url)).build();
     }
 
+    @GET
+    @Path("/profile-picture/{fileName}")
+    @Authenticated
+    @Produces({"image/jpeg", "image/png", "image/webp"})
+    public Response getProfilePicture(@PathParam("fileName") String fileName) {
+        java.nio.file.Path image = profileService.getProfilePicture(getUserId(), fileName);
+        String contentType = fileName.endsWith(".png") ? "image/png"
+                : fileName.endsWith(".webp") ? "image/webp" : "image/jpeg";
+        return Response.ok(image.toFile(), contentType).build();
+    }
+
     @PUT
     @Path("/profile")
     @Authenticated

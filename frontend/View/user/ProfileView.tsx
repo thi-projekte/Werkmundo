@@ -1,7 +1,8 @@
 import "../dashboard/components/dashboard.css";
-import { useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { useSearchParams } from "react-router-dom";
-import { BriefcaseBusiness, Check, Plus, ReceiptText, Trash2, UsersRound } from "lucide-react";
+import { BriefcaseBusiness, Check, ImagePlus, Plus, ReceiptText, Trash2, UsersRound } from "lucide-react";
+import { getCurrentUser, getProfilePicturePreview, uploadProfilePicture } from "../../infrastructure/api/userApi";
 import {
   COMPANY_SETUP_STORAGE_KEY,
   INVOICE_SETUP_STORAGE_KEY,
@@ -65,8 +66,24 @@ export function ProfileView() {
   const [editingCompany, setEditingCompany] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanId>(initialPlan.value);
   const [fileName, setFileName] = useState("");
+  const [companyPhoto, setCompanyPhoto] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState(initialCompany.error || initialInvoice.error || initialPlan.error);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getCurrentUser().then(async (user) => {
+      if (user.profilePictureUrl) {
+        const preview = await getProfilePicturePreview(user.profilePictureUrl);
+        if (!cancelled) setCompanyPhoto(preview);
+        else URL.revokeObjectURL(preview);
+      }
+    }).catch((loadError: unknown) => {
+      console.error("Unternehmensfoto konnte nicht geladen werden:", loadError);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const saveCompany = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -139,6 +156,23 @@ export function ProfileView() {
     setInvoice((current) => ({ ...current, [field]: value }));
   };
 
+  const changeCompanyPhoto = async (file?: File) => {
+    if (!file) return;
+    setError("");
+    setNotice("");
+    setPhotoBusy(true);
+    try {
+      await uploadProfilePicture(file);
+      setCompanyPhoto(URL.createObjectURL(file));
+      setNotice("Unternehmensfoto wurde hochgeladen.");
+    } catch (uploadError) {
+      console.error("Unternehmensfoto konnte nicht hochgeladen werden:", uploadError);
+      setError("Das Unternehmensfoto konnte nicht hochgeladen werden. Bitte wähle ein JPEG-, PNG- oder WebP-Bild bis 5 MB.");
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
   return (
     <div className="dashboard-page wm-dashboard wm-profile-page">
       <header className="wm-dashboard-heading">
@@ -161,7 +195,9 @@ export function ProfileView() {
         {tab === "unternehmen" && (
           <div className="wm-profile-content">
             <section className="wm-profile-company-card">
-              <span className="wm-profile-company-mark"><BriefcaseBusiness size={22} aria-hidden="true" /></span>
+              <span className="wm-profile-company-mark">
+                {companyPhoto ? <img src={companyPhoto} alt="Unternehmensfoto" /> : <BriefcaseBusiness size={22} aria-hidden="true" />}
+              </span>
               <span>
                 <strong>{company.companyName || "Dein Unternehmen"}</strong>
                 <small>{company.trade || "Unternehmensprofil"}</small>
@@ -170,6 +206,13 @@ export function ProfileView() {
 
             {editingCompany ? (
               <form className="wm-profile-form" onSubmit={saveCompany}>
+                <section className="wm-profile-section">
+                  <div className="wm-section-heading"><h2><ImagePlus size={17} aria-hidden="true" />Unternehmensfoto</h2></div>
+                  <label className="wm-upload-field">
+                    <input type="file" accept="image/jpeg,image/png,image/webp" disabled={photoBusy} onChange={(event) => { void changeCompanyPhoto(event.target.files?.[0]); event.currentTarget.value = ""; }} />
+                    <span>{photoBusy ? "Foto wird hochgeladen …" : "Foto auswählen (JPEG, PNG oder WebP, max. 5 MB)"}</span>
+                  </label>
+                </section>
                 <section className="wm-profile-section">
                   <div className="wm-section-heading"><h2><BriefcaseBusiness size={17} aria-hidden="true" />Dein Unternehmen</h2></div>
                   <div className="wm-profile-data-grid">
