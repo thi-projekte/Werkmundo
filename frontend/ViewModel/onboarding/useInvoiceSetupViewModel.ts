@@ -5,6 +5,7 @@ import {
   initialInvoiceSetup,
   type InvoiceSetupForm,
 } from "../../Model/onboarding/setupForms";
+import { updateOnboardingStatus } from "../../Model/onboarding/onboardingStatus";
 
 function readInvoiceSetup(): InvoiceSetupForm {
   const saved = sessionStorage.getItem(INVOICE_SETUP_STORAGE_KEY);
@@ -32,6 +33,7 @@ export function useInvoiceSetupViewModel() {
     setError("");
     try {
       sessionStorage.setItem(INVOICE_SETUP_STORAGE_KEY, JSON.stringify(form));
+      updateOnboardingStatus({ invoices: true });
       navigate("/dashboard");
     } catch (storageError) {
       console.error("Die Rechnungsdaten konnten nicht gespeichert werden:", storageError);

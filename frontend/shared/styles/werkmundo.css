@@ -147,7 +147,7 @@ body:has(.werkmundo) {
   gap: 5px;
   margin-bottom: 14px;
   color: var(--wm-purple);
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -161,7 +161,7 @@ body:has(.werkmundo) {
   color: var(--wm-ink);
   background: #f8f8f8;
   font: inherit;
-  font-size: 11px;
+  font-size: 15px;
 }
 
 .wm-auth-actions input:focus {
@@ -191,7 +191,8 @@ body:has(.werkmundo) {
   border: 1px solid transparent;
   border-radius: 6px;
   font: inherit;
-  font-size: 11px;
+  min-height: 42px;
+  font-size: 15px;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -488,14 +489,14 @@ body:has(.werkmundo) {
 }
 
 .wm-step-number {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   display: grid;
   place-items: center;
   border: 1px solid #998ca5;
   border-radius: 50%;
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .wm-step-list strong,
@@ -515,6 +516,80 @@ body:has(.werkmundo) {
 .wm-setup-content {
   min-width: 0;
   padding: 15px 0 18px;
+}
+
+.wm-setup-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin: 0 28px 10px auto;
+  color: var(--wm-purple);
+}
+
+.wm-setup-progress button {
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.wm-setup-progress-ring {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--wm-green) var(--wm-progress), #dedbe2 0);
+  position: relative;
+}
+
+.wm-setup-progress-ring::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.wm-setup-progress-ring strong {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+}
+
+.wm-setup-progress > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wm-setup-progress > div strong {
+  font-size: 10px;
+}
+
+.wm-setup-progress > div small {
+  max-width: 230px;
+  color: #777;
+  font-size: 8px;
+}
+
+.wm-setup-progress.is-compact {
+  margin: 0 0 8px auto;
+}
+
+.wm-setup-progress.is-compact .wm-setup-progress-ring {
+  width: 32px;
+  height: 32px;
+}
+
+.wm-setup-progress.is-compact .wm-setup-progress-ring::after {
+  inset: 3px;
+}
+
+.wm-setup-content > .wm-setup-progress {
+  margin-right: 28px;
 }
 
 .wm-setup-card {
@@ -602,7 +677,7 @@ body:has(.werkmundo) {
   flex-direction: column;
   gap: 4px;
   color: var(--wm-purple);
-  font-size: 8px;
+  font-size: 15px;
   font-weight: 500;
 }
 
@@ -611,7 +686,7 @@ body:has(.werkmundo) {
 .wm-employee-row input,
 .wm-employee-row select {
   width: 100%;
-  height: 29px;
+  height: 38px;
   min-width: 0;
   padding: 0 9px;
   border: 1px solid var(--wm-border);
@@ -620,7 +695,7 @@ body:has(.werkmundo) {
   color: #4a4650;
   background: #f8f8f8;
   font: inherit;
-  font-size: 8px;
+  font-size: 15px;
 }
 
 .wm-form-grid input:focus,
@@ -670,7 +745,8 @@ body:has(.werkmundo) {
 
 .wm-employee-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px;
+  align-items: end;
   gap: 18px;
 }
 
@@ -929,6 +1005,14 @@ body:has(.werkmundo) {
   .wm-employee-row {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .wm-setup-progress {
+    margin-right: 8px;
+  }
+
+  .wm-setup-content > .wm-setup-progress {
+    margin-right: 8px;
   }
 
   .wm-invoice-actions {
