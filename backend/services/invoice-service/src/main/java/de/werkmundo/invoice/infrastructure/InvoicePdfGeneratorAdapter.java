@@ -83,7 +83,8 @@ public class InvoicePdfGeneratorAdapter implements InvoicePdfGenerator {
                 List.of(),
                 totalAmount,
                 "EUR",
-                optionalText(invoiceDraft, "notes"));
+                optionalText(invoiceDraft, "notes"),
+                null);
     }
 
     private static Party optionalParty(JsonNode party) {

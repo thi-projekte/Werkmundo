@@ -41,6 +41,7 @@ export type InvoiceIssuer = {
 
 export type OfferDocumentSnapshot = {
   documentDate: string;
+  referenceNumber: string;
   issuer: InvoiceIssuer;
   customer: InvoiceIssuer;
   items: {

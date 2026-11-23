@@ -15,7 +15,8 @@ public record DocumentSnapshot(
         List<TaxLine> taxLines,
         BigDecimal totalAmount,
         String currency,
-        String notes) {
+        String notes,
+        String referenceNumber) {
 
     public DocumentSnapshot {
         Objects.requireNonNull(documentDate, "documentDate");

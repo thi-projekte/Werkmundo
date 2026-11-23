@@ -31,6 +31,10 @@ import {
   type CustomerProfile,
   type UserProfile,
 } from "../../infrastructure/api/userApi";
+import {
+  COMPANY_SETUP_STORAGE_KEY,
+  type CompanySetupForm,
+} from "../../Model/onboarding/setupForms";
 
 type EditablePosition = {
   key: string;
@@ -81,6 +85,49 @@ function partyDetails(profile: CustomerProfile | UserProfile): InvoiceIssuer {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function storedCompanyDetails(): Partial<CompanySetupForm> {
+  const stored = sessionStorage.getItem(COMPANY_SETUP_STORAGE_KEY);
+  if (!stored) return {};
+
+  let value: unknown;
+  try {
+    value = JSON.parse(stored);
+  } catch {
+    throw new Error("Gespeicherte Unternehmensdaten sind ungültig.");
+  }
+  if (!isRecord(value)) {
+    throw new Error("Gespeicherte Unternehmensdaten sind ungültig.");
+  }
+
+  const text = (field: string) => typeof value[field] === "string" ? value[field] : undefined;
+  return {
+    companyName: text("companyName"),
+    email: text("email"),
+    street: text("street"),
+    postalCode: text("postalCode"),
+    city: text("city"),
+    country: text("country"),
+  };
+}
+
+function issuerDetails(profile: UserProfile): InvoiceIssuer {
+  const company = storedCompanyDetails();
+  const street = company.street || profile.street;
+  return {
+    name: company.companyName || profile.companyName || [profile.firstName, profile.lastName].filter(Boolean).join(" "),
+    address: [
+      [street, company.street ? undefined : profile.houseNumber].filter(Boolean).join(" "),
+      [company.postalCode || profile.zipCode, company.city || profile.city].filter(Boolean).join(" "),
+      company.country || profile.country,
+    ].filter(Boolean).join(", "),
+    email: company.email || profile.companyEmail || profile.email,
+  };
+}
+
 function createOfferSnapshot(
   offer: OfferRecord,
   positions: EditablePosition[],
@@ -118,6 +165,7 @@ function createOfferSnapshot(
 
   return {
     documentDate: offer.createdAt.slice(0, 10),
+    referenceNumber: offer.businessKey,
     issuer: parties.issuer,
     customer: parties.customer,
     items: documentItems,
@@ -201,7 +249,7 @@ export function OfferReviewView() {
       .then(([customer, profile]) => {
         if (active) {
           setDocumentParties({
-            issuer: partyDetails(profile),
+            issuer: issuerDetails(profile),
             customer: partyDetails(customer),
             recipientEmail: customer.email,
           });
