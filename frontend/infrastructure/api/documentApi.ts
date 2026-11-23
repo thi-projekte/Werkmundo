@@ -7,6 +7,7 @@ export type InvoiceRecord = {
   offerBusinessKey: string;
   gesamtPreis: number | string;
   createdAt: string;
+  positions: InvoicePositionRecord[];
   kundendaten?: {
     vorname?: string;
     nachname?: string;
@@ -18,10 +19,46 @@ export type InvoiceRecord = {
   };
 };
 
+export type InvoicePositionRecord = {
+  bezeichnung: string;
+  menge: number | string;
+  einheit?: string;
+  einzelPreis: number | string;
+  positionsPreis: number | string;
+};
+
 export type DocumentMetadata = {
   documentId: string;
   documentType?: string;
   fileName?: string;
+};
+
+export type InvoiceIssuer = {
+  name: string;
+  address: string;
+  email: string;
+};
+
+export type OfferDocumentSnapshot = {
+  documentDate: string;
+  issuer: InvoiceIssuer;
+  customer: InvoiceIssuer;
+  items: {
+    description: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    lineTotal: number;
+  }[];
+  netAmount: number;
+  taxLines: { label: string; rate: number; amount: number }[];
+  totalAmount: number;
+  currency: string;
+  notes?: string;
+};
+
+export type CreatedDocument = {
+  documentId: string;
 };
 
 const offerServiceUrl =
@@ -47,6 +84,66 @@ export function createInvoice(businessKey: string): Promise<InvoiceRecord> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ businessKey }),
   });
+}
+
+export function generateInvoiceDocument(
+  businessKey: string,
+  invoice: InvoiceRecord,
+  issuer: InvoiceIssuer,
+): Promise<CreatedDocument> {
+  return authorizedJson<CreatedDocument>(
+    `${documentServiceUrl}/documents/invoices/${encodeURIComponent(businessKey)}/generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rechnungsentwurf: { ...invoice, issuer } }),
+    },
+  );
+}
+
+export function generateOfferDocument(
+  businessKey: string,
+  snapshot: OfferDocumentSnapshot,
+  customerId: string,
+  recipientEmail: string,
+): Promise<CreatedDocument> {
+  return authorizedJson<CreatedDocument>(
+    `${documentServiceUrl}/documents/offers/${encodeURIComponent(businessKey)}/generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ snapshot, customerId, recipientEmail }),
+    },
+  );
+}
+
+export async function previewOfferDocument(
+  businessKey: string,
+  snapshot: OfferDocumentSnapshot,
+): Promise<Blob> {
+  const response = await authorizedFetch(
+    `${documentServiceUrl}/documents/offers/${encodeURIComponent(businessKey)}/preview`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/pdf" },
+      body: JSON.stringify({ snapshot }),
+    },
+  );
+  if (!response.ok) {
+    throw new ApiError(`HTTP ${response.status}`, response.status);
+  }
+  return response.blob();
+}
+
+export async function fetchDocumentPdf(documentId: string): Promise<Blob> {
+  const response = await authorizedFetch(
+    `${documentServiceUrl}/documents/${encodeURIComponent(documentId)}/pdf?inline=true`,
+    { headers: { Accept: "application/pdf" } },
+  );
+  if (!response.ok) {
+    throw new ApiError(`HTTP ${response.status}`, response.status);
+  }
+  return response.blob();
 }
 
 export async function shareOffer(businessKey: string): Promise<void> {

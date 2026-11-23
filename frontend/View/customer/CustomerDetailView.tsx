@@ -4,10 +4,14 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ArrowLeft, FileText, Plus, UserRound } from "lucide-react";
 import {
   getCustomer,
+  getCurrentUser,
   type CustomerProfile,
+  type UserProfile,
 } from "../../infrastructure/api/userApi";
 import {
   createInvoice,
+  fetchDocumentPdf,
+  generateInvoiceDocument,
   getDocumentOffers,
   getInvoices,
   type InvoiceRecord,
@@ -16,6 +20,18 @@ import type { OfferRecord } from "../../infrastructure/api/offerApi";
 
 function customerName(customer: CustomerProfile) {
   return [customer.firstName, customer.lastName].filter(Boolean).join(" ") || customer.email;
+}
+
+function invoiceIssuer(profile: UserProfile) {
+  return {
+    name: profile.companyName || [profile.firstName, profile.lastName].filter(Boolean).join(" "),
+    address: [
+      [profile.street, profile.houseNumber].filter(Boolean).join(" "),
+      [profile.zipCode, profile.city].filter(Boolean).join(" "),
+      profile.country,
+    ].filter(Boolean).join(", "),
+    email: profile.companyEmail || profile.email,
+  };
 }
 
 function formatDate(value?: string) {
@@ -45,8 +61,10 @@ export function CustomerDetailView() {
   const [loading, setLoading] = useState(true);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [invoiceActionError, setInvoiceActionError] = useState("");
+  const [invoicePdfUrl, setInvoicePdfUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    setInvoicePdfUrl(null);
     const id = Number(customerId);
     if (!Number.isSafeInteger(id) || id < 1) {
       setError("Die Kunden-ID ist ungültig.");
@@ -95,6 +113,10 @@ export function CustomerDetailView() {
     };
   }, [customerId]);
 
+  useEffect(() => () => {
+    if (invoicePdfUrl) URL.revokeObjectURL(invoicePdfUrl);
+  }, [invoicePdfUrl]);
+
   const customerOffers = useMemo(
     () => offers.filter((offer) => offer.customerId === customerId),
     [offers, customerId],
@@ -105,20 +127,57 @@ export function CustomerDetailView() {
   );
   const customerInvoices = invoices.filter((invoice) => offerKeys.has(invoice.offerBusinessKey));
   const currentItems = tab === "angebote" ? customerOffers : customerInvoices;
-  const billableOffer = customerOffers.find((offer) => offer.status === "ANGENOMMEN");
+  const billableOffer = customer
+    ? customerOffers.find((offer) => offer.status === "ANGENOMMEN")
+    : undefined;
+  const existingInvoice = billableOffer
+    ? customerInvoices.find((invoice) => invoice.offerBusinessKey === billableOffer.businessKey)
+    : undefined;
+  let invoiceButtonLabel = "Keine angenommenen Angebote";
+  if (creatingInvoice) invoiceButtonLabel = "Rechnung und PDF werden erstellt …";
+  else if (invoicePdfUrl) invoiceButtonLabel = "PDF wird angezeigt";
+  else if (billableOffer && customer) {
+    invoiceButtonLabel = existingInvoice
+      ? "PDF für vorhandene Rechnung erstellen"
+      : `Neue Rechnung für ${customerName(customer)} erstellen`;
+  }
 
   const createCustomerInvoice = async () => {
     if (!billableOffer) return;
     setCreatingInvoice(true);
     setInvoiceActionError("");
+    let invoiceAvailable = false;
     try {
-      const invoice = await createInvoice(billableOffer.businessKey);
-      setInvoices((current) => [invoice, ...current]);
+      const currentInvoices = await getInvoices();
+      setInvoices(currentInvoices);
+      setInvoicesError(null);
+      let invoice = currentInvoices.find(
+        (item) => item.offerBusinessKey === billableOffer.businessKey,
+      );
+      if (!invoice) {
+        const createdInvoice = await createInvoice(billableOffer.businessKey);
+        invoice = createdInvoice;
+        setInvoices((current) => [createdInvoice, ...current]);
+      }
+      invoiceAvailable = true;
+
+      const profile = await getCurrentUser();
+      const document = await generateInvoiceDocument(
+        billableOffer.businessKey,
+        invoice,
+        invoiceIssuer(profile),
+      );
+      const pdf = await fetchDocumentPdf(document.documentId);
+      setInvoicePdfUrl(URL.createObjectURL(pdf));
     } catch (createError: unknown) {
       setInvoiceActionError(
-        createError instanceof Error
-          ? `Rechnung konnte nicht erstellt werden: ${createError.message}`
-          : "Rechnung konnte nicht erstellt werden.",
+        invoiceAvailable
+          ? createError instanceof Error
+            ? `Rechnung ist vorhanden, aber das PDF konnte nicht geladen werden: ${createError.message}`
+            : "Rechnung ist vorhanden, aber das PDF konnte nicht geladen werden."
+          : createError instanceof Error
+            ? `Rechnung konnte nicht geladen oder erstellt werden: ${createError.message}`
+            : "Rechnung konnte nicht geladen oder erstellt werden.",
       );
     } finally {
       setCreatingInvoice(false);
@@ -192,6 +251,14 @@ export function CustomerDetailView() {
                 Noch keine {tab === "angebote" ? "Angebote" : "Rechnungen"} für {customerName(customer)} vorhanden.
               </div>
             )}
+            {tab === "rechnungen" && invoicePdfUrl && (
+              <iframe
+                title="Rechnungsvorschau"
+                src={invoicePdfUrl}
+                width="100%"
+                height="600"
+              />
+            )}
             {invoiceActionError && <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">{invoiceActionError}</p>}
             <button
               className="wm-customer-primary-action"
@@ -199,16 +266,10 @@ export function CustomerDetailView() {
               onClick={() => tab === "angebote"
                 ? navigate("/home", { state: { mode: "voice", customerId: customer.id } })
                 : void createCustomerInvoice()}
-              disabled={tab === "rechnungen" && (!billableOffer || creatingInvoice)}
+              disabled={tab === "rechnungen" && (!billableOffer || creatingInvoice || Boolean(invoicePdfUrl))}
             >
               <Plus size={16} aria-hidden="true" />
-              {tab === "angebote"
-                ? "Neues Angebot erstellen"
-                : creatingInvoice
-                  ? "Rechnung wird erstellt …"
-                  : billableOffer
-                    ? `Neue Rechnung für ${customerName(customer)} erstellen`
-                    : "Keine angenommenen Angebote"}
+              {tab === "angebote" ? "Neues Angebot erstellen" : invoiceButtonLabel}
             </button>
             {tab === "rechnungen" && !billableOffer && !invoicesError && (
               <p className="wm-profile-hint">Eine Rechnung kann erst aus einem angenommenen Angebot erstellt werden.</p>
