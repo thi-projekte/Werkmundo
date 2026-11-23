@@ -24,6 +24,33 @@ export type DocumentMetadata = {
   fileName?: string;
 };
 
+export type OfferPdfDraft = {
+  businessKey: string;
+  title?: string;
+  customer: {
+    name: string;
+    street?: string;
+    postalCode?: string;
+    city?: string;
+    email?: string;
+  };
+  seller?: {
+    companyName?: string;
+    contact?: string;
+    email?: string;
+    street?: string;
+    postalCode?: string;
+    city?: string;
+  };
+  positions: Array<{
+    bezeichnung: string;
+    beschreibung?: string;
+    menge: number | string;
+    einheit: string;
+    einzelPreis?: number | string | null;
+  }>;
+};
+
 const offerServiceUrl =
   import.meta.env.VITE_OFFER_SERVICE_URL || "http://localhost:8082";
 const documentServiceUrl =
@@ -57,4 +84,27 @@ export async function shareOffer(businessKey: string): Promise<void> {
   if (!response.ok) {
     throw new ApiError(`HTTP ${response.status}`, response.status);
   }
+}
+
+async function requestOfferPdf(path: string, draft: OfferPdfDraft): Promise<Blob> {
+  const response = await authorizedFetch(`${documentServiceUrl}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(draft),
+  });
+  if (!response.ok) {
+    throw new ApiError(`PDF-Erzeugung fehlgeschlagen (HTTP ${response.status})`, response.status);
+  }
+  return response.blob();
+}
+
+export function getOfferPdf(businessKey: string, draft: OfferPdfDraft): Promise<Blob> {
+  return requestOfferPdf(
+    `/documents/offers/${encodeURIComponent(businessKey)}/pdf`,
+    draft,
+  );
+}
+
+export function getDemoOfferPdf(draft: OfferPdfDraft): Promise<Blob> {
+  return requestOfferPdf("/documents/offers/demo/pdf", draft);
 }

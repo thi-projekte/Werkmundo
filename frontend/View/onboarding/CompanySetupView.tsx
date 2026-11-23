@@ -1,15 +1,15 @@
-import { BriefcaseBusiness, Plus, UserRound } from "lucide-react";
+import { BriefcaseBusiness } from "lucide-react";
 import type { FormEvent } from "react";
 import { SetupLayout } from "../shared/WerkmundoShell";
 import { useCompanySetupViewModel } from "../../ViewModel/onboarding/useCompanySetupViewModel";
 
 export function CompanySetupView() {
-  const { addEmployee, continueToInvoices, error, form, updateEmployee, updateField } =
+  const { continueToEmployees, skipSetup, error, form, updateField } =
     useCompanySetupViewModel();
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    continueToInvoices();
+    continueToEmployees();
   };
 
   return (
@@ -38,23 +38,9 @@ export function CompanySetupView() {
             <label className="wm-field-half">Land*<input required value={form.country} onChange={(event) => updateField("country", event.target.value)} /></label>
           </div>
         </section>
-
-        <section className="wm-form-section wm-employees-section">
-          <div className="wm-section-heading">
-            <h2><UserRound aria-hidden="true" />Deine Mitarbeiter</h2>
-            <button className="wm-add-button" type="button" onClick={addEmployee} aria-label="Mitarbeiter hinzufügen"><Plus size={19} /></button>
-          </div>
-          <div className="wm-employee-grid">
-            {form.employees.map((employee, index) => (
-              <div className="wm-employee-row" key={`employee-${index}`}>
-                <label>Mitarbeitergruppe*<select required value={employee.group} onChange={(event) => updateEmployee(index, "group", event.target.value)}><option>Geselle</option><option>Meister</option><option>Auszubildende</option><option>Helfer</option></select></label>
-                <label>Verrechnungssatz netto*<span className="wm-rate-input"><input inputMode="decimal" required value={employee.hourlyRate} onChange={(event) => updateEmployee(index, "hourlyRate", event.target.value)} /><span>€/Std.</span></span></label>
-              </div>
-            ))}
-          </div>
-        </section>
         {error && <p className="wm-error" role="alert">{error}</p>}
         <div className="wm-setup-actions">
+          <button className="wm-button wm-button-secondary" type="button" onClick={skipSetup}>Überspringen</button>
           <button className="wm-button wm-button-primary" type="submit">Nächster Schritt</button>
         </div>
       </form>

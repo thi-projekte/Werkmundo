@@ -1500,16 +1500,26 @@
 }
 
 .wm-offer-preview {
-  min-height: 190px;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 8px;
-  padding: 18px;
+  min-height: 260px;
+  overflow: hidden;
   border: 1px solid #d5d4d8;
   border-radius: 6px;
   color: #aaa9ad;
   background: #e7e7e7;
+}
+
+.wm-offer-pdf-frame {
+  width: 100%;
+  height: 440px;
+  display: block;
+  border: 0;
+  background: #fff;
+}
+
+.wm-offer-preview > p,
+.wm-offer-preview > span {
+  margin: 18px;
+  font-size: 9px;
   text-align: center;
 }
 
@@ -1578,10 +1588,21 @@
   background: #fff;
   font: inherit;
   font-size: 8px;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .wm-preview-download:disabled {
   cursor: not-allowed;
+}
+
+.wm-demo-disclaimer {
+  padding: 10px 12px;
+  border: 1px solid #e6d7a3;
+  border-radius: 7px;
+  color: #705d1d;
+  background: #fff9e6;
+  font-size: 10px;
 }
 
 .wm-offer-edit-actions .wm-button-primary {

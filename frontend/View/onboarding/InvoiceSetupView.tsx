@@ -1,11 +1,9 @@
-import { ArrowLeft, Banknote, ReceiptText } from "lucide-react";
+import { Banknote, ReceiptText } from "lucide-react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import { SetupLayout } from "../shared/WerkmundoShell";
 import { useInvoiceSetupViewModel } from "../../ViewModel/onboarding/useInvoiceSetupViewModel";
 
 export function InvoiceSetupView() {
-  const navigate = useNavigate();
   const { error, finishSetup, form, skipSetup, updateField } = useInvoiceSetupViewModel();
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -14,7 +12,7 @@ export function InvoiceSetupView() {
   };
 
   return (
-    <SetupLayout activeStep={2}>
+    <SetupLayout activeStep={3}>
       <form className="wm-setup-card" onSubmit={submit}>
         <div className="wm-setup-intro">
           <div>
@@ -52,9 +50,6 @@ export function InvoiceSetupView() {
 
         {error && <p className="wm-error" role="alert">{error}</p>}
         <div className="wm-setup-actions wm-invoice-actions">
-          <button className="wm-text-button" type="button" onClick={() => navigate("/einrichtung/unternehmen")}>
-            <ArrowLeft size={15} />Zur Unternehmenseinrichtung
-          </button>
           <div className="wm-button-row">
             <button className="wm-button wm-button-secondary" type="button" onClick={skipSetup}>Überspringen</button>
             <button className="wm-button wm-button-primary" type="submit">Einrichtung abschließen</button>

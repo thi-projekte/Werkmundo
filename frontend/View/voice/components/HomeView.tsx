@@ -3,7 +3,7 @@ import "./HomeView.css";
 import { Mic } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useVoiceInput } from "../../../ViewModel/voice/legacy/useVoiceInput";
-import { createOffer, saveOfferDraft } from "../../../infrastructure/api/offerApi";
+import { createOffer } from "../../../infrastructure/api/offerApi";
 import { getCustomers, type CustomerProfile } from "../../../infrastructure/api/userApi";
 import {
   ArrowRight,
@@ -34,22 +34,14 @@ export const HomeView = () => {
     typeof initialRouteState.customerId === "number"
       ? initialRouteState.customerId
       : null;
-  const initialSaveAsDraft =
-    initialRouteState &&
-    typeof initialRouteState === "object" &&
-    "saveAsDraft" in initialRouteState &&
-    initialRouteState.saveAsDraft === true;
-
   // Kunden werden aus dem user-service geladen (GET /customers).
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
-  const [customersLoading, setCustomersLoading] = useState(true);
   const [customersError, setCustomersError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<"voice" | "text">(initialMode);
   const [selectedCustomer, setSelectedCustomer] = useState<number | null>(
     initialCustomerId,
   );
-  const [saveAsDraft, setSaveAsDraft] = useState(initialSaveAsDraft);
   const [draftTitle, setDraftTitle] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
@@ -70,9 +62,7 @@ export const HomeView = () => {
   useEffect(() => {
     if (initialTranscript) setTranscript(initialTranscript);
   }, [initialTranscript, setTranscript]);
-  const [customerError, setCustomerError] = useState(false);
   const [textError, setTextError] = useState(false);
-  const [titleError, setTitleError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,8 +76,6 @@ export const HomeView = () => {
             err instanceof Error ? err.message : "Unbekannter Fehler";
           setCustomersError(`Kunden konnten nicht geladen werden: ${message}`);
         }
-      } finally {
-        if (!cancelled) setCustomersLoading(false);
       }
     })();
     return () => {
@@ -101,11 +89,11 @@ export const HomeView = () => {
    * wartet und dann den businessKey an /review weiterreicht.
    */
   const erstelleAngebotUndWeiter = async (
-    customerId: number,
+    customerId: number | null,
     speechSnippet: string,
   ) => {
     const offer = await createOffer({
-      customerId: String(customerId),
+      customerId: customerId === null ? null : String(customerId),
       speechSnippet,
       ...(draftTitle.trim() ? { title: draftTitle.trim() } : {}),
     });
@@ -117,34 +105,14 @@ export const HomeView = () => {
     });
   };
 
-  const speichereEntwurf = async (speechSnippet: string) => {
-    await saveOfferDraft({
-      title: draftTitle.trim(),
-      speechSnippet,
-    });
-    navigate("/dashboard", {
-      state: { notice: "Dein Entwurf wurde gespeichert." },
-    });
-  };
-
   const handleVoiceWeiter = async () => {
-    const hasDestination = !!selectedCustomer || saveAsDraft;
-    const hasTitle = !!draftTitle.trim();
-    setCustomerError(!hasDestination);
-    setTitleError(saveAsDraft && !hasTitle);
-    if (!hasDestination || (saveAsDraft && !hasTitle)) return;
-
     finalizeRecording();
     setTranscribeError(null);
     setIsTranscribing(true);
 
     try {
       const speechSnippet = await transcribeAudio();
-      if (saveAsDraft) {
-        await speichereEntwurf(speechSnippet);
-      } else if (selectedCustomer !== null) {
-        await erstelleAngebotUndWeiter(selectedCustomer, speechSnippet);
-      }
+      await erstelleAngebotUndWeiter(selectedCustomer, speechSnippet);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unbekannter Fehler";
       setTranscribeError(`Angebot konnte nicht erstellt werden: ${message}`);
@@ -154,23 +122,15 @@ export const HomeView = () => {
   };
 
   const handleTextWeiter = async () => {
-    const hasDestination = !!selectedCustomer || saveAsDraft;
     const hasText = !!transcript.trim();
-    const hasTitle = !!draftTitle.trim();
-    setCustomerError(!hasDestination);
     setTextError(!hasText);
-    setTitleError(saveAsDraft && !hasTitle);
-    if (!hasDestination || !hasText || (saveAsDraft && !hasTitle)) return;
+    if (!hasText) return;
 
     setTranscribeError(null);
     setIsTranscribing(true);
 
     try {
-      if (saveAsDraft) {
-        await speichereEntwurf(transcript);
-      } else if (selectedCustomer !== null) {
-        await erstelleAngebotUndWeiter(selectedCustomer, transcript);
-      }
+      await erstelleAngebotUndWeiter(selectedCustomer, transcript);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unbekannter Fehler";
       setTranscribeError(`Angebot konnte nicht erstellt werden: ${message}`);
@@ -203,19 +163,13 @@ export const HomeView = () => {
           <div className="wm-customer-select-controls">
             <select
               id="wm-customer-select"
-              value={saveAsDraft ? "draft" : selectedCustomer ?? ""}
+              value={selectedCustomer ?? ""}
               onChange={(event) => {
                 const value = event.target.value;
-                setSaveAsDraft(value === "draft");
-                setSelectedCustomer(value && value !== "draft" ? Number(value) : null);
-                setCustomerError(false);
+                setSelectedCustomer(value ? Number(value) : null);
               }}
-              aria-invalid={customerError}
             >
-              <option value="">
-                {customersLoading ? "Kunden werden geladen …" : "Kunde auswählen"}
-              </option>
-              <option value="draft">Ohne Kunde als Entwurf speichern</option>
+              <option value="">Ohne Kunden – Demo-Vorschau</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {[customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() ||
@@ -238,17 +192,6 @@ export const HomeView = () => {
             {customersError}
           </p>
         )}
-        {customerError && (
-          <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">
-            Bitte wähle einen Kunden aus oder speichere ohne Kunden als Entwurf.
-          </p>
-        )}
-        {titleError && (
-          <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">
-            Bitte gib für den Entwurf einen Titel ein.
-          </p>
-        )}
-
         <div className="wm-offer-mode" role="group" aria-label="Eingabemethode">
           <button
             type="button"
@@ -298,14 +241,10 @@ export const HomeView = () => {
               className="wm-draft-title"
               type="text"
               aria-label="Titel des Entwurfs"
-              aria-invalid={titleError}
               placeholder="Titel Entwurf"
               maxLength={255}
               value={draftTitle}
-              onChange={(event) => {
-                setDraftTitle(event.target.value);
-                if (event.target.value.trim()) setTitleError(false);
-              }}
+              onChange={(event) => setDraftTitle(event.target.value)}
             />
             <div className="wm-review-mic" aria-hidden="true">
               <Mic size={48} strokeWidth={1.6} />
@@ -373,14 +312,10 @@ export const HomeView = () => {
               className="wm-draft-title"
               type="text"
               aria-label="Titel des Entwurfs"
-              aria-invalid={titleError}
               placeholder="Titel Entwurf"
               maxLength={255}
               value={draftTitle}
-              onChange={(event) => {
-                setDraftTitle(event.target.value);
-                if (event.target.value.trim()) setTitleError(false);
-              }}
+              onChange={(event) => setDraftTitle(event.target.value)}
             />
             <textarea
               aria-label="Auftrag beschreiben"

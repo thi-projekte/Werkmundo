@@ -78,9 +78,9 @@ public class ProcessEngineClient {
          */
         public void sendAngebotPayload(String businessKey, String customerId, String handwerkerId, String sprachschnipsel, Object vorlage) {
 
-                Map<String, Object> customerIdMap = Map.of(
-                                "value", customerId,
-                                "type", "String");
+                Map<String, Object> customerIdMap = new java.util.HashMap<>();
+                customerIdMap.put("value", customerId);
+                customerIdMap.put("type", "String");
 
                 Map<String, Object> handwerkerdaten = Map.of(
                                 "value", handwerkerId,

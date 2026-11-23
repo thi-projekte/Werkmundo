@@ -7,6 +7,7 @@ import { ImprintView } from "./View/legal/ImprintView";
 import { PrivacyView } from "./View/legal/PrivacyView";
 import { DashboardView } from "./View/dashboard/DashboardView";
 import { CompanySetupView } from "./View/onboarding/CompanySetupView";
+import { EmployeeSetupView } from "./View/onboarding/EmployeeSetupView";
 import { InvoiceSetupView } from "./View/onboarding/InvoiceSetupView";
 import { AppLayout } from "./shared/components/AppLayout";
 import { HomeView as VoiceHomeView } from "./View/voice/components/HomeView";
@@ -60,6 +61,14 @@ export default function App() {
         element={
           <RequireAuth>
             <CompanySetupView />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/einrichtung/mitarbeiter"
+        element={
+          <RequireAuth>
+            <EmployeeSetupView />
           </RequireAuth>
         }
       />

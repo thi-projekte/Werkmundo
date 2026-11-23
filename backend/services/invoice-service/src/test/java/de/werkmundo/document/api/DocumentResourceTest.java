@@ -3,6 +3,8 @@ package de.werkmundo.document.api;
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.equalTo;
 
 import de.werkmundo.document.application.port.DocumentSender;
@@ -24,6 +26,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -116,6 +121,45 @@ class DocumentResourceTest {
         given().contentType("application/json").body("{\"rechnungsentwurf\":{}}")
                 .when().post("/documents/invoices/rechnung-123/generate")
                 .then().statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "handwerker-42")
+    void generatesDemoAndRegularPdfsWithSeparateWatermarkModes() throws Exception {
+        String offerDraft = """
+                {
+                  "businessKey":"offer-123",
+                  "seller":{"companyName":"Musterbetrieb","email":"info@example.de","street":"Werkstraße 1","postalCode":"80331","city":"München"},
+                  "customer":{"name":"Max Mustermann","email":"max@example.de","street":"Kundenstraße 1","postalCode":"80331","city":"München"},
+                  "positions":[{"bezeichnung":"Badewanne austauschen","menge":1,"einheit":"Stk.","einzelPreis":125.5}]
+                }
+                """;
+
+        byte[] demo = given().contentType("application/json").body(offerDraft)
+                .when().post("/documents/offers/demo/pdf")
+                .then().statusCode(200).contentType("application/pdf")
+                .extract().asByteArray();
+        byte[] regular = given().contentType("application/json").body(offerDraft)
+                .when().post("/documents/offers/offer-123/pdf")
+                .then().statusCode(200).contentType("application/pdf")
+                .extract().asByteArray();
+
+        assertTrue(pdfText(demo).contains("DEMO"));
+        assertFalse(pdfText(regular).contains("DEMO"));
+    }
+
+    @Test
+    @TestSecurity(user = "handwerker-42")
+    void rejectsOfferPdfWithoutGeneratedPositions() {
+        given().contentType("application/json").body("{\"positions\":[]}")
+                .when().post("/documents/offers/demo/pdf")
+                .then().statusCode(400);
+    }
+
+    private static String pdfText(byte[] contents) throws Exception {
+        try (PDDocument document = Loader.loadPDF(contents)) {
+            return new PDFTextStripper().getText(document);
+        }
     }
 
     @ApplicationScoped

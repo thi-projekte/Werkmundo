@@ -7,7 +7,6 @@ import jakarta.validation.constraints.Size;
  * Request-DTO zum Erstellen eines neuen Angebots.
  */
 public class CreateOfferRequest {
-    @NotNull
     public String customerId;
 
     @NotNull

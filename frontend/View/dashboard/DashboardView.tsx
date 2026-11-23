@@ -91,8 +91,7 @@ export function DashboardView() {
           <label htmlFor="wm-customer-select">Wähle einen Kunden aus</label>
           <div className="wm-customer-select-controls">
             <select id="wm-customer-select" value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)}>
-              <option value="">{customersLoading ? "Kunden werden geladen …" : "Kunde auswählen"}</option>
-              <option value="draft">Ohne Kunde als Entwurf speichern</option>
+              <option value="">Ohne Kunden – Demo-Vorschau</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {[customer.firstName, customer.lastName].filter(Boolean).join(" ") || customer.email}
@@ -113,10 +112,7 @@ export function DashboardView() {
           <button className="wm-record-cta" type="button" onClick={() => navigate("/home", {
             state: {
               mode: "voice",
-              customerId: selectedCustomerId && selectedCustomerId !== "draft"
-                ? Number(selectedCustomerId)
-                : null,
-              saveAsDraft: selectedCustomerId === "draft",
+              customerId: selectedCustomerId ? Number(selectedCustomerId) : null,
             },
           })}>
             <Mic size={17} aria-hidden="true" /> Aufnahme starten
@@ -128,10 +124,7 @@ export function DashboardView() {
               state: {
                 mode: "text",
                 transcript: offerText,
-                customerId: selectedCustomerId && selectedCustomerId !== "draft"
-                  ? Number(selectedCustomerId)
-                  : null,
-                saveAsDraft: selectedCustomerId === "draft",
+                customerId: selectedCustomerId ? Number(selectedCustomerId) : null,
               },
             })}>Angebot erstellen</button>
           </div>

@@ -14,7 +14,6 @@ export const DashboardView = () => {
   const [offerMode, setOfferMode] = useState<"voice" | "text">("voice");
   const [offerText, setOfferText] = useState("");
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
-  const [customersLoading, setCustomersLoading] = useState(true);
   const [customersError, setCustomersError] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const { data, loading, error } = useDashboard();
@@ -42,9 +41,6 @@ export const DashboardView = () => {
               : "Unbekannter Fehler";
           setCustomersError(`Kunden konnten nicht geladen werden: ${message}`);
         }
-      })
-      .finally(() => {
-        if (!cancelled) setCustomersLoading(false);
       });
 
     return () => {
@@ -84,10 +80,7 @@ export const DashboardView = () => {
               value={selectedCustomerId}
               onChange={(event) => setSelectedCustomerId(event.target.value)}
             >
-              <option value="">
-                {customersLoading ? "Kunden werden geladen …" : "Kunde auswählen"}
-              </option>
-              <option value="draft">Ohne Kunde als Entwurf speichern</option>
+              <option value="">Ohne Kunden – Demo-Vorschau</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {[customer.firstName, customer.lastName]
@@ -141,11 +134,7 @@ export const DashboardView = () => {
               navigate("/home", {
                 state: {
                   mode: "voice",
-                  customerId: selectedCustomerId
-                    && selectedCustomerId !== "draft"
-                    ? Number(selectedCustomerId)
-                    : null,
-                  saveAsDraft: selectedCustomerId === "draft",
+                  customerId: selectedCustomerId ? Number(selectedCustomerId) : null,
                 },
               })
             }
@@ -168,11 +157,7 @@ export const DashboardView = () => {
                   state: {
                     mode: "text",
                     transcript: offerText,
-                    customerId: selectedCustomerId
-                      && selectedCustomerId !== "draft"
-                      ? Number(selectedCustomerId)
-                      : null,
-                    saveAsDraft: selectedCustomerId === "draft",
+                    customerId: selectedCustomerId ? Number(selectedCustomerId) : null,
                   },
                 })
               }

@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { SetupProgress } from "./SetupProgress";
 import ribbon from "../../shared/assets/werkmundo-ribbon.svg";
 import microphone from "../../shared/assets/werkmundo-microphone.svg";
 import instagram from "../../shared/assets/werkmundo-instagram.svg";
@@ -118,18 +119,30 @@ export function SetupLayout({
   activeStep,
   children,
 }: {
-  activeStep: 1 | 2;
+  activeStep: 1 | 2 | 3;
   children: ReactNode;
 }) {
   const title = "Registrieren";
-  usePageTitle(activeStep === 1 ? "Unternehmenseinrichtung" : "Rechnungseinrichtung");
+  usePageTitle(
+    activeStep === 1
+      ? "Unternehmenseinrichtung"
+      : activeStep === 2
+        ? "Mitarbeitereinrichtung"
+        : "Rechnungseinrichtung",
+  );
 
   return (
     <div className="werkmundo wm-setup-page">
       <BrandBar />
       <PageHeading
         title={title}
-        backTo={activeStep === 1 ? "/registrieren" : "/einrichtung/unternehmen"}
+        backTo={
+          activeStep === 1
+            ? "/registrieren"
+            : activeStep === 2
+              ? "/einrichtung/unternehmen"
+              : "/einrichtung/mitarbeiter"
+        }
       />
       <main className="wm-setup-layout">
         <aside className="wm-setup-sidebar">
@@ -142,17 +155,24 @@ export function SetupLayout({
             Ein paar Firmendaten genügen für den Start. Die Rechnungsdaten richten wir danach ein.
           </p>
           <ol className="wm-step-list">
-            <li className={activeStep === 1 ? "is-active" : "is-complete"}>
+            <li className={activeStep === 1 ? "is-active" : activeStep > 1 ? "is-complete" : ""}>
               <span className="wm-step-number">01</span>
-              <span><strong>Für den Start</strong><small>Unternehmen und Mitarbeiter</small></span>
+              <span><strong>Für den Start</strong><small>Unternehmensdaten</small></span>
             </li>
-            <li className={activeStep === 2 ? "is-active" : ""}>
+            <li className={activeStep === 2 ? "is-active" : activeStep > 2 ? "is-complete" : ""}>
               <span className="wm-step-number">02</span>
+              <span><strong>Für dein Team</strong><small>Mitarbeiterdaten</small></span>
+            </li>
+            <li className={activeStep === 3 ? "is-active" : ""}>
+              <span className="wm-step-number">03</span>
               <span><strong>Für die Rechnungen</strong><small>Steuern und Zahlungseingänge</small></span>
             </li>
           </ol>
         </aside>
-        <div className="wm-setup-content">{children}</div>
+        <div className="wm-setup-content">
+          <SetupProgress activeStep={activeStep} />
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -186,6 +186,43 @@ class OfferResourceTest {
     @OidcSecurity(claims = {
             @Claim(key = "sub", value = "99")
     })
+    void shouldCreateOfferWithoutCustomer() {
+        Mockito.doNothing()
+                .when(processEngineClient)
+                .sendAngebotPayload(any(), any(), any(), any(), any());
+
+        Number offerId = given()
+                .contentType(ContentType.JSON)
+                .body("""
+                {
+                  "speechSnippet": "Badewanne austauschen und Fliesen erneuern"
+                }
+                """)
+                .when()
+                .post("/offers")
+                .then()
+                .statusCode(201)
+                .body("customerId", nullValue())
+                .body("status", equalTo(Offer.STATUS_IN_BEARBEITUNG))
+                .extract()
+                .path("id");
+
+        Offer offer = Offer.findById(offerId.longValue());
+        assertNotNull(offer);
+        assertNull(offer.customerId);
+        verify(processEngineClient).sendAngebotPayload(
+                anyString(),
+                Mockito.isNull(),
+                eq("99"),
+                eq("Badewanne austauschen und Fliesen erneuern"),
+                Mockito.isNull());
+    }
+
+    @Test
+    @TestSecurity(user = "test-user", roles = {"OWNER"})
+    @OidcSecurity(claims = {
+            @Claim(key = "sub", value = "99")
+    })
     void shouldSaveDraftWithoutCustomerOrProcessEngineCall() {
         Number offerId = given()
                 .contentType(ContentType.JSON)

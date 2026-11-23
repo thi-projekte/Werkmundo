@@ -5,6 +5,7 @@ import {
   initialCompanySetup,
   type CompanySetupForm,
 } from "../../Model/onboarding/setupForms";
+import { updateOnboardingStatus } from "../../Model/onboarding/onboardingStatus";
 
 function readCompanySetup(): CompanySetupForm {
   const saved = sessionStorage.getItem(COMPANY_SETUP_STORAGE_KEY);
@@ -47,16 +48,50 @@ export function useCompanySetupViewModel() {
       employees: [...current.employees, { group: "Geselle", hourlyRate: "" }],
     }));
 
-  const continueToInvoices = () => {
+  const continueToEmployees = () => {
     setError("");
     try {
       sessionStorage.setItem(COMPANY_SETUP_STORAGE_KEY, JSON.stringify(form));
-      navigate("/einrichtung/rechnungen");
+      updateOnboardingStatus({ company: true });
+      navigate("/einrichtung/mitarbeiter");
     } catch (storageError) {
       console.error("Die Unternehmensdaten konnten nicht gespeichert werden:", storageError);
       setError("Deine Angaben konnten nicht gespeichert werden. Bitte versuche es erneut.");
     }
   };
 
-  return { addEmployee, continueToInvoices, error, form, updateEmployee, updateField };
+  const skipSetup = () => navigate("/einrichtung/mitarbeiter");
+
+  const removeEmployee = (index: number) =>
+    setForm((current) => ({
+      ...current,
+      employees: current.employees.filter((_, employeeIndex) => employeeIndex !== index),
+    }));
+
+  const continueToInvoices = () => {
+    setError("");
+    try {
+      sessionStorage.setItem(COMPANY_SETUP_STORAGE_KEY, JSON.stringify(form));
+      updateOnboardingStatus({ employees: true });
+      navigate("/einrichtung/rechnungen");
+    } catch (storageError) {
+      console.error("Die Mitarbeiterdaten konnten nicht gespeichert werden:", storageError);
+      setError("Deine Angaben konnten nicht gespeichert werden. Bitte versuche es erneut.");
+    }
+  };
+
+  const skipEmployeeSetup = () => navigate("/einrichtung/rechnungen");
+
+  return {
+    addEmployee,
+    continueToEmployees,
+    continueToInvoices,
+    skipEmployeeSetup,
+    removeEmployee,
+    skipSetup,
+    error,
+    form,
+    updateEmployee,
+    updateField,
+  };
 }

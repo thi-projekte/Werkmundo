@@ -27,7 +27,7 @@ export type OfferRecord = {
 };
 
 export type CreateOfferInput = {
-  customerId: string;
+  customerId: string | null;
   speechSnippet: string;
   title?: string;
 };

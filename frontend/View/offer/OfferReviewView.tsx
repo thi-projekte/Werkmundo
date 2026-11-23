@@ -16,7 +16,14 @@ import {
   type OfferPosition,
   type OfferRecord,
 } from "../../infrastructure/api/offerApi";
-import { shareOffer } from "../../infrastructure/api/documentApi";
+import {
+  getDemoOfferPdf,
+  getOfferPdf,
+  shareOffer,
+  type OfferPdfDraft,
+} from "../../infrastructure/api/documentApi";
+import { getCustomer, type CustomerProfile } from "../../infrastructure/api/userApi";
+import { COMPANY_SETUP_STORAGE_KEY } from "../../Model/onboarding/setupForms";
 
 type EditablePosition = {
   key: string;
@@ -33,8 +40,8 @@ function toEditablePosition(
   return {
     key: String(position.id ?? index),
     bezeichnung: position.bezeichnung ?? "",
-    menge: String(position.menge ?? 1),
-    einheit: position.einheit ?? "Stk.",
+    menge: position.menge == null ? "" : String(position.menge),
+    einheit: position.einheit ?? "",
     einzelPreis: String(position.einzelPreis ?? ""),
   };
 }
@@ -44,6 +51,12 @@ function parseAmount(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function validAmount(value: string, mustBePositive: boolean): boolean {
+  if (!value.trim()) return false;
+  const parsed = Number(value.trim().replace(",", "."));
+  return Number.isFinite(parsed) && (mustBePositive ? parsed > 0 : parsed >= 0);
+}
+
 function money(value: number): string {
   return new Intl.NumberFormat("de-DE", {
     style: "currency",
@@ -51,11 +64,56 @@ function money(value: number): string {
   }).format(value);
 }
 
+function readSellerDetails(): OfferPdfDraft["seller"] | null {
+  try {
+    const stored = sessionStorage.getItem(COMPANY_SETUP_STORAGE_KEY);
+    if (!stored) return null;
+    const parsed: unknown = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object") return null;
+
+    const record = parsed as Record<string, unknown>;
+    const field = (name: string) =>
+      typeof record[name] === "string" ? record[name] as string : "";
+    return {
+      companyName: field("companyName"),
+      contact: field("contact"),
+      email: field("email"),
+      street: field("street"),
+      postalCode: field("postalCode"),
+      city: field("city"),
+    };
+  } catch (error) {
+    console.error("Die Unternehmensdaten für die Angebotsvorschau konnten nicht gelesen werden:", error);
+    return null;
+  }
+}
+
+function customerName(customer: CustomerProfile | null): string {
+  if (!customer) return "";
+  return customer.companyName?.trim()
+    || [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim();
+}
+
+function hasRequiredCustomerDetails(customer: CustomerProfile | null): boolean {
+  return Boolean(
+    customer
+    && customerName(customer)
+    && customer.email?.trim()
+    && customer.street?.trim()
+    && customer.zipCode?.trim()
+    && customer.city?.trim(),
+  );
+}
+
 export function OfferReviewView() {
   const { businessKey = "" } = useParams();
   const navigate = useNavigate();
 
+  const [seller] = useState(readSellerDetails);
   const [offer, setOffer] = useState<OfferRecord | null>(null);
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [customerLoading, setCustomerLoading] = useState(false);
+  const [customerError, setCustomerError] = useState("");
   const [positions, setPositions] = useState<EditablePosition[]>([]);
   const [originalPositions, setOriginalPositions] = useState<
     EditablePosition[]
@@ -63,6 +121,9 @@ export function OfferReviewView() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -76,19 +137,28 @@ export function OfferReviewView() {
     setError("");
     setNotice("");
 
-    void getOffer(businessKey)
-      .then((loadedOffer) => {
+    const loadOffer = async () => {
+      try {
+        let loadedOffer = await getOffer(businessKey);
+        for (let attempt = 0; attempt < 60
+          && !loadedOffer.positions?.length
+          && ["ERFASST", "IN_BEARBEITUNG"].includes(loadedOffer.status);
+          attempt++) {
+          setNotice("Dein Angebot wird aus der Beschreibung erstellt …");
+          await new Promise((resolve) => window.setTimeout(resolve, 1000));
+          if (!active) return;
+          loadedOffer = await getOffer(businessKey);
+        }
         if (!active) return;
 
-        const serverPositions = (loadedOffer.positions ?? []).map(
-          toEditablePosition,
-        );
-
+        const serverPositions = (loadedOffer.positions ?? []).map(toEditablePosition);
         setOffer(loadedOffer);
         setPositions(serverPositions);
         setOriginalPositions(serverPositions);
-      })
-      .catch((loadError: unknown) => {
+        if (!serverPositions.length) {
+          setNotice("Die KI-Erstellung läuft noch. Bitte lade die Seite in Kürze erneut.");
+        }
+      } catch (loadError: unknown) {
         if (!active) return;
 
         setError(
@@ -96,15 +166,55 @@ export function OfferReviewView() {
             ? `Angebot konnte nicht geladen werden: ${loadError.message}`
             : "Angebot konnte nicht geladen werden.",
         );
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    };
+
+    void loadOffer();
 
     return () => {
       active = false;
     };
   }, [businessKey]);
+
+  useEffect(() => {
+    let active = true;
+    const customerId = Number(offer?.customerId);
+    if (!offer?.customerId || !Number.isSafeInteger(customerId) || customerId <= 0) {
+      setCustomer(null);
+      setCustomerError(
+        offer?.customerId ? "Die Kundennummer ist ungültig." : "",
+      );
+      setCustomerLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setCustomerLoading(true);
+    setCustomerError("");
+    void getCustomer(customerId)
+      .then((loadedCustomer) => {
+        if (active) setCustomer(loadedCustomer);
+      })
+      .catch((loadError: unknown) => {
+        if (!active) return;
+        setCustomer(null);
+        setCustomerError(
+          loadError instanceof Error
+            ? `Kundendaten konnten nicht geladen werden: ${loadError.message}`
+            : "Kundendaten konnten nicht geladen werden.",
+        );
+      })
+      .finally(() => {
+        if (active) setCustomerLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [offer?.customerId]);
 
   const total = useMemo(
     () =>
@@ -121,6 +231,103 @@ export function OfferReviewView() {
     () => JSON.stringify(positions) !== JSON.stringify(originalPositions),
     [positions, originalPositions],
   );
+
+  const sellerComplete = Boolean(
+    seller?.companyName?.trim()
+    && seller.email?.trim()
+    && seller.street?.trim()
+    && seller.postalCode?.trim()
+    && seller.city?.trim(),
+  );
+  const customerComplete = hasRequiredCustomerDetails(customer);
+  const positionsComplete = positions.length > 0 && positions.every((position) =>
+    Boolean(
+      position.bezeichnung.trim()
+      && position.einheit.trim()
+      && validAmount(position.einzelPreis, false)
+      && validAmount(position.menge, true),
+    ),
+  );
+  const isDemo = Boolean(
+    !offer?.customerId || !customerComplete || !sellerComplete || !positionsComplete,
+  );
+  const pdfDraft = useMemo<OfferPdfDraft | null>(() => {
+    if (!offer || !positions.length) return null;
+    const showCustomerDetails = customerComplete && customer !== null;
+    return {
+      businessKey: offer.businessKey,
+      ...(offer.title ? { title: offer.title } : {}),
+      customer: {
+        name: showCustomerDetails ? customerName(customer) : "Musterkunde - Demo-Vorschau",
+        ...(showCustomerDetails && customer
+          ? {
+              street: customer.street ?? "",
+              postalCode: customer.zipCode ?? "",
+              city: customer.city ?? "",
+              email: customer.email ?? "",
+            }
+          : {}),
+      },
+      ...(seller ? { seller } : {}),
+      positions: positions.map((position) => ({
+        bezeichnung: position.bezeichnung,
+        menge: position.menge,
+        einheit: position.einheit,
+        einzelPreis: position.einzelPreis.trim() || null,
+      })),
+    };
+  }, [customer, customerComplete, offer, positions, seller]);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = "";
+    if (
+      !pdfDraft
+      || loading
+      || customerLoading
+      || Boolean(offer?.customerId && !customer && !customerError)
+    ) {
+      setPdfUrl("");
+      setPdfError("");
+      setPdfLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setPdfUrl("");
+    setPdfError("");
+    setPdfLoading(true);
+    const pdfRequest = isDemo
+      ? getDemoOfferPdf(pdfDraft)
+      : getOfferPdf(businessKey, pdfDraft);
+    void pdfRequest
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        if (active) {
+          objectUrl = url;
+          setPdfUrl(url);
+        } else {
+          URL.revokeObjectURL(url);
+        }
+      })
+      .catch((generationError: unknown) => {
+        if (!active) return;
+        setPdfError(
+          generationError instanceof Error
+            ? generationError.message
+            : "Die PDF-Vorschau konnte nicht erstellt werden.",
+        );
+      })
+      .finally(() => {
+        if (active) setPdfLoading(false);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [businessKey, customer, customerError, customerLoading, isDemo, loading, offer?.customerId, pdfDraft]);
 
   const busy = saving || sending;
   const editable = offer?.status === "ENTWURF" && !busy;
@@ -144,9 +351,9 @@ export function OfferReviewView() {
       {
         key: `new-${crypto.randomUUID()}`,
         bezeichnung: "",
-        menge: "1",
-        einheit: "Stk.",
-        einzelPreis: "0,00",
+        menge: "",
+        einheit: "",
+        einzelPreis: "",
       },
     ]);
     setNotice("");
@@ -221,6 +428,11 @@ export function OfferReviewView() {
 
   const send = async () => {
     if (busy) return;
+
+    if (isDemo) {
+      setError("Demo-Angebote können nicht versendet werden. Ergänze die fehlenden Daten für ein reguläres Angebot.");
+      return;
+    }
 
     if (hasUnsavedChanges) {
       setError(
@@ -300,7 +512,11 @@ export function OfferReviewView() {
             <span>
               <small>Kunde</small>
               <strong>
-                {offer.customerId || "Kein Kunde zugeordnet"}
+                {isDemo
+                  ? !offer.customerId || !customerComplete
+                    ? "Musterkunde – Demo-Vorschau"
+                    : customerName(customer)
+                  : customerName(customer)}
               </strong>
             </span>
             <span>
@@ -359,6 +575,8 @@ export function OfferReviewView() {
                   </thead>
                   <tbody>
                     {positions.map((position) => {
+                      const hasValidQuantity = validAmount(position.menge, true);
+                      const hasValidPrice = validAmount(position.einzelPreis, false);
                       const lineTotal =
                         parseAmount(position.menge) *
                         parseAmount(position.einzelPreis);
@@ -407,6 +625,7 @@ export function OfferReviewView() {
                                 )
                               }
                             >
+                              <option value="">Einheit wählen</option>
                               {!["Stk.", "Std.", "m", "m²"].includes(
                                 position.einheit,
                               ) && (
@@ -436,7 +655,11 @@ export function OfferReviewView() {
                             />
                           </td>
                           <td className="wm-offer-line-total">
-                            {money(lineTotal)}
+                            {!hasValidPrice
+                              ? "Preis offen"
+                              : !hasValidQuantity
+                                ? "Menge prüfen"
+                                : `${isDemo ? "Beispiel: " : ""}${money(lineTotal)}`}
                           </td>
                           <td>
                             <button
@@ -483,51 +706,65 @@ export function OfferReviewView() {
               </h2>
 
               <div className="wm-offer-preview">
-                <FileText size={30} aria-hidden="true" />
-                <span>
-                  Die Angebotsvorschau wird erstellt, sobald dein
-                  Dokument bereit ist.
-                </span>
+                {pdfLoading && <p role="status">PDF-Vorschau wird erstellt …</p>}
+                {pdfError && <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">{pdfError}</p>}
+                {pdfUrl && (
+                  <iframe
+                    className="wm-offer-pdf-frame"
+                    src={pdfUrl}
+                    title={isDemo ? "Demo-Angebot als PDF" : "Angebot als PDF"}
+                  />
+                )}
+                {!pdfLoading && !pdfError && !pdfUrl && (
+                  <span>
+                    Die PDF-Vorschau erscheint, sobald die KI die Angebotspositionen erstellt hat.
+                  </span>
+                )}
               </div>
-
-              <p className="wm-preview-pagination">
-                ‹ Seite 1 von 1 ›
-              </p>
 
               <div className="wm-offer-summary">
                 <h3>Zusammenfassung</h3>
-                <p>
-                  <span>Zwischensumme</span>
-                  <strong>{money(total)}</strong>
-                </p>
-                <p>
-                  <span>Material</span>
-                  <strong>{money(total)}</strong>
-                </p>
-                <p>
-                  <span>Arbeitsleistung</span>
-                  <strong>{money(0)}</strong>
-                </p>
-                <p>
-                  <span>MwSt. (19 %)</span>
-                  <strong>{money(total * 0.19)}</strong>
-                </p>
-                <p className="wm-offer-grand-total">
-                  <span>Gesamtbetrag</span>
-                  <strong>{money(total * 1.19)}</strong>
-                </p>
+                {isDemo ? (
+                  <p>Demo-Vorschau: fehlende Preise werden offengelassen; vorhandene KI-Preise sind unverbindliche Beispielwerte.</p>
+                ) : (
+                  <>
+                    <p><span>Zwischensumme</span><strong>{money(total)}</strong></p>
+                    <p><span>Material</span><strong>{money(total)}</strong></p>
+                    <p><span>Arbeitsleistung</span><strong>{money(0)}</strong></p>
+                    <p><span>MwSt. (19 %)</span><strong>{money(total * 0.19)}</strong></p>
+                    <p className="wm-offer-grand-total"><span>Gesamtbetrag</span><strong>{money(total * 1.19)}</strong></p>
+                  </>
+                )}
               </div>
 
-              <button
-                className="wm-preview-download"
-                type="button"
-                disabled
-              >
-                <ArrowDownToLine size={14} aria-hidden="true" />
-                PDF herunterladen
-              </button>
+              {pdfUrl ? (
+                <a
+                  className="wm-preview-download"
+                  href={pdfUrl}
+                  download={isDemo ? "werkmundo-demo-angebot.pdf" : `angebot-${businessKey}.pdf`}
+                >
+                  <ArrowDownToLine size={14} aria-hidden="true" />
+                  {isDemo ? "Demo-PDF herunterladen" : "PDF herunterladen"}
+                </a>
+              ) : (
+                <button className="wm-preview-download" type="button" disabled>
+                  <ArrowDownToLine size={14} aria-hidden="true" />
+                  PDF wird vorbereitet …
+                </button>
+              )}
             </aside>
           </section>
+
+          {isDemo && (
+            <p className="wm-demo-disclaimer" role="status">
+              Dieses Angebot ist eine Demo-Vorschau und nicht zur geschäftlichen Verwendung bestimmt.
+            </p>
+          )}
+          {customerError && (
+            <p className="wm-dashboard-feedback wm-dashboard-error" role="status">
+              {customerError} Die Vorschau wird deshalb als Demo gekennzeichnet.
+            </p>
+          )}
 
           <div className="wm-offer-edit-actions">
             <Link
@@ -550,10 +787,10 @@ export function OfferReviewView() {
               className="wm-button wm-button-primary"
               type="button"
               onClick={() => void send()}
-              disabled={busy}
+              disabled={busy || isDemo}
             >
               <Send size={15} aria-hidden="true" />
-              {sending ? "Wird versendet …" : "Angebot versenden"}
+              {sending ? "Wird versendet …" : isDemo ? "Demo nicht versendbar" : "Angebot versenden"}
             </button>
           </div>
 
