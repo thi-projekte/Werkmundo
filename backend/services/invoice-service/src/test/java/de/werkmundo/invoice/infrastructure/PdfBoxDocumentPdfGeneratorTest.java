@@ -21,7 +21,7 @@ class PdfBoxDocumentPdfGeneratorTest {
         var snapshot = new DocumentSnapshot(
                 LocalDate.of(2026, 11, 23),
                 "R-123",
-                null,
+                new Party("Werkmundo GmbH", "Werkstraße 1, 12345 Berlin", "firma@example.com"),
                 new Party("Ada Lovelace", "Berlin", "ada@example.com"),
                 List.of(new LineItem(
                         "Material",
@@ -40,10 +40,13 @@ class PdfBoxDocumentPdfGeneratorTest {
 
         try (var document = Loader.loadPDF(pdf)) {
             String text = new PDFTextStripper().getText(document);
-            assertTrue(text.contains("Invoice"));
-            assertTrue(text.contains("Invoice number (placeholder): R-123"));
+            assertTrue(text.contains("Rechnung # R-123 (Platzhalter)"));
+            assertTrue(text.contains("ABSENDER"));
+            assertTrue(text.contains("EMPFÄNGER"));
+            assertTrue(text.contains("Werkmundo GmbH"));
             assertTrue(text.contains("Ada Lovelace"));
-            assertTrue(text.contains("30.00 EUR"));
+            assertTrue(text.contains("30,00 €"));
+            assertFalse(text.contains("Invoice"));
         }
     }
 

@@ -55,8 +55,9 @@ Die Nummer wird im PDF als Platzhalter gekennzeichnet. `issuer` kann optionale
 Absenderdaten enthalten. Für den ersten Entwurf wird `gesamtPreis` als Netto-
 und Gesamtbetrag verwendet; die Währung ist EUR.
 
-Das Angebots-PDF folgt der bereitgestellten Vorlage mit Werkmundo-Logo und
-Markenfarben. Angezeigt werden die Absenderfelder, die im Profil vorhanden sind.
+Angebots- und Rechnungs-PDFs verwenden dasselbe Layout mit Werkmundo-Logo und
+Markenfarben. Im Rechnungs-PDF wird die Nummer weiterhin als Platzhalter markiert.
+Angezeigt werden die Absenderfelder, die im Profil vorhanden sind.
 
 Die Angebotsvorschau speichert das PDF nicht. Sie kann auch ohne Positionen
 erstellt werden; ein leeres PDF wird nicht als versendbares Dokument gespeichert.
