@@ -32,3 +32,6 @@ local-setup/.runtime/
 
 # Lokale Datenbank-Sicherungen (enthalten Testdaten)
 local-setup/backups/
+
+#Lokale Projekt-Backups
+Werkmundo-*.zip
