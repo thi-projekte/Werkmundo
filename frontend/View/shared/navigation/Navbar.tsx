@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { logoutFromKeycloak } from "../../../infrastructure/auth/keycloakClient";
 import {
   CircleUserRound,
   ContactRound,
@@ -39,10 +40,18 @@ export const Navbar = () => {
         </NavLink>
       ))}
 
-      <NavLink to="/abmelden" className="wm-logout-link">
+      <button
+        type="button"
+        className="wm-logout-link"
+        onClick={() => {
+          void logoutFromKeycloak().catch((error: unknown) => {
+            console.error("Keycloak-Abmeldung konnte nicht gestartet werden:", error);
+          });
+        }}
+      >
         <LogOut size={18} aria-hidden="true" />
         <span>Abmelden</span>
-      </NavLink>
+      </button>
     </nav>
   );
 };
