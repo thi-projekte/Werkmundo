@@ -45,6 +45,9 @@ jobs:
           - name: catalog-service
             context: backend/services/catalog-service
             dockerfile: backend/services/catalog-service/Dockerfile.build
+          - name: ai-service
+            context: backend/services/ai-service
+            dockerfile: backend/services/ai-service/Dockerfile
 
     steps:
       - uses: actions/checkout@v4

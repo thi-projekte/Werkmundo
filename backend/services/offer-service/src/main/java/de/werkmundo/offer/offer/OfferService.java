@@ -1,5 +1,7 @@
 package de.werkmundo.offer.offer;
 
+import de.werkmundo.offer.ai.AiAnalyzeResult;
+import de.werkmundo.offer.ai.AiDirectClient;
 import de.werkmundo.offer.processengine.ProcessEngineClient;
 import io.quarkus.panache.common.Sort;
 import io.quarkus.security.ForbiddenException;
@@ -53,6 +55,9 @@ public class OfferService {
     ProcessEngineClient processEngineClient;
 
     @Inject
+    AiDirectClient aiDirectClient;
+
+    @Inject
     Event<OfferStatusPeEvents.AngebotAngenommen> angebotAngenommenEvent;
 
     @Inject
@@ -73,16 +78,136 @@ public class OfferService {
     ObjectMapper objectMapper;
 
     /**
-     * Erstellt ein neues Angebot aus den übergebenen Request-Daten, persistiert
-     * diese in die DB
-     * und ruft entsprechende Methoden auf, die alle notwendigen Daten an die
-     * Process-Engine senden.
+     * Erstellt ein neues Angebot.
+     *
+     * <p>Mit {@code AI_DIRECT_ENABLED=true} (Online-Betrieb ohne Process Engine) wird der
+     * ai-service direkt aufgerufen und das Ergebnis als bearbeitbarer Entwurf gespeichert.
+     * Sonst wird wie bisher der PE-/KI-Flow über die Process Engine gestartet.
+     *
+     * <p>Bewusst nicht {@code @Transactional}: der KI-Aufruf dauert mehrere Sekunden und soll
+     * keine DB-Transaktion offen halten.
      *
      * @param request Anfrageobjekt mit Kunden-ID und Sprachschnipsel
+     * @param userId  Keycloak-sub des Handwerkers
      * @return das erzeugte und persistierte Angebot als DTO
      */
+    public OfferResponse createOffer(CreateOfferRequest request, String userId) {
+        if (!aiDirectClient.isEnabled()) {
+            return createOfferViaProcessEngine(request, userId);
+        }
+        String businessKey = "angebot-" + UUID.randomUUID();
+        AiAnalyzeResult kiErgebnis = aiDirectClient
+                .analysiere(businessKey, userId, request.speechSnippet)
+                .orElse(null);
+        return createOfferFromAiResult(businessKey, request, userId, kiErgebnis);
+    }
+
+    /**
+     * Legt das Angebot im Direktmodus als {@code ENTWURF} an. Alle KI-Positionen werden als
+     * manuelle Positionen ({@link OfferPositionType#OTHER}) ohne Preis übernommen, damit der
+     * Handwerker sie in der Angebotsbearbeitung anpassen und bepreisen kann. Die von der KI
+     * geschätzte Arbeitsdauer wird mit dem Stundensatz aus dem user-service als Position ergänzt.
+     *
+     * @param kiErgebnis Ergebnis des ai-service oder {@code null}, wenn die KI nicht geantwortet hat
+     */
     @Transactional
-    public OfferResponse createOffer(CreateOfferRequest request, String jwtToken) {
+    public OfferResponse createOfferFromAiResult(String businessKey, CreateOfferRequest request, String userId,
+                                                 AiAnalyzeResult kiErgebnis) {
+        Offer offer = new Offer();
+        offer.customerId = request.customerId;
+        offer.handwerkerId = userId;
+        offer.annahmeToken = UUID.randomUUID().toString();
+        offer.businessKey = businessKey;
+        offer.speechSnippet = request.speechSnippet;
+        offer.title = request.title;
+        offer.status = Offer.STATUS_ENTWURF;
+
+        OfferStatusHistory history = new OfferStatusHistory();
+        history.status = Offer.STATUS_ENTWURF;
+        history.offer = offer;
+        history.notiz = kiErgebnis != null
+                ? "Positionen per KI vorgeschlagen"
+                : "KI nicht verfügbar, Positionen manuell erfassen";
+        offer.statusHistory.add(history);
+
+        if (kiErgebnis != null) {
+            uebernehmeKiPositionen(offer, kiErgebnis);
+        }
+        berechneGesamtpreis(offer);
+
+        offer.persist();
+        return OfferResponse.fromEntity(offer);
+    }
+
+    private void uebernehmeKiPositionen(Offer offer, AiAnalyzeResult kiErgebnis) {
+        int reihenfolge = 1;
+        AiAnalyzeResult.Positionen positionen = kiErgebnis.strukturierteAngebotspositionen();
+        if (positionen != null) {
+            List<AiAnalyzeResult.Position> alle = new java.util.ArrayList<>();
+            if (positionen.leistungen() != null) {
+                alle.addAll(positionen.leistungen());
+            }
+            if (positionen.material() != null) {
+                alle.addAll(positionen.material());
+            }
+            for (AiAnalyzeResult.Position kiPosition : alle) {
+                if (kiPosition == null || kiPosition.bezeichnung() == null || kiPosition.bezeichnung().isBlank()) {
+                    continue;
+                }
+                BigDecimal menge = kiPosition.menge() != null && kiPosition.menge() > 0
+                        ? BigDecimal.valueOf(kiPosition.menge())
+                        : BigDecimal.ONE;
+                String einheit = kiPosition.einheit() != null && !kiPosition.einheit().isBlank()
+                        ? kiPosition.einheit().strip()
+                        : "Stk";
+                offer.positions.add(manuellePosition(offer, kiPosition.bezeichnung().strip(),
+                        kiPosition.beschreibung(), menge, einheit, BigDecimal.ZERO, reihenfolge++));
+            }
+        }
+
+        Double stunden = kiErgebnis.geschaetzteArbeitsdauerStunden();
+        if (stunden != null && stunden > 0) {
+            BigDecimal stundensatz = BigDecimal.ZERO;
+            try {
+                var antwort = userServiceClient.getStundensatz();
+                if (antwort != null && antwort.stundensatz != null) {
+                    stundensatz = antwort.stundensatz;
+                }
+            } catch (Exception e) {
+                LOG.warnf("Stundensatz nicht abrufbar, Arbeitszeit ohne Preis: %s", e.getMessage());
+            }
+            offer.positions.add(manuellePosition(offer, "Arbeitszeit", null,
+                    BigDecimal.valueOf(stunden), "h", stundensatz, reihenfolge));
+        }
+
+        offer.korrekturvorschlaege = kiErgebnis.korrekturvorschlaege() != null
+                ? new java.util.ArrayList<>(kiErgebnis.korrekturvorschlaege())
+                : new java.util.ArrayList<>();
+        offer.geschaetzteArbeitsdauerStunden = stunden != null ? BigDecimal.valueOf(stunden) : null;
+    }
+
+    private static OfferPosition manuellePosition(Offer offer, String bezeichnung, String beschreibung,
+                                                  BigDecimal menge, String einheit, BigDecimal einzelPreis,
+                                                  int reihenfolge) {
+        OfferPosition position = new OfferPosition();
+        position.offer = offer;
+        position.type = OfferPositionType.OTHER;
+        position.bezeichnung = bezeichnung;
+        position.beschreibung = beschreibung;
+        position.menge = menge;
+        position.einheit = einheit;
+        position.einzelPreis = einzelPreis.setScale(2, RoundingMode.HALF_UP);
+        position.positionsPreis = menge.multiply(position.einzelPreis).setScale(2, RoundingMode.HALF_UP);
+        position.katalogProduktId = null;
+        position.reihenfolge = reihenfolge;
+        return position;
+    }
+
+    /**
+     * Bisheriger Weg: Angebot speichern und den PE-/KI-Flow über die Process Engine starten.
+     */
+    @Transactional
+    public OfferResponse createOfferViaProcessEngine(CreateOfferRequest request, String jwtToken) {
 
         Offer offer = new Offer();
 

@@ -19,8 +19,12 @@
 #                             der User-Service vergibt damit die Rolle OWNER)
 #   KEYCLOAK_ADMIN_PASSWORD   Pflicht
 #   KEYCLOAK_DB_PASSWORD      Pflicht
+#   MEGALLM_API_KEY           Pflicht für echte KI-Ergebnisse (ohne Key liefert der ai-service nur ein Beispiel)
+#   DEEPGRAM_API_KEY          optional, Spracheingabe (Transkription); ohne Key nur Texteingabe
 #   IMAGE_TAG                 optional, Standard main, z. B. sha-abc1234
-#   PE_URL                    optional, Process Engine (Camunda REST), sonst schlägt "Angebot erstellen" fehl
+#   AI_DIRECT_ENABLED         optional, Standard true: "Angebot erstellen" ruft den ai-service direkt auf
+#                             (ohne Process Engine). false = alter Weg über die Process Engine (PE_URL)
+#   PE_URL                    optional, Process Engine (Camunda REST), nur mit AI_DIRECT_ENABLED=false nötig
 #   CATALOG_SERVICE_URL       optional, Katalog-Service
 
 # Öffentliche Adresse, weil sie als Aussteller (iss) in den Tokens steht
@@ -216,9 +220,36 @@ services:
       USER_SERVICE_URL: http://werkmundo-user:8080
       PE_URL: ${PE_URL:-http://werkmundo-process-engine:8080/engine-rest}
       CATALOG_SERVICE_URL: ${CATALOG_SERVICE_URL:-http://werkmundo-catalog:8080}
+      # KI ohne Process Engine: POST /offers ruft den ai-service direkt auf
+      AI_DIRECT_ENABLED: ${AI_DIRECT_ENABLED:-true}
+      AI_SERVICE_URL: http://werkmundo-ai:8086
+      # Spracheingabe (Transkription); ohne Key geht nur die Texteingabe
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-changeme}
     depends_on:
       werkmundo-offer-db:
         condition: service_healthy
+      werkmundo-ai:
+        condition: service_started
+    networks:
+      - intern
+
+  # --- AI-Service (Spracheingabe -> Angebotspositionen über MegaLLM) ---
+  # Nur im internen Netz, daher ohne Token-Prüfung. Katalogsuche über den eingebauten
+  # Mock-Katalog: werkmundo-catalog verlangt ein Token (technischer Keycloak-Client fehlt noch),
+  # und im Direktmodus übernimmt der offer-service ohnehin keine Katalog-IDs.
+  werkmundo-ai:
+    image: ghcr.io/thi-projekte/werkmundo-ai-service:${IMAGE_TAG:-main}
+    pull_policy: always     # bei jedem Deploy das aktuelle :main holen
+    restart: unless-stopped
+    environment:
+      HTTP_PORT: "8086"
+      MEGALLM_API_KEY: ${MEGALLM_API_KEY:-}
+      MEGALLM_MODEL: ${MEGALLM_MODEL:-gemini-3-flash-preview}
+      # google-gemma-4-26b gibt es bei MegaLLM nicht mehr
+      MEGALLM_MODEL_FALLBACK: ${MEGALLM_MODEL_FALLBACK:-gemini-3.5-flash}
+      CATALOG_MOCK_ENABLED: "true"
+      AI_SECURITY_ENABLED: "false"
+      AI_TECHNICAL_TOKEN_ENABLED: "false"
     networks:
       - intern
 

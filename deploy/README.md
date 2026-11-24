@@ -8,7 +8,7 @@ Server: `162.55.57.51`, Portainer: https://portainer.winfprojekt.de, Nginx Proxy
 Browser ──https──> Nginx Proxy Manager ──> werkmundo-frontend:80 (Nginx)
                                              ├─ /               React-App
                                              ├─ /svc/user/      -> werkmundo-user:8080
-                                             ├─ /svc/offer/     -> werkmundo-offer:8080
+                                             ├─ /svc/offer/     -> werkmundo-offer:8080 ──> werkmundo-ai:8086 ──> MegaLLM
                                              └─ /svc/invoice/   -> werkmundo-invoice:8080
 Browser ──https──> Nginx Proxy Manager ──> werkmundo-keycloak:8080 (Login, Realm werkmundo)
 ```
@@ -40,7 +40,8 @@ Weil alles unter einer Domain läuft, braucht es kein CORS und nur ein Zertifika
 3. **Portainer** → *Stacks* → *Add stack* → Name `werkmundo` → *Repository*:
    - URL `https://github.com/thi-projekte/Werkmundo`, Reference `refs/heads/main`, Compose path `deploy/docker-compose.yml`
    - Environment variables: `USER_DB_PASSWORD`, `OFFER_DB_PASSWORD`, `INVOICE_DB_PASSWORD`,
-     `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD`, `KEYCLOAK_DB_PASSWORD` (Werte nur hier, nie ins Git).
+     `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD`, `KEYCLOAK_DB_PASSWORD`, `MEGALLM_API_KEY`
+     (Werte nur hier, nie ins Git).
      Die Keycloak-Admin-Daten werden nur beim allerersten Start übernommen.
    - Optional *GitOps updates* aktivieren, damit Änderungen an der Compose-Datei automatisch kommen.
 4. **Nginx Proxy Manager** → *Add Proxy Host*:
@@ -57,8 +58,27 @@ Push nach `main` → **warten, bis der Workflow *Deploy-Images* grün ist** → 
 *Pull and redeploy* (bzw. *Update the stack* mit *Re-pull image*). Wer vorher redeployt, bekommt
 noch die alten Images. Für einen festen Stand `IMAGE_TAG=sha-<commit>` setzen.
 
+## KI (ai-service)
+
+"Angebot erstellen" läuft online **ohne Process Engine** (`AI_DIRECT_ENABLED=true`, Standard im Stack):
+
+1. Frontend → `POST /svc/offer/offers` mit Sprachschnipsel (über `werkmundo-gateway` an den offer-service)
+2. offer-service → `POST http://werkmundo-ai:8086/ai/analyze` (synchron, max. 50 s)
+3. ai-service → MegaLLM (`MEGALLM_API_KEY`): Positionen, Material, geschätzte Arbeitsdauer
+4. offer-service speichert das Angebot als `ENTWURF` mit den KI-Positionen (ohne Preise, Arbeitszeit
+   mit Stundensatz aus dem user-service). Der Handwerker bepreist und speichert sie in der Angebotsbearbeitung.
+
+Antwortet die KI nicht (Key fehlt, Timeout, Fehler), wird das Angebot trotzdem als leerer `ENTWURF` angelegt.
+Ohne `MEGALLM_API_KEY` liefert der ai-service nur ein festes Beispiel (Wallbox).
+
+Der ai-service hängt nur im Netz `werkmundo-intern` und braucht deshalb keinen Proxy Host und kein Token.
+Die Katalogsuche nutzt den eingebauten Mock-Katalog, die Katalog-IDs werden im Direktmodus nicht übernommen.
+
+**Spracheingabe:** Die Transkription (`/speech-capture/transcribe`) braucht einen Deepgram-Key
+(`DEEPGRAM_API_KEY` am offer-service). Ohne ihn funktioniert nur die Texteingabe.
+
 ## Noch nicht im Stack
 
-- **Process Engine** (Camunda): ohne sie schlägt „Angebot erstellen“ fehl. Sobald es ein Image gibt,
-  als Service `werkmundo-process-engine` ergänzen oder `PE_URL` setzen.
-- **Catalog-Service** und **ai-service**: analog über `CATALOG_SERVICE_URL` bzw. einen eigenen Service.
+- **Process Engine** (Camunda): wird für "Angebot erstellen" nicht mehr gebraucht (Direktmodus), aber für
+  den restlichen Prozess (Korrektur per Sprache, Versand). Sobald es ein Image gibt, als Service
+  `werkmundo-process-engine` ergänzen und `AI_DIRECT_ENABLED=false` setzen.
