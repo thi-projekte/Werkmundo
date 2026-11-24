@@ -1,12 +1,15 @@
 package de.werkmundo.invoice.document.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import de.werkmundo.invoice.document.application.port.DocumentPdfGenerator;
 import de.werkmundo.invoice.document.application.port.DocumentSender;
 import de.werkmundo.invoice.document.application.port.InvoicePdfGenerator;
+import de.werkmundo.invoice.document.application.usecase.CreateOfferDocumentUseCase;
 import de.werkmundo.invoice.document.application.usecase.CreateInvoiceDocumentUseCase;
 import de.werkmundo.invoice.document.domain.Document;
 import de.werkmundo.invoice.document.domain.DocumentMetadata;
 import de.werkmundo.invoice.document.domain.DocumentRepository;
+import de.werkmundo.invoice.document.domain.DocumentSnapshot;
 import de.werkmundo.invoice.document.domain.DocumentType;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -20,6 +23,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
@@ -37,6 +41,9 @@ public class DocumentResource {
 
     @Inject
     Instance<InvoicePdfGenerator> invoicePdfGenerator;
+
+    @Inject
+    Instance<DocumentPdfGenerator> documentPdfGenerator;
 
     @Inject
     Instance<DocumentRepository> repository;
@@ -66,6 +73,53 @@ public class DocumentResource {
         return created(useCase.execute(businessKey, ownerId(), request.rechnungsentwurf(), recipientEmail));
     }
 
+    @POST
+    @Path("/offers/{businessKey}/generate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response generateOfferDocument(
+            @PathParam("businessKey") String businessKey, GenerateOfferRequest request) {
+        requireReference(businessKey);
+        if (request == null || request.snapshot() == null || request.snapshot().items().isEmpty()) {
+            throw new BadRequestException("Offer snapshot with positions is required");
+        }
+        if (request.recipientEmail() == null || request.recipientEmail().isBlank()) {
+            throw new BadRequestException("Offer customer email is required");
+        }
+        if (!documentPdfGenerator.isResolvable()) {
+            throw new ServiceUnavailableException("Document PDF generation is not configured");
+        }
+
+        CreateOfferDocumentUseCase useCase =
+                new CreateOfferDocumentUseCase(documentPdfGenerator.get(), documentRepository());
+        return created(useCase.execute(
+                businessKey, ownerId(), request.customerId(), request.recipientEmail(), request.snapshot()));
+    }
+
+    @POST
+    @Path("/offers/{businessKey}/preview")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(APPLICATION_PDF)
+    public Response previewOfferDocument(
+            @PathParam("businessKey") String businessKey, OfferPreviewRequest request) {
+        requireReference(businessKey);
+        if (request == null || request.snapshot() == null) {
+            throw new BadRequestException("Offer snapshot is required");
+        }
+        if (!documentPdfGenerator.isResolvable()) {
+            throw new ServiceUnavailableException("Document PDF generation is not configured");
+        }
+
+        byte[] pdf = documentPdfGenerator.get().generate(DocumentType.OFFER, request.snapshot());
+        if (pdf == null || pdf.length == 0) {
+            throw new IllegalStateException("Offer PDF generator returned no content");
+        }
+        String fileName = DocumentType.OFFER.fileName(businessKey).replaceAll("[^A-Za-z0-9_.-]", "_");
+        return Response.ok(pdf, APPLICATION_PDF)
+                .header("Content-Disposition", "inline; filename=\"" + fileName + "\"")
+                .header("Cache-Control", "private, no-store")
+                .build();
+    }
+
     @GET
     public List<DocumentMetadata> listDocuments() {
         return documentRepository().findMetadataByOwner(ownerId());
@@ -88,13 +142,12 @@ public class DocumentResource {
     @GET
     @Path("/{documentId}/pdf")
     @Produces(APPLICATION_PDF)
-    public Response downloadInvoicePdf(@PathParam("documentId") String documentId) {
+    public Response downloadDocumentPdf(
+            @PathParam("documentId") String documentId,
+            @QueryParam("inline") boolean inline) {
         requireReference(documentId);
         Document document = findDocument(documentId);
-        if (document.type() != DocumentType.INVOICE) {
-            throw new NotFoundException("Invoice document was not found");
-        }
-        return pdfResponse(document);
+        return pdfResponse(document, inline);
     }
 
     @POST
@@ -158,10 +211,11 @@ public class DocumentResource {
         return Response.status(Response.Status.CREATED).entity(new CreatedDocument(documentId)).build();
     }
 
-    private static Response pdfResponse(Document document) {
+    private static Response pdfResponse(Document document, boolean inline) {
         String fileName = document.fileName().replaceAll("[^A-Za-z0-9_.-]", "_");
         return Response.ok(document.pdfContent(), APPLICATION_PDF)
-                .header("Content-Disposition", "attachment; filename=\"" + fileName + "\"")
+                .header("Content-Disposition",
+                        (inline ? "inline" : "attachment") + "; filename=\"" + fileName + "\"")
                 .header("Cache-Control", "private, no-store")
                 .build();
     }
@@ -170,5 +224,14 @@ public class DocumentResource {
     }
 
     public record GenerateInvoiceRequest(JsonNode rechnungsentwurf) {
+    }
+
+    public record GenerateOfferRequest(
+            DocumentSnapshot snapshot,
+            String customerId,
+            String recipientEmail) {
+    }
+
+    public record OfferPreviewRequest(DocumentSnapshot snapshot) {
     }
 }

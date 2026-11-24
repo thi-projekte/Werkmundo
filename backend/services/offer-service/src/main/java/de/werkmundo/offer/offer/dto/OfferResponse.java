@@ -14,6 +14,7 @@ import java.util.List;
 public class OfferResponse {
     public Long id;
     public String businessKey;
+    public String offerNumber;
     public String status;
     public String customerId;
     public String title;
@@ -36,6 +37,7 @@ public class OfferResponse {
         OfferResponse response = new OfferResponse();
         response.id = offer.id;
         response.businessKey = offer.businessKey;
+        response.offerNumber = offer.angebotsnummer;
         response.status = offer.status;
         response.customerId = offer.customerId;
         response.title = offer.title;
