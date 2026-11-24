@@ -165,7 +165,7 @@ function createOfferSnapshot(
 
   return {
     documentDate: offer.createdAt.slice(0, 10),
-    referenceNumber: offer.businessKey,
+    referenceNumber: offer.offerNumber || "ENTWURF",
     issuer: parties.issuer,
     customer: parties.customer,
     items: documentItems,
@@ -173,9 +173,14 @@ function createOfferSnapshot(
     taxLines: [{ label: "MwSt.", rate: 19, amount: taxAmount }],
     totalAmount: Number((netAmount + taxAmount).toFixed(2)),
     currency: "EUR",
-    notes: items.length
-      ? undefined
-      : "ENTWURF: Keine Angebotspositionen vorhanden. Dieses Dokument ist nicht versandfertig.",
+    notes: [
+      !offer.offerNumber
+        ? "ENTWURF: Noch keine Angebotsnummer vergeben."
+        : null,
+      !items.length
+        ? "Keine Angebotspositionen vorhanden. Dieses Dokument ist nicht versandfertig."
+        : null,
+    ].filter(Boolean).join(" ") || undefined,
   };
 }
 
@@ -507,8 +512,8 @@ export function OfferReviewView() {
           <section className="wm-offer-meta-card">
             <span className="wm-customer-summary-icon"><UserRound size={20} aria-hidden="true" /></span>
             <span><small>Kunde</small><strong>{offer.customerId || "Kein Kunde zugeordnet"}</strong></span>
-            <span><small>Projekt/Betreff</small><strong>{offer.title || offer.businessKey}</strong></span>
-            <span><small>Angebotsnummer</small><strong>{offer.businessKey}</strong></span>
+            <span><small>Projekt/Betreff</small><strong>{offer.title || offer.offerNumber || "Noch nicht vergeben"}</strong></span>
+            <span><small>Angebotsnummer</small><strong>{offer.offerNumber || "Noch nicht vergeben"}</strong></span>
             <span><small>Datum</small><strong>{offer.createdAt ? new Date(offer.createdAt).toLocaleDateString("de-DE") : "—"}</strong></span>
             <span><small>Gültig bis</small><strong>—</strong></span>
           </section>

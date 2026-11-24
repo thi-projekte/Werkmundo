@@ -2053,3 +2053,18 @@
   font-size: 13px;
   color: var(--color-text-secondary);
 }
+
+
+.wm-preview-download:not(:disabled) {
+  cursor: pointer;
+  color: #281b40;
+}
+
+.wm-preview-download:not(:disabled):hover {
+  background: #f0f0f0;
+}
+
+.wm-preview-download:focus-visible {
+  outline: 2px solid #83b940;
+  outline-offset: 2px;
+}

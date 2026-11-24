@@ -16,6 +16,7 @@ export type OfferPosition = {
 export type OfferRecord = {
   id: number;
   businessKey: string;
+  offerNumber?: string | null;
   customerId?: string;
   title?: string;
   status: string;
