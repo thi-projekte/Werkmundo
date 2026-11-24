@@ -2,8 +2,8 @@
 
 Java 25 / Quarkus 3.40.1.1. Der aktuelle Stand enthält REST-Endpunkte,
 Besitzerprüfungen, ein PostgreSQL-Repository und eine Flyway-Migration für
-Dokumentmetadaten und PDF-Inhalte. Er ist noch kein vollständig integrierter
-PDF- und Versandservice.
+Dokumentmetadaten und PDF-Inhalte. Rechnungs-PDFs werden mit PDFBox erzeugt;
+der Versandadapter ist noch nicht integriert.
 
 ## Datenbank
 
@@ -41,22 +41,31 @@ Alle Endpunkte erfordern eine authentifizierte Identität.
 | GET | `/documents` | Metadaten eigener Dokumente |
 | GET | `/documents/{documentId}` | Metadaten eines eigenen Dokuments |
 | GET | `/documents/offers/{businessKey}` | Metadaten des neuesten eigenen Angebotsdokuments |
-| GET | `/documents/{documentId}/pdf` | PDF eines Rechnungsdokuments; Angebote werden derzeit abgewiesen |
+| GET | `/documents/{documentId}/pdf` | PDF als Download |
+| GET | `/documents/{documentId}/pdf?inline=true` | PDF für die Browser-Vorschau |
 | POST | `/documents/invoices/{businessKey}/generate` | Rechnungsdokument aus `rechnungsentwurf` erzeugen |
+| POST | `/documents/offers/{businessKey}/generate` | Angebotsdokument aus `snapshot` erzeugen |
+| POST | `/documents/offers/{businessKey}/preview` | Nicht gespeicherte Angebots-PDF-Vorschau erzeugen |
 | POST | `/documents/offers/{businessKey}/share` | Angebotsdokument versenden |
 | POST | `/documents/invoices/{businessKey}/share` | Rechnungsdokument versenden |
 
-Der Rechnungsentwurf wird als JSON-Objekt mit
-`rechnungsentwurf.kundendaten.email` erwartet. Erzeugung und Versand brauchen
-die unten genannten konkreten Adapter.
+Der Rechnungsentwurf enthält unter `rechnungsentwurf` die Felder
+`rechnungsnummer`, `createdAt`, `gesamtPreis`, `kundendaten` und `positions`.
+Die Nummer wird im PDF als Platzhalter gekennzeichnet. `issuer` kann optionale
+Absenderdaten enthalten. Für den ersten Entwurf wird `gesamtPreis` als Netto-
+und Gesamtbetrag verwendet; die Währung ist EUR.
+
+Angebots- und Rechnungs-PDFs verwenden dasselbe Layout mit Werkmundo-Logo und
+Markenfarben. Im Rechnungs-PDF wird die Nummer weiterhin als Platzhalter markiert.
+Angezeigt werden die Absenderfelder, die im Profil vorhanden sind.
+
+Die Angebotsvorschau speichert das PDF nicht. Sie kann auch ohne Positionen
+erstellt werden; ein leeres PDF wird nicht als versendbares Dokument gespeichert.
 
 ## Noch fehlende Bausteine
 
-- `InvoicePdfGenerator`: Es existiert nur das Interface, keine produktive
-  PDF-Erzeugung. Der Erzeugungsendpunkt liefert ohne Implementierung `503`.
 - `DocumentSender`: Es existiert nur das Interface, keine produktive
   Versandimplementierung. Versand liefert ohne Implementierung `503`.
-- Erzeugung von Angebots-PDFs und deren Download sind noch nicht umgesetzt.
 - Die produktive OIDC-Konfiguration ist vorbereitet: `KEYCLOAK_AUTH_SERVER_URL`
   und bei Bedarf `KEYCLOAK_CLIENT_ID` setzen. Der Besitzer wird aus dem JWT-Claim
   `sub` abgeleitet. Der gemeinsame Test mit echten Keycloak-Tokens steht aus.

@@ -4,13 +4,18 @@ import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.startsWith;
 
 import de.werkmundo.invoice.document.application.port.DocumentSender;
+import de.werkmundo.invoice.document.application.port.DocumentPdfGenerator;
 import de.werkmundo.invoice.document.application.port.InvoicePdfGenerator;
 import de.werkmundo.invoice.document.domain.DocumentRepository;
 import de.werkmundo.invoice.document.domain.Document;
+import de.werkmundo.invoice.document.domain.DocumentSnapshot;
 import de.werkmundo.invoice.document.domain.DocumentType;
 import de.werkmundo.invoice.document.domain.DocumentMetadata;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.inject.Alternative;
 import io.quarkus.arc.lookup.LookupIfProperty;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -76,9 +81,101 @@ class DocumentResourceTest {
                 .body("referenceId", equalTo("stored-offer"))
                 .body("type", equalTo("OFFER"))
                 .body("fileName", equalTo("angebot-stored-offer.pdf"));
-        given().when().get(METADATA_ROUTE + "/pdf", documentId).then().statusCode(404);
+        given().when().get(METADATA_ROUTE + "/pdf", documentId)
+                .then().statusCode(200).contentType("application/pdf");
         given().when().post("/documents/offers/stored-offer/share").then().statusCode(204);
         assertEquals("kunde-1", adapters.lastSent().customerId());
+    }
+
+    @Test
+    @TestSecurity(user = "handwerker-42")
+    void createsAndDownloadsOfferDocument() {
+        String id = given().contentType("application/json")
+                .body("""
+                        {
+                          "snapshot": {
+                            "documentDate": "2026-11-23",
+                            "issuer": {"name": "Werkmundo"},
+                            "customer": {"name": "Kunde"},
+                            "items": [{
+                              "description": "Material",
+                              "quantity": 1,
+                              "unit": "Stk.",
+                              "unitPrice": 10,
+                              "lineTotal": 10
+                            }],
+                            "netAmount": 10,
+                            "taxLines": [],
+                            "totalAmount": 11.9,
+                            "currency": "EUR"
+                          },
+                          "customerId": "kunde-1",
+                          "recipientEmail": "kunde@example.com"
+                        }
+                        """)
+                .when().post("/documents/offers/offer-123/generate")
+                .then().statusCode(201).extract().path("documentId");
+
+        given().when().get(METADATA_ROUTE, id).then().statusCode(200)
+                .body("type", equalTo("OFFER"))
+                .body("referenceId", equalTo("offer-123"));
+        byte[] pdf = given().when().get(METADATA_ROUTE + "/pdf", id)
+                .then().statusCode(200).contentType("application/pdf").extract().asByteArray();
+        assertArrayEquals(TEST_PDF, pdf);
+    }
+
+    @Test
+    @TestSecurity(user = "handwerker-42")
+    void previewsOfferWithoutSavingIt() {
+        int documentCount = repository.get().findMetadataByOwner("handwerker-42").size();
+        byte[] pdf = given().contentType("application/json")
+                .body("""
+                        {
+                          "snapshot": {
+                            "documentDate": "2026-11-23",
+                            "issuer": {"name": "Werkmundo"},
+                            "customer": {"name": "Kunde"},
+                            "items": [],
+                            "netAmount": 0,
+                            "taxLines": [],
+                            "totalAmount": 0,
+                            "currency": "EUR",
+                            "notes": "ENTWURF: Keine Angebotspositionen vorhanden."
+                          }
+                        }
+                        """)
+                .when().post("/documents/offers/offer-empty/preview")
+                .then().statusCode(200).contentType("application/pdf")
+                .header("Content-Disposition", startsWith("inline; filename="))
+                .extract().asByteArray();
+
+        assertArrayEquals(TEST_PDF, pdf);
+        assertEquals(documentCount, repository.get().findMetadataByOwner("handwerker-42").size());
+    }
+
+    @Test
+    @TestSecurity(user = "handwerker-42")
+    void doesNotPersistOfferWithoutPositions() {
+        given().contentType("application/json")
+                .body("""
+                        {
+                          "snapshot": {
+                            "documentDate": "2026-11-23",
+                            "issuer": {"name": "Werkmundo"},
+                            "customer": {"name": "Kunde"},
+                            "items": [],
+                            "netAmount": 0,
+                            "taxLines": [],
+                            "totalAmount": 0,
+                            "currency": "EUR",
+                            "notes": "ENTWURF: Keine Angebotspositionen vorhanden."
+                          },
+                          "customerId": "kunde-1",
+                          "recipientEmail": "kunde@example.com"
+                        }
+                        """)
+                .when().post("/documents/offers/offer-empty/generate")
+                .then().statusCode(400);
     }
 
     @Test
@@ -104,8 +201,13 @@ class DocumentResourceTest {
                 .body("type", equalTo("INVOICE"))
                 .body("referenceId", equalTo("rechnung-123"));
         byte[] pdf = given().when().get(METADATA_ROUTE + "/pdf", id)
-                .then().statusCode(200).contentType("application/pdf").extract().asByteArray();
+                .then().statusCode(200).contentType("application/pdf")
+                .header("Content-Disposition", startsWith("attachment; filename="))
+                .extract().asByteArray();
         assertArrayEquals(TEST_PDF, pdf);
+        given().when().get(METADATA_ROUTE + "/pdf?inline=true", id)
+                .then().statusCode(200).contentType("application/pdf")
+                .header("Content-Disposition", startsWith("inline; filename="));
         given().when().post("/documents/invoices/rechnung-123/share").then().statusCode(204);
         assertEquals("kunde@example.com", adapters.lastSent().recipientEmail());
     }
@@ -127,8 +229,17 @@ class DocumentResourceTest {
         }
 
         @Produces
+        @Alternative
+        @Priority(1)
         InvoicePdfGenerator invoicePdfGenerator() {
             return draft -> TEST_PDF;
+        }
+
+        @Produces
+        @Alternative
+        @Priority(1)
+        DocumentPdfGenerator documentPdfGenerator() {
+            return (type, snapshot) -> TEST_PDF;
         }
 
         @Produces
