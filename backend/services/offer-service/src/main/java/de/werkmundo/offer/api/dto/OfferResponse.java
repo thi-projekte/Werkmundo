@@ -10,6 +10,7 @@ import java.util.List;
 
 public record OfferResponse(
         String businessKey,
+        String offerNumber,
         OfferStatus status,
         BigDecimal estimatedWorkDurationHours,
         List<String> correctionSuggestions,
@@ -22,6 +23,7 @@ public record OfferResponse(
     public static OfferResponse from(Offer offer) {
         return new OfferResponse(
                 offer.getBusinessKey(),
+                offer.getOfferNumber(),
                 offer.getStatus(),
                 offer.getEstimatedWorkDurationHours(),
                 offer.getCorrectionSuggestions(),

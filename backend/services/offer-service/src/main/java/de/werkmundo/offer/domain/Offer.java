@@ -11,6 +11,7 @@ import java.util.Objects;
 
 public class Offer {
     private final String businessKey;
+    private String offerNumber;
     private String customerId;
     private String craftsmanId;
     private String customerAccessTokenHash;
@@ -71,6 +72,20 @@ public class Offer {
                 Objects.requireNonNull(statusHistory, "statusHistory must not be null")));
         result.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
         return result;
+    }
+
+    public String getOfferNumber() {
+        return offerNumber;
+    }
+
+    public void assignOfferNumber(String number) {
+        if (number == null || number.isBlank()) {
+            throw new IllegalArgumentException("Offer number is required");
+        }
+        if (offerNumber != null && !offerNumber.equals(number)) {
+            throw new IllegalStateException("Offer number cannot be changed");
+        }
+        offerNumber = number;
     }
 
     public String getBusinessKey() {
