@@ -30,6 +30,9 @@ public class InvoiceResource {
     @Inject
     JsonWebToken jwt;
 
+    @Inject
+    de.werkmundo.invoice.infrastructure.InvoiceNumberIssuer numberIssuer;
+
     @POST
     @Path("/drafts")
     public InvoiceDraftResponse createDraft(
@@ -60,6 +63,18 @@ public class InvoiceResource {
                 invoice.gesamtPreis(),
                 "EUR"
         );
+    }
+
+    @POST
+    @Path("/{invoiceId}/issue")
+    public InvoiceIssueResponse issueInvoice(
+            @jakarta.ws.rs.PathParam("invoiceId") UUID invoiceId) {
+        String number = numberIssuer.issue(invoiceId, jwt.getSubject())
+                .orElseThrow(() -> new jakarta.ws.rs.NotFoundException("Invoice not found"));
+        return new InvoiceIssueResponse(invoiceId, number);
+    }
+
+    public record InvoiceIssueResponse(UUID id, String rechnungsnummer) {
     }
 
     private UUID parseIdempotencyKey(String value) {

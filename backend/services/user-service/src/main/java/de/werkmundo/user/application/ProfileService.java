@@ -13,6 +13,8 @@ import jakarta.ws.rs.NotFoundException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.nio.file.Path;
+
 @ApplicationScoped
 public class ProfileService {
 
@@ -54,6 +56,11 @@ public class ProfileService {
         );
 
         return url;
+    }
+
+    public Path getProfilePicture(Long userId, String fileName) {
+        findUser(userId);
+        return profilePictureStore.load(userId, fileName);
     }
 
     @Transactional

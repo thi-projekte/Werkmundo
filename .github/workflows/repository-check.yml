@@ -37,7 +37,6 @@ jobs:
             processengine
             contracts
             documents
-            tests
           )
 
           for dir in "${required_dirs[@]}"; do

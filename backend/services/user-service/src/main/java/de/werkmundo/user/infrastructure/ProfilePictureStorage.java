@@ -113,6 +113,18 @@ public class ProfilePictureStorage implements ProfilePictureStore {
         }
     }
 
+    @Override
+    public Path load(Long userId, String fileName) {
+        if (userId == null || fileName == null || !fileName.matches("profile_" + userId + "_[a-f0-9-]+\\.(jpg|png|webp)")) {
+            throw new BadRequestException("Invalid profile picture path");
+        }
+        Path image = storageDirectory.resolve(fileName).normalize();
+        if (!image.getParent().equals(storageDirectory) || !Files.isRegularFile(image)) {
+            throw new jakarta.ws.rs.NotFoundException("Profile picture not found");
+        }
+        return image;
+    }
+
     private String detectImageExtension(Path file, byte[] content) {
         if (isWebp(content)) {
             return ".webp";

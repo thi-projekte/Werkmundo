@@ -1,4 +1,4 @@
-import { authorizedJson } from "../http/apiClient";
+import { authorizedFetch, authorizedJson } from "../http/apiClient";
 
 export type CustomerProfile = {
   id: number;
@@ -22,7 +22,15 @@ export type UserProfile = {
   email: string;
   firstName?: string;
   lastName?: string;
+  companyName?: string;
+  street?: string;
+  houseNumber?: string;
+  zipCode?: string;
+  city?: string;
+  country?: string;
+  companyEmail?: string;
   roles?: string[];
+  profilePictureUrl?: string;
 };
 
 // Basis inkl. /api/users (siehe .env.example und Dockerfile.frontend)
@@ -32,6 +40,24 @@ const customersUrl = `${userServiceUrl}/customers`;
 
 export function getCurrentUser(): Promise<UserProfile> {
   return authorizedJson<UserProfile>(`${userServiceUrl}/me`);
+}
+
+export async function uploadProfilePicture(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await authorizedFetch(`${userServiceUrl}/profile-picture`, {
+    method: "POST",
+    body,
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const result = (await response.json()) as { url: string };
+  return result.url;
+}
+
+export async function getProfilePicturePreview(path: string): Promise<string> {
+  const response = await authorizedFetch(new URL(path, userServiceUrl).toString());
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return URL.createObjectURL(await response.blob());
 }
 
 export function getCustomers(): Promise<CustomerProfile[]> {
