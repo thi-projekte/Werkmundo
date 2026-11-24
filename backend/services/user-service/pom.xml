@@ -16,6 +16,22 @@
     <skipTests>false</skipTests>
     <surefire-plugin.version>3.3.1</surefire-plugin.version>
   </properties>
+  <!--
+    Quarkus 3.15.x zieht über importierte BOMs POMs nach, die repository.jboss.org als Repository
+    eintragen. Der Server antwortet zeitweise mit 503 oder gar nicht, dann hängt der Build ohne Timeout
+    (CI "Build and test"). Gleiche IDs auf Maven Central umbiegen: dort liegen alle benötigten Artefakte.
+    Kann entfallen, sobald der user-service auf die Quarkus-Version der anderen Services aktualisiert ist.
+  -->
+  <repositories>
+    <repository>
+      <id>jboss-public-repository-group</id>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </repository>
+    <repository>
+      <id>jbossThirdParty</id>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </repository>
+  </repositories>
   <dependencyManagement>
     <dependencies>
       <dependency>
