@@ -22,6 +22,13 @@ export type UserProfile = {
   email: string;
   firstName?: string;
   lastName?: string;
+  companyName?: string;
+  street?: string;
+  houseNumber?: string;
+  zipCode?: string;
+  city?: string;
+  country?: string;
+  companyEmail?: string;
   roles?: string[];
   profilePictureUrl?: string;
 };

@@ -33,7 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
  * Integrationstests für {@link InvoiceResource}: INV-2 (POST /rechnungen) und INV-3 (GET /rechnungen).
  */
 @QuarkusTest
-@io.quarkus.test.junit.TestProfile(de.werkmundo.offer.api.H2StartupTestProfile.class)
+@io.quarkus.test.junit.TestProfile(de.werkmundo.offer.infrastructure.persistence.OfferPostgresTestProfile.class)
 @TestSecurity(user = "test-user", roles = {"OWNER"})
 @OidcSecurity(claims = {
         @Claim(key = "sub", value = "99")
@@ -149,13 +149,13 @@ class InvoiceResourceTest {
             assertEquals(businessKey, invoice.offerBusinessKey);
             assertEquals(positionCount, invoice.positions.size());
             assertNotNull(invoice.rechnungsnummer);
-            assertTrue(invoice.rechnungsnummer.matches("RE-\\d{4}-\\d{3}"),
-                    "Rechnungsnummer muss Format RE-YYYY-NNN haben, war: " + invoice.rechnungsnummer);
+            assertTrue(invoice.rechnungsnummer.matches("RE-\\d{6}-\\d{4}"),
+                    "Rechnungsnummer muss Format RE-YYYYMM-NNNN haben, war: " + invoice.rechnungsnummer);
         });
     }
 
     /**
-     * Rechnungsnummer hat das korrekte Format RE-{Jahr}-{NNN}.
+     * Rechnungsnummer hat das korrekte Format RE-{JahrMonat}-{NNNN}.
      */
     @Test
     void shouldGenerateRechnungsnummerInCorrectFormat() {
@@ -172,11 +172,11 @@ class InvoiceResourceTest {
                 .path("rechnungsnummer");
 
         assertNotNull(rechnungsnummer);
-        assertTrue(rechnungsnummer.matches("RE-\\d{4}-\\d{3}"),
-                "Rechnungsnummer muss Format RE-YYYY-NNN haben, war: " + rechnungsnummer);
+        assertTrue(rechnungsnummer.matches("RE-\\d{6}-\\d{4}"),
+                "Rechnungsnummer muss Format RE-YYYYMM-NNNN haben, war: " + rechnungsnummer);
 
-        int currentYear = java.time.LocalDateTime.now().getYear();
-        assertTrue(rechnungsnummer.startsWith("RE-" + currentYear + "-"),
+        String currentMonth = java.time.YearMonth.now(java.time.ZoneId.of("Europe/Berlin")).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM"));
+        assertTrue(rechnungsnummer.startsWith("RE-" + currentMonth + "-"),
                 "Rechnungsnummer muss mit aktuellem Jahr beginnen");
     }
 

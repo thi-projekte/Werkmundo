@@ -2,6 +2,7 @@ package de.werkmundo.offer.invoice;
 
 import de.werkmundo.offer.invoice.dto.CreateInvoiceRequest;
 import de.werkmundo.offer.invoice.dto.InvoiceResponse;
+import de.werkmundo.offer.infrastructure.InvoiceNumberGenerator;
 import de.werkmundo.offer.offer.Offer;
 import de.werkmundo.offer.offer.OfferPosition;
 import de.werkmundo.offer.processengine.ProcessEngineClient;
@@ -41,6 +42,9 @@ public class InvoiceService {
 
     @Inject
     ProcessEngineClient processEngineClient;
+
+    @Inject
+    InvoiceNumberGenerator invoiceNumberGenerator;
 
     @Inject
     ObjectMapper objectMapper;
@@ -85,7 +89,7 @@ public class InvoiceService {
         }
 
         // 3. Rechnungsnummer generieren
-        String rechnungsnummer = generiereRechnungsnummer();
+        String rechnungsnummer = invoiceNumberGenerator.nextNumber();
         Log.info("Rechnungsnummer " + rechnungsnummer + " generiert.");
 
         // 4. Kundendaten-Snapshot laden
