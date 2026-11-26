@@ -1,14 +1,24 @@
 import { useState, useEffect } from "react";
 import "./HomeView.css";
-import { Mic } from "lucide-react";
+import { Mic, Pause } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useVoiceInput } from "../../../ViewModel/voice/legacy/useVoiceInput";
+import {
+  MAX_RECORDING_MS,
+  useVoiceInput,
+} from "../../../ViewModel/voice/legacy/useVoiceInput";
 import { createOffer, saveOfferDraft } from "../../../infrastructure/api/offerApi";
 import { getCustomers, type CustomerProfile } from "../../../infrastructure/api/userApi";
 import {
   ArrowRight,
   RotateCcw,
 } from "lucide-react";
+
+const formatTime = (ms: number) => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+};
 
 export const HomeView = () => {
   const location = useLocation();
@@ -57,7 +67,9 @@ export const HomeView = () => {
   const {
     volume,
     toggle,
-    audioSegments,
+    audioUrl,
+    elapsedMs,
+    limitReached,
     transcript,
     setTranscript,
     state,
@@ -274,16 +286,25 @@ export const HomeView = () => {
               className="wm-mic-trigger"
               type="button"
               onClick={toggle}
-              aria-label={state === "recording" ? "Aufnahme beenden" : "Aufnahme starten"}
+              aria-label={state === "recording" ? "Aufnahme pausieren" : "Aufnahme starten"}
               style={{ transform: `scale(${1 + volume / 500})` }}
             >
-              <Mic size={48} strokeWidth={1.6} aria-hidden="true" />
+              {state === "recording" ? (
+                <Pause size={48} strokeWidth={1.6} aria-hidden="true" />
+              ) : (
+                <Mic size={48} strokeWidth={1.6} aria-hidden="true" />
+              )}
             </button>
             <p>
               {state === "recording"
-                ? "Ich höre zu … Sprich jetzt deinen Auftrag."
+                ? "Ich höre zu … Tippe auf || um die Aufnahme zu pausieren."
                 : "Tippe auf das Mikrofon, um deine Aufnahme zu starten."}
             </p>
+            {state === "recording" && (
+              <p className="wm-recording-timer" aria-live="off">
+                {formatTime(elapsedMs)} / {formatTime(MAX_RECORDING_MS)}
+              </p>
+            )}
             {state === "recording" && (
               <button className="wm-stop-recording" type="button" onClick={toggle}>
                 Aufnahme beenden
@@ -311,19 +332,20 @@ export const HomeView = () => {
               <Mic size={48} strokeWidth={1.6} />
             </div>
             <div className="wm-audio-player">
-              {audioSegments.length > 0 ? (
-                audioSegments.map((url, index) => (
-                  <audio
-                    controls
-                    src={url}
-                    key={`${url}-${index}`}
-                    aria-label={`Aufnahme ${index + 1} abspielen`}
-                  />
-                ))
+              {audioUrl ? (
+                <audio controls src={audioUrl} aria-label="Aufnahme abspielen" />
               ) : (
                 <p>Keine Aufnahme vorhanden.</p>
               )}
             </div>
+            <p className="wm-recording-timer">
+              {formatTime(elapsedMs)} / {formatTime(MAX_RECORDING_MS)}
+            </p>
+            {limitReached && (
+              <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">
+                Die maximale Aufnahmelänge von 20 Minuten ist erreicht.
+              </p>
+            )}
             {transcribeError && (
               <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">
                 {transcribeError}
@@ -343,7 +365,7 @@ export const HomeView = () => {
                 className="wm-capture-resume"
                 type="button"
                 onClick={toggle}
-                disabled={isTranscribing}
+                disabled={isTranscribing || limitReached}
               >
                 <Mic size={16} aria-hidden="true" />
                 Aufnahme fortsetzen

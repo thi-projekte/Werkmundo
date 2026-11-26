@@ -327,3 +327,11 @@
     animation: none;
   }
 }
+
+.wm-recording-dashboard .wm-recording-timer {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  opacity: 0.75;
+  text-align: center;
+}
