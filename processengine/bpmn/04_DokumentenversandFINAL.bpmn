@@ -10,15 +10,18 @@
     <bpmn:laneSet id="LaneSet_dokumentenversand">
       <bpmn:lane id="Lane_DV_DokumentenService" name="Dokumenten-Service">
         <bpmn:flowNodeRef>Start_DokumentenversandBenoetigt</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>Task_DokumentAnKundenSenden</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>End_DokumentVersendet</bpmn:flowNodeRef>
-        <bpmn:flowNodeRef>Task_DokumentFinalisieren</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_DokumentAnKundenSenden</bpmn:flowNodeRef>
       </bpmn:lane>
     </bpmn:laneSet>
     <bpmn:startEvent id="Start_DokumentenversandBenoetigt" name="Dokumentenversand benötigt">
       <bpmn:outgoing>Flow_Start_Finalisieren</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:sequenceFlow id="Flow_Start_Finalisieren" sourceRef="Start_DokumentenversandBenoetigt" targetRef="Task_DokumentFinalisieren" />
+    <bpmn:sequenceFlow id="Flow_Start_Finalisieren" sourceRef="Start_DokumentenversandBenoetigt" targetRef="Task_DokumentAnKundenSenden" />
+    <bpmn:endEvent id="End_DokumentVersendet" name="Dokument versendet">
+      <bpmn:incoming>Flow_Senden_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Senden_End" sourceRef="Task_DokumentAnKundenSenden" targetRef="End_DokumentVersendet" />
     <bpmn:sendTask id="Task_DokumentAnKundenSenden" name="Dokument an Kunden senden" camunda:asyncBefore="true" camunda:delegateExpression="${dokumentAnKundenSenden}">
       <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): POST /dokumente/{dokumentart}/{dokumentId}/versand an die gespeicherte E-Mail-Adresse des Kunden (kundeId). Die Empfängeradresse wird im Prozess nicht geändert.</bpmn:documentation>
       <bpmn:extensionElements>
@@ -29,26 +32,9 @@
         </camunda:inputOutput>
         <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
       </bpmn:extensionElements>
-      <bpmn:incoming>Flow_Finalisieren_Senden</bpmn:incoming>
+      <bpmn:incoming>Flow_Start_Finalisieren</bpmn:incoming>
       <bpmn:outgoing>Flow_Senden_End</bpmn:outgoing>
     </bpmn:sendTask>
-    <bpmn:endEvent id="End_DokumentVersendet" name="Dokument versendet">
-      <bpmn:incoming>Flow_Senden_End</bpmn:incoming>
-    </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_Finalisieren_Senden" sourceRef="Task_DokumentFinalisieren" targetRef="Task_DokumentAnKundenSenden" />
-    <bpmn:sequenceFlow id="Flow_Senden_End" sourceRef="Task_DokumentAnKundenSenden" targetRef="End_DokumentVersendet" />
-    <bpmn:serviceTask id="Task_DokumentFinalisieren" name="Dokument finalisieren" camunda:asyncBefore="true" camunda:delegateExpression="${dokumentFinalisieren}">
-      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): POST /dokumente/{dokumentart}/{dokumentId}/finalisierung. Vergibt die endgültige Nummer und das Datum, erzeugt das PDF und sperrt das Dokument für Änderungen.</bpmn:documentation>
-      <bpmn:extensionElements>
-        <camunda:inputOutput>
-          <camunda:inputParameter name="dokumentart">${dokumentart}</camunda:inputParameter>
-          <camunda:inputParameter name="dokumentId">${dokumentId}</camunda:inputParameter>
-        </camunda:inputOutput>
-        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_Start_Finalisieren</bpmn:incoming>
-      <bpmn:outgoing>Flow_Finalisieren_Senden</bpmn:outgoing>
-    </bpmn:serviceTask>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="Diagram_dokumentenversand">
     <bpmndi:BPMNPlane id="Plane_dokumentenversand" bpmnElement="Collaboration_dokumentenversand">
@@ -64,38 +50,31 @@
           <dc:Bounds x="180" y="185" width="80" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DokumentAnKundenSenden_di" bpmnElement="Task_DokumentAnKundenSenden">
-        <dc:Bounds x="720" y="120" width="150" height="80" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="End_DokumentVersendet_di" bpmnElement="End_DokumentVersendet">
         <dc:Bounds x="942" y="142" width="36" height="36" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="935" y="185" width="51" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DokumentFinalisieren_di" bpmnElement="Task_DokumentFinalisieren">
-        <dc:Bounds x="375" y="120" width="150" height="80" />
+      <bpmndi:BPMNShape id="Task_DokumentAnKundenSenden_di" bpmnElement="Task_DokumentAnKundenSenden">
+        <dc:Bounds x="475" y="120" width="150" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_Start_Finalisieren_di" bpmnElement="Flow_Start_Finalisieren">
         <di:waypoint x="238" y="160" />
-        <di:waypoint x="375" y="160" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Finalisieren_Senden_di" bpmnElement="Flow_Finalisieren_Senden">
-        <di:waypoint x="525" y="160" />
-        <di:waypoint x="720" y="160" />
+        <di:waypoint x="475" y="160" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Senden_End_di" bpmnElement="Flow_Senden_End">
-        <di:waypoint x="870" y="160" />
+        <di:waypoint x="625" y="160" />
         <di:waypoint x="942" y="160" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="Participant_Kunde_di" bpmnElement="Participant_Kunde" isHorizontal="true">
         <dc:Bounds x="120" y="350" width="940" height="60" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="MF_Dokument_di" bpmnElement="MF_Dokument">
-        <di:waypoint x="795" y="200" />
-        <di:waypoint x="795" y="350" />
+        <di:waypoint x="550" y="200" />
+        <di:waypoint x="550" y="350" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="808" y="290" width="51" height="14" />
+          <dc:Bounds x="563" y="290" width="51" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>

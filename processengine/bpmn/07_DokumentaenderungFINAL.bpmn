@@ -21,7 +21,6 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
     <bpmn:documentation>Wiederverwendbarer Teilprozess für Angebot und Rechnung, mit dem der Handwerker ein bestehendes Dokument überarbeitet. Aufgerufen aus der Angebotsentwurfserstellung (ANGEBOT), der Kundenentscheidungseinholung (ANGEBOT, Änderungswunsch des Kunden) und der Rechnungsstellung (RECHNUNG). Das Dokument wird zur Änderung geöffnet, der Handwerker sieht PDF und Positionen, ändert sie und bekommt den überarbeiteten Stand erneut vorgelegt – so lange, bis er bestätigt. Verwerfen ist hier nicht möglich. Eingang: angebotId, handwerkerId, dokumentart (ANGEBOT | RECHNUNG), dokumentId, optional aenderungswunsch (Text des Kunden). Endzustand: Dokument geändert.</bpmn:documentation>
     <bpmn:laneSet id="LaneSet_dokumentaenderung">
       <bpmn:lane id="Lane_DAE_DokumentenService" name="Dokumenten-Service">
-        <bpmn:flowNodeRef>Task_DokumentZurAenderungOeffnen</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Gateway_AenderungsschleifeZusammenfuehren</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Task_DokumentvorschauErstellen</bpmn:flowNodeRef>
         <bpmn:flowNodeRef>Task_DokumentZurAenderungAnFrontendSenden</bpmn:flowNodeRef>
@@ -32,22 +31,9 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
         <bpmn:flowNodeRef>Start_DokumentaenderungBenoetigt</bpmn:flowNodeRef>
       </bpmn:lane>
     </bpmn:laneSet>
-    <bpmn:serviceTask id="Task_DokumentZurAenderungOeffnen" name="Dokument zur Änderung öffnen" camunda:asyncBefore="true" camunda:delegateExpression="${dokumentZurAenderungOeffnen}">
-      <bpmn:documentation>Dokumenten-Service (DocumentServiceAdapter): POST /dokumente/{dokumentart}/{dokumentId}/aenderung. Setzt das Dokument auf IN_AENDERUNG und liefert die aktuellen Positionen. Ist ein Angebot bereits finalisiert bzw. versendet, wird eine neue Angebotsversion als Entwurf angelegt; der Annahme-Link der alten Version wird ungültig. Ein Rechnungsentwurf wird unverändert geöffnet.</bpmn:documentation>
-      <bpmn:extensionElements>
-        <camunda:inputOutput>
-          <camunda:inputParameter name="dokumentart">${dokumentart}</camunda:inputParameter>
-          <camunda:inputParameter name="dokumentId">${dokumentId}</camunda:inputParameter>
-          <camunda:outputParameter name="dokumententwurf">${dokumententwurf}</camunda:outputParameter>
-        </camunda:inputOutput>
-        <camunda:failedJobRetryTimeCycle>R3/PT1M</camunda:failedJobRetryTimeCycle>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_Start_Oeffnen</bpmn:incoming>
-      <bpmn:outgoing>Flow_Oeffnen_GW</bpmn:outgoing>
-    </bpmn:serviceTask>
     <bpmn:exclusiveGateway id="Gateway_AenderungsschleifeZusammenfuehren">
-      <bpmn:incoming>Flow_Oeffnen_GW</bpmn:incoming>
       <bpmn:incoming>Flow_Ueberarbeiten_GW</bpmn:incoming>
+      <bpmn:incoming>Flow_Start_Oeffnen</bpmn:incoming>
       <bpmn:outgoing>Flow_GW_Vorschau</bpmn:outgoing>
     </bpmn:exclusiveGateway>
     <bpmn:serviceTask id="Task_DokumentvorschauErstellen" name="Dokumentvorschau erstellen" camunda:asyncBefore="true" camunda:delegateExpression="${dokumentvorschauErstellen}">
@@ -114,8 +100,7 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
     <bpmn:endEvent id="End_DokumentGeaendert" name="Dokument geändert">
       <bpmn:incoming>Flow_GW_Bestaetigt</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_Start_Oeffnen" sourceRef="Start_DokumentaenderungBenoetigt" targetRef="Task_DokumentZurAenderungOeffnen" />
-    <bpmn:sequenceFlow id="Flow_Oeffnen_GW" sourceRef="Task_DokumentZurAenderungOeffnen" targetRef="Gateway_AenderungsschleifeZusammenfuehren" />
+    <bpmn:sequenceFlow id="Flow_Start_Oeffnen" sourceRef="Start_DokumentaenderungBenoetigt" targetRef="Gateway_AenderungsschleifeZusammenfuehren" />
     <bpmn:sequenceFlow id="Flow_GW_Vorschau" sourceRef="Gateway_AenderungsschleifeZusammenfuehren" targetRef="Task_DokumentvorschauErstellen" />
     <bpmn:sequenceFlow id="Flow_Vorschau_Senden" sourceRef="Task_DokumentvorschauErstellen" targetRef="Task_DokumentZurAenderungAnFrontendSenden" />
     <bpmn:sequenceFlow id="Flow_Senden_Empfangen" sourceRef="Task_DokumentZurAenderungAnFrontendSenden" targetRef="Task_DokumentaenderungEmpfangen" />
@@ -140,9 +125,6 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Lane_DAE_DokumentenService_di" bpmnElement="Lane_DAE_DokumentenService" isHorizontal="true">
         <dc:Bounds x="190" y="220" width="1610" height="300" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_DokumentZurAenderungOeffnen_di" bpmnElement="Task_DokumentZurAenderungOeffnen">
-        <dc:Bounds x="310" y="380" width="150" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_AenderungsschleifeZusammenfuehren_di" bpmnElement="Gateway_AenderungsschleifeZusammenfuehren" isMarkerVisible="true">
         <dc:Bounds x="520" y="395" width="50" height="50" />
@@ -185,10 +167,6 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_Start_Oeffnen_di" bpmnElement="Flow_Start_Oeffnen">
         <di:waypoint x="268" y="420" />
-        <di:waypoint x="310" y="420" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Oeffnen_GW_di" bpmnElement="Flow_Oeffnen_GW">
-        <di:waypoint x="460" y="420" />
         <di:waypoint x="520" y="420" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_GW_Vorschau_di" bpmnElement="Flow_GW_Vorschau">
@@ -257,6 +235,13 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
           <dc:Bounds x="1103" y="195" width="98" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_08nbzhj_di" bpmnElement="Flow_08nbzhj">
+        <di:waypoint x="250" y="100" />
+        <di:waypoint x="250" y="402" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="233" y="153" width="153" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Assoc_Annotation_DokumentZurAenderung_di" bpmnElement="Assoc_Annotation_DokumentZurAenderung">
         <di:waypoint x="870" y="146" />
         <di:waypoint x="895" y="146" />
@@ -264,13 +249,6 @@ POSITIONEN_GEAENDERT (+ geänderte Positionen aus dem Frontend)</bpmn:text>
       <bpmndi:BPMNEdge id="Assoc_Annotation_Dokumentaenderung_di" bpmnElement="Assoc_Annotation_Dokumentaenderung">
         <di:waypoint x="1130" y="146" />
         <di:waypoint x="1095" y="146" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_08nbzhj_di" bpmnElement="Flow_08nbzhj">
-        <di:waypoint x="250" y="100" />
-        <di:waypoint x="250" y="402" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="233" y="153" width="153" height="14" />
-        </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
