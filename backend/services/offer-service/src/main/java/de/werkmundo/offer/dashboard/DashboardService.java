@@ -62,8 +62,18 @@ public class DashboardService {
                 "handwerkerId = ?1 AND status IN ('ANGENOMMEN', 'ABGELEHNT')",
                 handwerkerId);
 
+        stats.angenommen = Offer.count(
+                "handwerkerId = ?1 AND status = ?2",
+                handwerkerId,
+                "ANGENOMMEN");
+
+        stats.abgelehnt = Offer.count(
+                "handwerkerId = ?1 AND status = ?2",
+                handwerkerId,
+                "ABGELEHNT");
+
         stats.nichtFertiggestellt = Offer.count(
-                "handwerkerId = ?1 AND status IN ('ERFASST', 'IN_BEARBEITUNG', 'KI_FERTIG', 'KI_BEARBEITUNG_ABGESCHLOSSEN')",
+                "handwerkerId = ?1 AND status IN ('ENTWURF', 'ERFASST', 'IN_BEARBEITUNG', 'KI_FERTIG', 'KI_BEARBEITUNG_ABGESCHLOSSEN')",
                 handwerkerId);
 
         // ── Rechnungs-Kacheln (vorerst 0 — kein Rechnungs-Service) ──────────

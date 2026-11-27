@@ -4,6 +4,8 @@ export type DashboardStatsResponse = {
   nichtFertiggestellt: number;
   ohneRueckmeldung: number;
   mitRueckmeldung: number;
+  angenommen: number;
+  abgelehnt: number;
   angeboteGesamt: number;
   aufmerksamkeitErforderlich: Array<{
     offerId: number;

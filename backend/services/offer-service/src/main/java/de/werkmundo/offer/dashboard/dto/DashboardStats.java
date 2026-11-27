@@ -46,6 +46,12 @@ public class DashboardStats {
      */
     public long mitRueckmeldung;
 
+    /** Anzahl angenommener Angebote. */
+    public long angenommen;
+
+    /** Anzahl abgelehnter Angebote. */
+    public long abgelehnt;
+
     /**
      * Angebote, die noch nicht abschlussbereit sind —
      * Status ERFASST, IN_BEARBEITUNG oder KI_FERTIG.
