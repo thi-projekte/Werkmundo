@@ -75,7 +75,6 @@ export function DashboardView() {
       <header className="wm-dashboard-heading">
         <div>
           <h1>Willkommen <span>{profileName(profile) ? `${profileName(profile)}.` : "zurück!"}</span></h1>
-          {profile?.email && <p>{profile.email}</p>}
           {profileError && <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">{profileError}</p>}
         </div>
       </header>

@@ -1076,6 +1076,7 @@
 }
 
 .wm-profile-company-mark {
+  position: relative;
   width: 36px;
   height: 36px;
   display: grid;
@@ -1090,6 +1091,42 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.wm-profile-photo-edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 2px solid #f8f8f8;
+  border-radius: 50%;
+  color: #291741;
+  background: #a4e56a;
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease;
+}
+
+.wm-profile-photo-edit:hover {
+  transform: scale(1.08);
+  background: #8bd344;
+}
+
+.wm-profile-photo-edit:focus-within {
+  outline: 2px solid #291741;
+  outline-offset: 2px;
+}
+
+.wm-profile-photo-edit input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .wm-inline-action {

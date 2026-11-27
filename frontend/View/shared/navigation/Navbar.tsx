@@ -5,7 +5,9 @@ import {
   FileText,
   House,
   LogOut,
+  Plus,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import wordmark from "../../../shared/assets/schriftzug-weiss.svg";
 import "./navbar-css.css";
 
@@ -22,6 +24,11 @@ export const Navbar = () => {
       <span className="navbar-logo-wrapper">
         <img className="navbar-logo" src={wordmark} alt="Werkmundo" />
       </span>
+
+      <Link className="wm-create-link" to="/home" aria-label="Direkt ein Angebot erstellen">
+        <Plus size={17} strokeWidth={2.5} aria-hidden="true" />
+        <span>Angebot erstellen</span>
+      </Link>
 
       {navItems.map((item) => (
         <NavLink

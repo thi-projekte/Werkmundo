@@ -197,6 +197,10 @@ export function ProfileView() {
             <section className="wm-profile-company-card">
               <span className="wm-profile-company-mark">
                 {companyPhoto ? <img src={companyPhoto} alt="Unternehmensfoto" /> : <BriefcaseBusiness size={22} aria-hidden="true" />}
+                <label className="wm-profile-photo-edit" aria-label="Unternehmensfoto ändern" title="Unternehmensfoto ändern">
+                  <input type="file" accept="image/jpeg,image/png,image/webp" disabled={photoBusy} onChange={(event) => { void changeCompanyPhoto(event.target.files?.[0]); event.currentTarget.value = ""; }} />
+                  <ImagePlus size={15} aria-hidden="true" />
+                </label>
               </span>
               <span>
                 <strong>{company.companyName || "Dein Unternehmen"}</strong>

@@ -179,7 +179,8 @@
 }
 
 .wm-navbar .navbar-logo-wrapper {
-  padding: 0 5px 36px;
+  padding: 0 5px 18px;
+  margin: 0 0 2px;
 }
 
 .wm-navbar .navbar-logo {
@@ -200,7 +201,7 @@
   position: relative;
   justify-content: center;
   min-height: 42px;
-  margin: 14px 0 24px;
+  margin: 14px 0 32px;
   padding: 0 8px;
   border-radius: 6px;
   color: #291741;
@@ -215,9 +216,12 @@
 .wm-create-link::after {
   position: absolute;
   right: 0;
-  bottom: -14px;
+  bottom: -16px;
   left: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, .2);
+  height: 1px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .24);
+  box-shadow: 0 1px 7px rgba(0, 0, 0, .22);
   content: "";
 }
 
@@ -249,12 +253,25 @@
 }
 
 .wm-logout-link {
+  position: relative;
   justify-content: flex-start;
   min-height: 42px;
   margin-top: auto;
   padding: 16px 12px 10px;
   border-radius: 8px;
   font-size: 13px;
+}
+
+.wm-logout-link::before {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  left: 2px;
+  height: 1px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .24);
+  box-shadow: 0 1px 7px rgba(0, 0, 0, .22);
+  content: "";
 }
 
 .wm-logout-link:hover {
@@ -277,7 +294,15 @@
     display: none;
   }
 
+  .wm-navbar .navbar-logo-wrapper {
+    border: 0;
+  }
+
   .wm-create-link::after {
+    display: none;
+  }
+
+  .wm-logout-link::before {
     display: none;
   }
 
@@ -342,7 +367,7 @@
   .wm-navbar .wm-create-link {
     width: 100%;
     min-height: 40px;
-    margin: 14px 0 18px;
+    margin: 14px 0 32px;
   }
 
   .wm-navbar .nav-item {
@@ -355,5 +380,11 @@
   .wm-navbar .wm-logout-link span {
     font-size: 13px;
     font-weight: 600;
+  }
+
+  .wm-navbar .wm-logout-link {
+    margin-top: auto;
+    padding-top: 18px;
+    border-radius: 0;
   }
 }
