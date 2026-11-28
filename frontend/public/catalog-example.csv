@@ -1,0 +1,3 @@
+articleNumber;name;unit;price;manufacturer;description;category;currency
+BEISPIEL-001;Steckdose;Stück;4,95;Beispielhersteller;"Steckdose; weiß";Elektro;EUR
+BEISPIEL-002;Installationsleitung;Meter;1.723;;;;

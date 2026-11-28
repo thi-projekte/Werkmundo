@@ -14,17 +14,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
 @ApplicationScoped
 public class ManageMaterialUseCase {
-    private static final Set<String> REQUIRED_COLUMNS = Set.of("articleNumber", "name", "unit", "price");
+    private static final List<String> REQUIRED_COLUMNS = List.of("articleNumber", "name", "unit", "price");
     private static final CSVFormat CSV = CSVFormat.DEFAULT.builder()
             .setDelimiter(';').setHeader().setSkipHeaderRecord(true).setTrim(true)
-            .setDuplicateHeaderMode(DuplicateHeaderMode.DISALLOW).get();
+            .setAllowMissingColumnNames(true).setDuplicateHeaderMode(DuplicateHeaderMode.ALLOW_ALL).get();
 
     private final MaterialRepository repository;
 
@@ -41,52 +41,82 @@ public class ManageMaterialUseCase {
                 reader.reset();
             }
             try (var parser = CSV.parse(reader)) {
-                if (!parser.getHeaderNames().containsAll(REQUIRED_COLUMNS)) {
-                    throw new InvalidCsvException("Pflichtspalten fehlen (articleNumber, name, unit, price)");
-                }
-                for (CSVRecord row : parser) {
-                    Material material = parse(row);
-                    if (!articleNumbers.add(material.articleNumber())) {
-                        throw new InvalidCsvException("Doppelte Artikelnummer in Datensatz " + row.getRecordNumber());
+                Set<String> headers = new HashSet<>();
+                for (String header : parser.getHeaderNames()) {
+                    if (header.isBlank()) {
+                        throw new InvalidCsvException("Kopfzeile: Spaltennamen dürfen nicht leer sein");
                     }
-                    materials.add(material);
+                    if (!headers.add(header)) {
+                        throw new InvalidCsvException("Kopfzeile: Doppelte Spalte '" + header + "'");
+                    }
+                }
+                List<String> missing = REQUIRED_COLUMNS.stream().filter(column -> !headers.contains(column)).toList();
+                if (!missing.isEmpty()) {
+                    throw new InvalidCsvException("Pflichtspalten fehlen: " + String.join(", ", missing));
+                }
+                try {
+                    for (CSVRecord row : parser) {
+                        long line = parser.getCurrentLineNumber();
+                        Material material = parse(row, line);
+                        if (!articleNumbers.add(material.articleNumber())) {
+                            throw invalid(line, "Doppelte Artikelnummer '" + material.articleNumber() + "'");
+                        }
+                        materials.add(material);
+                    }
+                } catch (UncheckedIOException e) {
+                    throw invalid(parser.getCurrentLineNumber(), "CSV-Syntax oder UTF-8-Kodierung ungültig");
                 }
             }
         } catch (IOException | UncheckedIOException | IllegalArgumentException e) {
-            throw new InvalidCsvException("CSV konnte nicht gelesen werden");
+            throw new InvalidCsvException("CSV konnte nicht gelesen werden: UTF-8 und Kopfzeile mit eindeutigen, nicht leeren Spaltennamen prüfen");
         }
         if (materials.isEmpty()) {
             throw new InvalidCsvException("Die CSV enthält keine Artikel");
         }
-        // Keep the lock order consistent for simultaneous imports with overlapping articles.
-        materials.sort(Comparator.comparing(Material::articleNumber));
-        repository.upsert(ownerId, materials);
+        repository.replace(ownerId, materials);
         return materials.size();
     }
 
-    private Material parse(CSVRecord row) {
-        try {
-            if (!row.isConsistent() || row.stream().anyMatch(value -> value.indexOf(0) >= 0)) {
-                throw new IllegalArgumentException();
-            }
-            String articleNumber = row.get("articleNumber");
-            String name = row.get("name");
-            String unit = row.get("unit");
-            String priceText = row.get("price").replace(',', '.');
-            String currency = optional(row, "currency");
-            if (currency.isBlank()) {
-                currency = "EUR";
-            }
-            if (articleNumber.isBlank() || articleNumber.length() > 255 || name.isBlank() || unit.isBlank()
-                    || !priceText.matches("[0-9]{1,18}(\\.[0-9]{1,12})?") || !currency.matches("[A-Z]{3}")) {
-                throw new IllegalArgumentException();
-            }
-            return new Material(articleNumber, name, optional(row, "manufacturer"),
-                    optional(row, "description"), optional(row, "category"), unit,
-                    new BigDecimal(priceText), currency);
-        } catch (IllegalArgumentException e) {
-            throw new InvalidCsvException("Ungültige Artikeldaten in Datensatz " + row.getRecordNumber());
+    private Material parse(CSVRecord row, long line) {
+        if (!row.isConsistent()) {
+            throw invalid(line, "Anzahl der Werte stimmt nicht mit der Kopfzeile überein");
         }
+        if (row.stream().anyMatch(value -> value.indexOf(0) >= 0)) {
+            throw invalid(line, "Nullzeichen sind nicht erlaubt");
+        }
+        String articleNumber = required(row, "articleNumber", line);
+        if (articleNumber.length() > 255) {
+            throw invalid(line, "articleNumber darf höchstens 255 Zeichen enthalten");
+        }
+        String name = required(row, "name", line);
+        String unit = required(row, "unit", line);
+        String priceText = required(row, "price", line).replace(',', '.');
+        if (!priceText.matches("[0-9]{1,18}(\\.[0-9]{1,12})?")) {
+            throw invalid(line, "price muss eine nicht negative Zahl mit höchstens 18 Vor- und 12 Nachkommastellen sein; "
+                    + "Dezimalpunkt oder Dezimalkomma, keine Tausendertrennzeichen");
+        }
+        String currency = optional(row, "currency");
+        if (currency.isBlank()) {
+            currency = "EUR";
+        }
+        if (!currency.matches("[A-Z]{3}")) {
+            throw invalid(line, "currency muss aus drei Großbuchstaben bestehen (z. B. EUR)");
+        }
+        return new Material(articleNumber, name, optional(row, "manufacturer"),
+                optional(row, "description"), optional(row, "category"), unit,
+                new BigDecimal(priceText), currency);
+    }
+
+    private String required(CSVRecord row, String column, long line) {
+        String value = row.get(column);
+        if (value.isBlank()) {
+            throw invalid(line, "Pflichtwert '" + column + "' fehlt");
+        }
+        return value;
+    }
+
+    private InvalidCsvException invalid(long line, String message) {
+        return new InvalidCsvException("Zeile " + line + ": " + message);
     }
 
     private String optional(CSVRecord row, String column) {
