@@ -9,6 +9,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.UUID;
 
@@ -47,6 +48,18 @@ class CatalogImportTest {
     void anonymousUploadIsRejected() {
         given().multiPart("file", CATALOG, "text/csv").post(API + "/import/csv")
                 .then().statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = OWNER)
+    void invalidUploadReturnsLineAndPreservesExistingCatalog() throws SQLException {
+        upload();
+        UUID id = readImportedProduct();
+        String csv = "articleNumber;name;unit;price\nB400603;Geändert;Stück;999\nNEU;Ungültig;Stück;-1\n";
+        given().multiPart("file", "invalid.csv", csv.getBytes(StandardCharsets.UTF_8), "text/csv")
+                .post(API + "/import/csv").then().statusCode(400)
+                .body("message", org.hamcrest.Matchers.startsWith("Zeile 3: price"));
+        assertEquals(id, readImportedProduct());
     }
 
     private void upload() {

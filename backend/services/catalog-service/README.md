@@ -25,11 +25,52 @@ curl --fail-with-body -H "Authorization: Bearer $TOKEN" \
   http://localhost:8083/catalog/material/import/csv
 ```
 
-Der Import erwartet UTF-8 mit Semikolon als Trennzeichen. Pflichtspalten sind
-`articleNumber`, `name`, `unit` und `price`. Optional sind `manufacturer`,
-`description`, `category` und `currency` (Standard EUR). Die Antwort enthält
-die Anzahl verarbeiteter Artikel. Beim erneuten Import aktualisiert dieselbe
-Artikelnummer die bestehenden Daten des Handwerkers und behält ihre UUID.
+## CSV-Format
+
+Eine kleine Datei mit erfundenen Artikeln steht unter
+[catalog-example.csv](../../../frontend/public/catalog-example.csv) bereit.
+Die konvertierte Hager-Testdatei aus #63 bleibt mit diesem Format kompatibel;
+unveränderte Herstellerexporte benötigen gegebenenfalls eine vorherige Konvertierung.
+
+- Kodierung: UTF-8, optional mit BOM. Trennzeichen: Semikolon (`;`).
+- Die erste Zeile enthält die Spaltennamen, exakt wie unten angegeben.
+  Ihre Reihenfolge ist frei. Doppelte oder leere Spaltennamen sind ungültig.
+  Weitere benannte Spalten werden ignoriert.
+- Jeder Datensatz muss genauso viele Werte wie die Kopfzeile enthalten.
+  Leere Zeilen werden übersprungen. Mindestens ein Artikel ist erforderlich.
+- Umgebende Leerzeichen werden entfernt. Texte mit Semikolon, Zeilenumbruch
+  oder Anführungszeichen in doppelte Anführungszeichen setzen; enthaltene
+  Anführungszeichen verdoppeln (`""`). Nullzeichen sind ungültig.
+
+| Spalte | Pflichtspalte | Wert |
+| --- | --- | --- |
+| `articleNumber` | Ja | Nicht leer, höchstens 255 Zeichen; innerhalb der Datei eindeutig. Groß-/Kleinschreibung wird unterschieden, führende Nullen bleiben erhalten. |
+| `name` | Ja | Nicht leere Artikelbezeichnung. |
+| `unit` | Ja | Nicht leere Einheit, z. B. `Stück` oder `Meter`. |
+| `price` | Ja | Nicht negativer Einzelpreis pro Einheit. Höchstens 18 Vor- und 12 Nachkommastellen. Punkt oder Komma als Dezimalzeichen, keine Tausendertrennzeichen, Währungszeichen oder Exponentialschreibweise. `0`, `4,95` und `1.723` sind gültig; `1.723` bedeutet 1,723, nicht 1723. |
+| `manufacturer` | Nein | Darf fehlen oder leer sein; Standard leerer Text. |
+| `description` | Nein | Darf fehlen oder leer sein; Standard leerer Text. |
+| `category` | Nein | Darf fehlen oder leer sein; Standard leerer Text. |
+| `currency` | Nein | Darf fehlen oder leer sein; Standard `EUR`. Sonst genau drei Großbuchstaben, z. B. `EUR`. |
+
+Preise werden ohne Rundung übernommen. Die CSV enthält keine zusätzliche
+Steuerinformation; die Hager-Testdatei verwendet Bruttopreise.
+
+## Antworten und Validierung
+
+Erfolg: HTTP 200 mit der Anzahl übernommener Artikel als JSON-Zahl.
+Bei einem Dateifehler antwortet der Dienst mit HTTP 400 und einem JSON-Objekt,
+z. B. `{"message":"Zeile 3: Doppelte Artikelnummer 'BEISPIEL-001'"}`.
+Die Prüfung stoppt beim ersten Fehler. Artikelfehler nennen die physische
+Dateizeile (Kopfzeile = 1); bei mehrzeiligen Datensätzen deren letzte Zeile.
+Datei- und Kopfzeilenfehler werden ohne Artikelzeile gemeldet.
+
+Erst nach erfolgreicher Prüfung der gesamten Datei werden Artikel gespeichert.
+Ungültige Dateien ändern keine vorhandenen Artikeldaten. Beim erneuten Import
+aktualisiert dieselbe Artikelnummer die bestehenden Daten des Handwerkers und
+behält ihre UUID.
+
+Die Format- und Validierungstests laufen ohne Datenbank mit `./mvnw test`.
 
 Für den HTTP-Integrationstest die Datenbankvariablen auf eine separate
 Testdatenbank setzen und `CATALOG_TEST_DATABASE=true ./mvnw verify` ausführen.
