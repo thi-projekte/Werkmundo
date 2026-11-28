@@ -48,6 +48,7 @@ class CatalogReplacementTest {
         UUID retained = reader.search("replacement", "BLEIBT", 1).getFirst().id();
         UUID removed = reader.search("replacement", "ALT", 1).getFirst().id();
         upload("BLEIBT;Aktualisiert;Meter;1.723\nNEU;Neuer Artikel;Stück;4\n");
+        given().get(API + "/status").then().statusCode(200).body("articleCount", equalTo(2));
         given().header("X-Handwerker-Id", "other").queryParam("q", "Aktualisiert")
                 .get(API + "/search").then().statusCode(200)
                 .body("candidates.size()", equalTo(1)).body("candidates[0].id", equalTo(retained.toString()))
@@ -74,7 +75,8 @@ class CatalogReplacementTest {
     }
 
     @Test
-    void anonymousSearchIsRejected() {
+    void anonymousSearchAndStatusAreRejected() {
+        given().get(API + "/status").then().statusCode(401);
         given().queryParam("q", "Artikel").get(API + "/search").then().statusCode(401);
     }
 

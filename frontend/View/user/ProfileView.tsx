@@ -13,6 +13,8 @@ import {
   type InvoiceSetupForm,
 } from "../../Model/onboarding/setupForms";
 
+import { useCatalogUploadViewModel } from "../../ViewModel/catalog/useCatalogUploadViewModel";
+
 type ProfileTab = "unternehmen" | "rechnungen" | "abo";
 
 function readStoredForm<T>(key: string, initialValue: T): { value: T; error: string } {
@@ -55,6 +57,7 @@ function readStoredPlan(): { value: PlanId; error: string } {
 }
 
 export function ProfileView() {
+  const catalogUpload = useCatalogUploadViewModel();
   const [initialCompany] = useState(() => readStoredForm(COMPANY_SETUP_STORAGE_KEY, initialCompanySetup));
   const [initialInvoice] = useState(() => readStoredForm(INVOICE_SETUP_STORAGE_KEY, initialInvoiceSetup));
   const [initialPlan] = useState(readStoredPlan);
@@ -65,7 +68,6 @@ export function ProfileView() {
   const [invoice, setInvoice] = useState<InvoiceSetupForm>(initialInvoice.value);
   const [editingCompany, setEditingCompany] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanId>(initialPlan.value);
-  const [fileName, setFileName] = useState("");
   const [companyPhoto, setCompanyPhoto] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -299,12 +301,32 @@ export function ProfileView() {
                 <label>IBAN<input value={invoice.iban} onChange={(event) => updateInvoice("iban", event.target.value)} autoComplete="off" /></label>
               </div>
             </section>
-            <section className="wm-profile-section">
-              <div className="wm-section-heading"><h2><ReceiptText size={17} aria-hidden="true" />Materialpreisliste (CSV)</h2></div>
+            <section className="wm-profile-section wm-catalog-upload" aria-labelledby="catalog-upload-heading" aria-busy={catalogUpload.busy}>
+              <div className="wm-section-heading"><h2 id="catalog-upload-heading">Produktkatalog (CSV)</h2></div>
+              <p className="wm-profile-hint">{catalogUpload.articleCount === null ? "Katalogstatus noch nicht verfügbar."
+                : catalogUpload.articleCount === 0 ? "Noch kein Produktkatalog vorhanden."
+                : `Aktiver Katalog: ${catalogUpload.articleCount.toLocaleString("de-DE")} Artikel.`}</p>
+              <p>UTF-8 mit Semikolon. Pflichtspalten: <code>articleNumber</code>, <code>name</code>, <code>unit</code> und <code>price</code>.
+                Alle vier Werte müssen ausgefüllt sein. Einzelpreise pro Einheit mit Punkt oder Komma, ohne Tausendertrennzeichen.</p>
+              <details>
+                <summary>Weitere Formatregeln und Preisangaben</summary>
+                <p>Optional: manufacturer, description, category und currency (Standard EUR). Maximal 18 Vor- und 12 Nachkommastellen, keine negativen Preise. Artikelnummern müssen eindeutig sein.</p>
+                <p>Texte mit Semikolon oder Zeilenumbruch in doppelte Anführungszeichen setzen; enthaltene Anführungszeichen verdoppeln.</p>
+              </details>
+              <p><a href="/catalog-example.csv" download>Beispiel-CSV herunterladen</a></p>
+              <p role="note">{catalogUpload.articleCount === 0 ? "Der erfolgreiche Import aktiviert deinen neuen Katalog."
+                : "Ein erfolgreicher Import ersetzt deinen bisherigen Katalog vollständig."} Bei Fehlern bleibt der bisherige Katalog erhalten.
+                Bereits gespeicherte Angebotspositionen und Preise bleiben unverändert.</p>
               <label className="wm-upload-field">
-                <input type="file" accept=".csv,text/csv" onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")} />
-                <span>{fileName || "Hier klicken, um eine Materialpreisliste auszuwählen (CSV)."}</span>
+                <input type="file" accept=".csv,text/csv" disabled={catalogUpload.busy} onChange={(event) => catalogUpload.chooseFile(event.target.files?.[0] ?? null)} />
+                <span>{catalogUpload.file?.name || "CSV-Datei auswählen (unter 10 MB)"}</span>
               </label>
+              <button className="wm-button wm-button-primary" type="button" disabled={!catalogUpload.file || catalogUpload.busy} onClick={() => void catalogUpload.upload()}>
+                {catalogUpload.busy ? "Katalog wird importiert …" : "Katalog hochladen"}
+              </button>
+              {catalogUpload.busy && <p role="status">Die Datei wird geprüft und importiert. Dein bisheriger Katalog bleibt bis zum Abschluss verfügbar.</p>}
+              {catalogUpload.notice && <p className="wm-dashboard-feedback wm-dashboard-success" role="status">{catalogUpload.notice}</p>}
+              {catalogUpload.error && <p className="wm-dashboard-feedback wm-dashboard-error" role="alert">{catalogUpload.error}</p>}
             </section>
             <div className="wm-profile-actions">
               <button className="wm-button wm-button-secondary" type="button" onClick={cancelInvoiceEdit}>Abbrechen</button>

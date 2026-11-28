@@ -86,6 +86,7 @@ Leser sehen bis zum Commit den letzten vollständigen Katalog. Datenbankfehler
 rollen auch vorherige Änderungen und Löschungen zurück. Bei Verbindungsabbruch
 nach dem Commit kann die Antwort verloren gehen; erneuter Upload ist möglich.
 
+- `GET /catalog/material/status`: `{ "articleCount": 2 }` für den angemeldeten Nutzer.
 - `GET /catalog/material/search?q=Steckdose&limit=15`: `{ "candidates": [...] }`
   mit ID, Artikelnummer, Bezeichnung, Hersteller, Beschreibung, Kategorie und
   Einheit, ohne Preise. Teilstringsuche ohne Beachtung der Groß-/Kleinschreibung;
@@ -105,3 +106,9 @@ KI-Positionen ohne Katalog-ID und ohne Preis. Die Umstellung dieses Ablaufs ist
 hier nicht enthalten; nur die bestehenden Such- und Detailverträge werden bedient.
 Vor einer Preisübernahme muss außerdem die Preisbasis abgestimmt werden:
 Die Hager-Testdatei enthält Bruttopreise, Angebote verwenden Nettoeinzelpreise.
+
+In der Oberfläche: **Profil → Rechnungen → Produktkatalog**. Upload und Anzeige
+des Importstatus erfolgen separat vom Speichern der Rechnungsangaben. Der Hinweis
+auf den vollständigen Ersatz steht vor dem Upload.
+
+Die Oberfläche nutzt die vorhandene Gateway-Route `/svc/catalog`.

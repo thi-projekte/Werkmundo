@@ -54,6 +54,12 @@ public class CatalogResource {
     }
 
     @GET
+    @Path("/status")
+    public Map<String, Long> status() {
+        return Map.of("articleCount", reader.count(identity.getPrincipal().getName()));
+    }
+
+    @GET
     @Path("/search")
     public Map<String, List<Candidate>> search(@QueryParam("q") String query,
             @QueryParam("limit") @DefaultValue("15") int limit,
