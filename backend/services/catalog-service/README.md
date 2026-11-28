@@ -67,10 +67,41 @@ Datei- und Kopfzeilenfehler werden ohne Artikelzeile gemeldet.
 
 Erst nach erfolgreicher Prüfung der gesamten Datei werden Artikel gespeichert.
 Ungültige Dateien ändern keine vorhandenen Artikeldaten. Beim erneuten Import
-aktualisiert dieselbe Artikelnummer die bestehenden Daten des Handwerkers und
-behält ihre UUID.
+ersetzt die Datei den gesamten Katalog des Handwerkers. Artikel, deren Nummer
+weiter enthalten ist, behalten ihre UUID; nicht mehr enthaltene Artikel werden
+entfernt. Gespeicherte Angebotspositionen enthalten eigene Angaben und Preise
+und werden dabei nicht verändert.
 
 Die Format- und Validierungstests laufen ohne Datenbank mit `./mvnw test`.
 
 Für den HTTP-Integrationstest die Datenbankvariablen auf eine separate
 Testdatenbank setzen und `CATALOG_TEST_DATABASE=true ./mvnw verify` ausführen.
+
+## Aktiver Katalog und Artikelsuche (#145–#148)
+
+Der Import wird innerhalb einer Datenbanktransaktion vollständig übernommen.
+Eine transaktionsgebundene PostgreSQL-Advisory-Sperre pro Handwerker serialisiert
+auch zeitgleiche Erstimporte. Andere Handwerker können unabhängig importieren.
+Leser sehen bis zum Commit den letzten vollständigen Katalog. Datenbankfehler
+rollen auch vorherige Änderungen und Löschungen zurück. Bei Verbindungsabbruch
+nach dem Commit kann die Antwort verloren gehen; erneuter Upload ist möglich.
+
+- `GET /catalog/material/search?q=Steckdose&limit=15`: `{ "candidates": [...] }`
+  mit ID, Artikelnummer, Bezeichnung, Hersteller, Beschreibung, Kategorie und
+  Einheit, ohne Preise. Teilstringsuche ohne Beachtung der Groß-/Kleinschreibung;
+  `limit` muss zwischen 1 und 100 liegen.
+- `GET /catalog/material/{id}`: eigener Artikel inklusive Einzelpreis und Währung,
+  sonst HTTP 404. Der vorhandene Offer-Service-Client nutzt diesen Abruf.
+
+Normale Benutzer werden immer über ihren Token-Subject zugeordnet; ein
+`X-Handwerker-Id`-Header kann diese Zuordnung nicht überschreiben. Ausschließlich
+technische Tokens mit der Rolle `process-engine` dürfen für Suche und Einzelabruf
+einen Handwerker über diesen verpflichtenden Header auswählen. Der bestehende
+AI-REST-Client unterstützt diesen Vertrag; sein Mock-Modus muss zur echten
+KI-Katalogsuche ausgeschaltet und sein technischer Keycloak-Client eingerichtet
+sein (`CATALOG_MOCK_ENABLED=false`, `AI_TECHNICAL_TOKEN_ENABLED=true`). Im aktuellen
+Deployment sind Mock und Direktmodus aktiv. Der Offer-Direktmodus übernimmt
+KI-Positionen ohne Katalog-ID und ohne Preis. Die Umstellung dieses Ablaufs ist
+hier nicht enthalten; nur die bestehenden Such- und Detailverträge werden bedient.
+Vor einer Preisübernahme muss außerdem die Preisbasis abgestimmt werden:
+Die Hager-Testdatei enthält Bruttopreise, Angebote verwenden Nettoeinzelpreise.

@@ -73,7 +73,7 @@ public class ManageMaterialUseCase {
         if (materials.isEmpty()) {
             throw new InvalidCsvException("Die CSV enthält keine Artikel");
         }
-        repository.upsert(ownerId, materials);
+        repository.replace(ownerId, materials);
         return materials.size();
     }
 

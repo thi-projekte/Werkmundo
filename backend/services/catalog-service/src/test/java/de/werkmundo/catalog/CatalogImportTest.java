@@ -38,13 +38,6 @@ class CatalogImportTest {
     }
 
     @Test
-    @TestSecurity(user = OWNER)
-    void readEndpointsAreAbsent() {
-        given().queryParam("q", "B400603").get(API + "/search").then().statusCode(404);
-        given().get(API + "/" + UUID.randomUUID()).then().statusCode(404);
-    }
-
-    @Test
     void anonymousUploadIsRejected() {
         given().multiPart("file", CATALOG, "text/csv").post(API + "/import/csv")
                 .then().statusCode(401);
